@@ -7,3 +7,5 @@ river
 matplotlib
 umap-learn
 flake8
+lime
+shap
