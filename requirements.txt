@@ -6,3 +6,4 @@ pyclustering
 river
 matplotlib
 umap-learn
+flake8
