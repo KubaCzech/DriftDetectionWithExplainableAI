@@ -2,6 +2,206 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier
 from sklearn.inspection import permutation_importance
+import warnings
+
+# Optional imports for SHAP and LIME
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    warnings.warn("SHAP not available. Install with: pip install shap")
+
+try:
+    from lime.lime_tabular import LimeTabularExplainer
+    LIME_AVAILABLE = True
+except ImportError:
+    LIME_AVAILABLE = False
+    warnings.warn("LIME not available. Install with: pip install lime")
+
+
+class FeatureImportanceMethod:
+    """Enum-like class for feature importance methods."""
+    PFI = "permutation"
+    SHAP = "shap"
+    LIME = "lime"
+
+    @classmethod
+    def all_available(cls):
+        """Return list of all available methods."""
+        methods = [cls.PFI]  # PFI always available
+        if SHAP_AVAILABLE:
+            methods.append(cls.SHAP)
+        if LIME_AVAILABLE:
+            methods.append(cls.LIME)
+        return methods
+
+
+def calculate_feature_importance(model, X, y, method="permutation", 
+                                  feature_names=None, n_repeats=30, 
+                                  random_state=42):
+    """
+    Calculate feature importance using specified method.
+
+    Parameters
+    ----------
+    model : estimator
+        Trained model
+    X : array-like
+        Feature matrix
+    y : array-like
+        Target variable
+    method : str, default="permutation"
+        Method to use: "permutation", "shap", or "lime"
+    feature_names : list, optional
+        Names of features
+    n_repeats : int, default=30
+        Number of repeats for permutation importance
+    random_state : int, default=42
+        Random state for reproducibility
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - 'importances_mean': mean importance scores
+        - 'importances_std': standard deviation of importance scores
+        - 'importances': full array of importance values (for boxplots)
+        - 'method': method used
+    """
+    if feature_names is None:
+        feature_names = [f"Feature_{i}" for i in range(X.shape[1])]
+
+    if method == FeatureImportanceMethod.PFI:
+        return _calculate_pfi(model, X, y, n_repeats, random_state)
+
+    elif method == FeatureImportanceMethod.SHAP:
+        if not SHAP_AVAILABLE:
+            raise ImportError("SHAP not available. Install with: pip install shap")
+        return _calculate_shap(model, X, feature_names)
+
+    elif method == FeatureImportanceMethod.LIME:
+        if not LIME_AVAILABLE:
+            raise ImportError("LIME not available. Install with: pip install lime")
+        return _calculate_lime(model, X, y, feature_names, random_state)
+
+    else:
+        raise ValueError(f"Unknown method: {method}. Use 'permutation', 'shap', or 'lime'")
+
+
+def _calculate_pfi(model, X, y, n_repeats=30, random_state=42):
+    """Calculate Permutation Feature Importance."""
+    pfi_result = permutation_importance(
+        model, X, y,
+        n_repeats=n_repeats,
+        random_state=random_state,
+        n_jobs=-1
+    )
+
+    return {
+        'importances_mean': pfi_result.importances_mean,
+        'importances_std': pfi_result.importances_std,
+        'importances': pfi_result.importances,
+        'method': 'PFI'
+    }
+
+
+def _calculate_shap(model, X, feature_names):
+    """Calculate SHAP values."""
+    # Use a subset for efficiency if dataset is large
+    background_size = min(100, len(X))
+    background = shap.sample(X, background_size)
+
+    # Create explainer
+    explainer = shap.KernelExplainer(model.predict_proba, background)
+
+    # Calculate SHAP values (use subset if too large)
+    sample_size = min(500, len(X))
+    sample_indices = np.random.choice(len(X), sample_size, replace=False)
+    X_sample = X[sample_indices]
+
+    shap_values = explainer.shap_values(X_sample)
+
+    # For binary classification, SHAP returns a list [class_0_values, class_1_values]
+    # We use class 1 (positive class) for binary classification
+    if shap_values.ndim == 3:
+        shap_values = shap_values[:, :, 1]
+    
+    # Ensure shap_values is 2D: (n_samples, n_features)
+    if shap_values.ndim == 1:
+        shap_values = shap_values.reshape(-1, 1)
+
+    # Calculate mean absolute SHAP values
+    abs_shap_values = np.abs(shap_values)
+    importances_mean = np.mean(abs_shap_values, axis=0)
+    importances_std = np.std(abs_shap_values, axis=0)
+
+    # Ensure arrays are 1D with correct length (n_features)
+    importances_mean = np.atleast_1d(importances_mean).flatten()
+    importances_std = np.atleast_1d(importances_std).flatten()
+
+    # Ensure importances array is (n_features, n_samples) for consistency with PFI
+    if abs_shap_values.shape[1] == len(feature_names):
+        importances_array = abs_shap_values.T
+    else:
+        importances_array = abs_shap_values
+
+    return {
+        'importances_mean': importances_mean,
+        'importances_std': importances_std,
+        'importances': importances_array,
+        'method': 'SHAP'
+    }
+
+
+def _calculate_lime(model, X, y, feature_names, random_state=42):
+    """Calculate LIME feature importance."""
+    np.random.seed(random_state)
+
+    # Create LIME explainer
+    explainer = LimeTabularExplainer(
+        X,
+        feature_names=feature_names,
+        class_names=['Class 0', 'Class 1'],
+        mode='classification',
+        random_state=random_state
+    )
+
+    # Calculate LIME explanations for a sample of instances
+    sample_size = min(100, len(X))
+    sample_indices = np.random.choice(len(X), sample_size, replace=False)
+
+    all_importances = []
+
+    for idx in sample_indices:
+        exp = explainer.explain_instance(
+            X[idx],
+            model.predict_proba,
+            num_features=len(feature_names)
+        )
+
+        # Extract feature importances (absolute values)
+        importance_dict = dict(exp.as_list())
+        importances = []
+        for feat_name in feature_names:
+            # Find matching feature (LIME may modify feature names)
+            matching_imp = 0
+            for key, val in importance_dict.items():
+                if feat_name in key or key.startswith(feat_name):
+                    matching_imp = abs(val)
+                    break
+            importances.append(matching_imp)
+
+        all_importances.append(importances)
+
+    all_importances = np.array(all_importances)
+
+    return {
+        'importances_mean': np.mean(all_importances, axis=0),
+        'importances_std': np.std(all_importances, axis=0),
+        'importances': all_importances.T,
+        'method': 'LIME'
+    }
 
 
 def generate_drift_data(n_samples_before=1000, n_samples_after=1000,
@@ -264,13 +464,13 @@ def visualize_data_stream(X1, X2, y, drift_point):
     plt.show()
 
 
-def analyze_data_drift(X1, X2, y, drift_point):
+def analyze_data_drift(X1, X2, y, drift_point, importance_method="permutation"):
     """
     Analyze data drift by classifying time periods using only features (X).
 
     This function trains a neural network to distinguish between before-drift
     and after-drift data points based solely on feature distributions P(X).
-    It then uses Permutation Feature Importance (PFI) to determine which
+    It then uses the specified feature importance method to determine which
     features are most important for detecting the data drift.
 
     Parameters
@@ -283,6 +483,8 @@ def analyze_data_drift(X1, X2, y, drift_point):
         Binary class labels (not used in this analysis)
     drift_point : int
         Index where drift occurs
+    importance_method : str, default="permutation"
+        Method for feature importance: "permutation", "shap", or "lime"
 
     Returns
     -------
@@ -290,13 +492,14 @@ def analyze_data_drift(X1, X2, y, drift_point):
         Dictionary containing:
         - 'model': trained MLPClassifier
         - 'accuracy': model accuracy
-        - 'pfi_result': permutation importance result object
+        - 'importance_result': feature importance result
         - 'importance_mean': mean importance scores
         - 'importance_std': standard deviation of importance scores
     """
     print("\n" + "=" * 70)
     print("STEP 1: DATA DRIFT DETECTION "
           "(Classification using X features only)")
+    print(f"Feature Importance Method: {importance_method.upper()}")
     print("Goal: Classify if data point is BEFORE (0) or AFTER (1) drift, "
           "based on P(X).")
     print("=" * 70)
@@ -322,50 +525,52 @@ def analyze_data_drift(X1, X2, y, drift_point):
     print(f"  Neural Network (MLP) Accuracy: {nn_accuracy:.4f}")
     print("(Higher accuracy = stronger P(X) drift, Random guess = 0.50)")
 
-    # Calculate Permutation Feature Importance
-    nn_pfi_result = permutation_importance(
+    # Calculate Feature Importance
+    feature_names = ['X1', 'X2']
+    fi_result = calculate_feature_importance(
         nn_model, X_features, time_labels,
-        n_repeats=30, random_state=42, n_jobs=-1
+        method=importance_method,
+        feature_names=feature_names
     )
-    nn_importance_mean = nn_pfi_result.importances_mean
-    nn_importance_std = nn_pfi_result.importances_std
+    
+    importance_mean = fi_result['importances_mean']
+    importance_std = fi_result['importances_std']
 
     print("\n" + "-" * 70)
-    print("PFI (Feature importance for detecting time-period using X only)")
+    print(f"{fi_result['method']} (Feature importance for detecting time-period using X only)")
     print("-" * 70)
-    print("\nNeural Network (MLP) PFI:")
-    print(f"  X1: {nn_importance_mean[0]:.4f} ± {nn_importance_std[0]:.4f}")
-    print(f"  X2: {nn_importance_mean[1]:.4f} ± {nn_importance_std[1]:.4f}")
+    print(f"\nNeural Network (MLP) {fi_result['method']}:")
+    print(f"  X1: {importance_mean[0]:.4f} ± {importance_std[0]:.4f}")
+    print(f"  X2: {importance_mean[1]:.4f} ± {importance_std[1]:.4f}")
 
     # Visualize results
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    fig.suptitle('Feature Importance for Data Drift (X-only Classification)',
+    fig.suptitle(f'Feature Importance for Data Drift (X-only Classification) - {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
-
-    features_x_only = ['X1', 'X2']
 
     # Plot 1: Bar plot
     ax = axes[0]
-    x_pos = np.arange(len(features_x_only))
-    ax.bar(x_pos, nn_importance_mean, yerr=nn_importance_std,
+    x_pos = np.arange(len(feature_names))
+    ax.bar(x_pos, importance_mean, yerr=importance_std,
            color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
-    ax.set_ylabel('Mean Accuracy Drop (Importance Score)')
-    ax.set_title('PFI for Detecting Time-Period (Data Drift)')
+    ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
+    ax.set_title('Feature Importance for Detecting Time-Period (Concept Drift)')
     ax.set_xticks(x_pos)
-    ax.set_xticklabels(features_x_only)
+    ax.set_xticklabels(feature_names)
     ax.grid(True, alpha=0.3, axis='y')
 
     # Plot 2: Box plot
     ax = axes[1]
-    pfi_values = nn_pfi_result.importances
-    bp = ax.boxplot([pfi_values[0], pfi_values[1]], labels=features_x_only,
-                    patch_artist=True, notch=True, showmeans=True)
+    importances = fi_result['importances']
+    bp = ax.boxplot([importances.T[i] for i in range(len(feature_names))],
+                    tick_labels=feature_names, patch_artist=True, notch=True,
+                    showmeans=True)
     for patch in bp['boxes']:
         patch.set_facecolor('#e74c3c')
         patch.set_alpha(0.7)
-    ax.set_ylabel('Permutation Importance Score')
+    ax.set_ylabel(f'{fi_result["method"]} Score')
     ax.set_xlabel('Features')
-    ax.set_title('Distribution of PFI Scores')
+    ax.set_title(f'Distribution of {fi_result["method"]} Scores')
     ax.grid(True, alpha=0.3, axis='y')
 
     plt.tight_layout()
@@ -374,13 +579,13 @@ def analyze_data_drift(X1, X2, y, drift_point):
     return {
         'model': nn_model,
         'accuracy': nn_accuracy,
-        'pfi_result': nn_pfi_result,
-        'importance_mean': nn_importance_mean,
-        'importance_std': nn_importance_std
+        'importance_result': fi_result,
+        'importance_mean': importance_mean,
+        'importance_std': importance_std
     }
 
 
-def analyze_concept_drift(X1, X2, y, drift_point):
+def analyze_concept_drift(X1, X2, y, drift_point, importance_method="permutation"):
     """
     Analyze concept drift by classifying time periods using features and target
     (X, Y).
@@ -399,6 +604,8 @@ def analyze_concept_drift(X1, X2, y, drift_point):
         Binary class labels
     drift_point : int
         Index where drift occurs
+    importance_method : str, default="permutation"
+        Method for feature importance: "permutation", "shap", or "lime"
 
     Returns
     -------
@@ -406,13 +613,14 @@ def analyze_concept_drift(X1, X2, y, drift_point):
         Dictionary containing:
         - 'model': trained MLPClassifier
         - 'accuracy': model accuracy
-        - 'pfi_result': permutation importance result object
+        - 'importance_result': feature importance result
         - 'importance_mean': mean importance scores
         - 'importance_std': standard deviation of importance scores
     """
     print("\n" + "=" * 70)
     print("STEP 2: CONCEPT DRIFT DETECTION (Classification using X and Y "
           "features)")
+    print(f"Feature Importance Method: {importance_method.upper()}")
     print("Goal: Classify data point based on P(Period|X, Y). "
           "Highly sensitive to P(Y|X) changes.")
     print("=" * 70)
@@ -437,29 +645,29 @@ def analyze_concept_drift(X1, X2, y, drift_point):
     print("\nModel Accuracy (X and Y features):")
     print(f"  Neural Network (MLP) Accuracy: {nn_accuracy_xy:.4f}")
 
-    # Calculate Permutation Feature Importance
-    nn_pfi_result_xy = permutation_importance(
+    # Calculate Feature Importance
+    feature_names = ['X1', 'X2', 'Y']
+    fi_result = calculate_feature_importance(
         nn_model_xy, X_features_with_y, time_labels,
-        n_repeats=30, random_state=42, n_jobs=-1
+        method=importance_method,
+        feature_names=feature_names
     )
-    nn_importance_mean_xy = nn_pfi_result_xy.importances_mean
-    nn_importance_std_xy = nn_pfi_result_xy.importances_std
+    
+    importance_mean = fi_result['importances_mean']
+    importance_std = fi_result['importances_std']
 
     print("\n" + "-" * 70)
-    print("PFI (Feature importance for detecting time-period using X and Y)")
+    print(f"{fi_result['method']} (Feature importance for detecting time-period using X and Y)")
     print("-" * 70)
-    print("\nNeural Network (MLP) PFI:")
-    print(f"  X1: {nn_importance_mean_xy[0]:.4f} ± "
-          f"{nn_importance_std_xy[0]:.4f}")
-    print(f"  X2: {nn_importance_mean_xy[1]:.4f} ± "
-          f"{nn_importance_std_xy[1]:.4f}")
-    print(f"  Y:  {nn_importance_mean_xy[2]:.4f} ± "
-          f"{nn_importance_std_xy[2]:.4f}")
+    print(f"\nNeural Network (MLP) {fi_result['method']}:")
+    print(f"  X1: {importance_mean[0]:.4f} ± {importance_std[0]:.4f}")
+    print(f"  X2: {importance_mean[1]:.4f} ± {importance_std[1]:.4f}")
+    print(f"  Y:  {importance_mean[2]:.4f} ± {importance_std[2]:.4f}")
     print("=" * 70)
 
     # Visualize results
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    fig.suptitle('Feature Importance for Concept Drift (X+Y Classification)',
+    fig.suptitle(f'Feature Importance for Concept Drift (X+Y Classification) - {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
 
     features_x_y = ['X1', 'X2', 'Y']
@@ -467,26 +675,26 @@ def analyze_concept_drift(X1, X2, y, drift_point):
     # Plot 1: Bar plot
     ax = axes[0]
     x_pos = np.arange(len(features_x_y))
-    ax.bar(x_pos, nn_importance_mean_xy, yerr=nn_importance_std_xy,
+    ax.bar(x_pos, importance_mean, yerr=importance_std,
            color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
-    ax.set_ylabel('Mean Accuracy Drop (Importance Score)')
-    ax.set_title('PFI for Detecting Time-Period (Concept Drift)')
+    ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
+    ax.set_title(f'{fi_result["method"]} for Detecting Time-Period (Concept Drift)')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(features_x_y)
     ax.grid(True, alpha=0.3, axis='y')
 
     # Plot 2: Box plot
     ax = axes[1]
-    pfi_values_xy = nn_pfi_result_xy.importances
-    bp = ax.boxplot([pfi_values_xy[0], pfi_values_xy[1], pfi_values_xy[2]],
-                    labels=features_x_y, patch_artist=True, notch=True,
+    importances = fi_result['importances']
+    bp = ax.boxplot([importances[i] for i in range(len(features_x_y))],
+                    tick_labels=features_x_y, patch_artist=True, notch=True,
                     showmeans=True)
     for patch in bp['boxes']:
         patch.set_facecolor('#e74c3c')
         patch.set_alpha(0.7)
-    ax.set_ylabel('Permutation Importance Score')
+    ax.set_ylabel(f'{fi_result["method"]} Score')
     ax.set_xlabel('Features')
-    ax.set_title('Distribution of PFI Scores')
+    ax.set_title(f'Distribution of {fi_result["method"]} Scores')
     ax.grid(True, alpha=0.3, axis='y')
 
     plt.tight_layout()
@@ -495,20 +703,21 @@ def analyze_concept_drift(X1, X2, y, drift_point):
     return {
         'model': nn_model_xy,
         'accuracy': nn_accuracy_xy,
-        'pfi_result': nn_pfi_result_xy,
-        'importance_mean': nn_importance_mean_xy,
-        'importance_std': nn_importance_std_xy
+        'importance_result': fi_result,
+        'importance_mean': importance_mean,
+        'importance_std': importance_std
     }
 
 
-def analyze_predictive_importance_shift(X1, X2, y, drift_point):
+def analyze_predictive_importance_shift(X1, X2, y, drift_point, 
+                                        importance_method="permutation"):
     """
     Analyze how predictive feature importance shifts before and after drift.
 
     This function trains separate neural networks to predict the target
     variable before and after the drift, then compares the feature importance
-    using PFI. This reveals how the relationship between features and target
-    changes.
+    using the specified method. This reveals how the relationship between 
+    features and target changes.
 
     Parameters
     ----------
@@ -520,6 +729,8 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point):
         Binary class labels
     drift_point : int
         Index where drift occurs
+    importance_method : str, default="permutation"
+        Method for feature importance: "permutation", "shap", or "lime"
 
     Returns
     -------
@@ -529,11 +740,12 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point):
         - 'model_after': trained MLPClassifier on after-drift data
         - 'accuracy_before': accuracy on before-drift data
         - 'accuracy_after': accuracy on after-drift data
-        - 'pfi_before': PFI results for before-drift model
-        - 'pfi_after': PFI results for after-drift model
+        - 'fi_before': feature importance results for before-drift model
+        - 'fi_after': feature importance results for after-drift model
     """
     print("\n" + "=" * 70)
     print("STEP 3: PREDICTIVE POWER SHIFT (Classification)")
+    print(f"Feature Importance Method: {importance_method.upper()}")
     print("Goal: Compare feature importance for predicting target 'y' "
           "BEFORE vs AFTER drift.")
     print("=" * 70)
@@ -548,7 +760,7 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point):
     # Configuration for the Neural Network Classifiers
     mlp_config = {
         'hidden_layer_sizes': (5, 5),
-        'max_iter': 500,
+        'max_iter': 2000,
         'random_state': 42,
         'solver': 'adam',
         'alpha': 1e-5
@@ -568,52 +780,55 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point):
     print(f"  NN Model (Before Drift) Accuracy: {acc_before:.4f}")
     print(f"  NN Model (After Drift) Accuracy: {acc_after:.4f}")
 
-    # PFI for NN BEFORE drift
-    nn_before_pfi = permutation_importance(
+    # Feature Importance for BEFORE drift
+    feature_names = ['X1', 'X2']
+    fi_before = calculate_feature_importance(
         mlp_before, X_features_before, y_before,
-        n_repeats=30, random_state=42, n_jobs=-1
+        method=importance_method,
+        feature_names=feature_names
     )
-    pfi_before_mean = nn_before_pfi.importances_mean
-    pfi_before_std = nn_before_pfi.importances_std
 
-    # PFI for NN AFTER drift
-    nn_after_pfi = permutation_importance(
+    # Feature Importance for AFTER drift
+    fi_after = calculate_feature_importance(
         mlp_after, X_features_after, y_after,
-        n_repeats=30, random_state=42, n_jobs=-1
+        method=importance_method,
+        feature_names=feature_names
     )
-    pfi_after_mean = nn_after_pfi.importances_mean
-    pfi_after_std = nn_after_pfi.importances_std
 
-    print("\nPredictive PFI (using Accuracy change):")
+    print(f"\nPredictive {fi_before['method']}:")
     print("Before Drift (X1, X2):")
-    print(f"  X1: {pfi_before_mean[0]:.4f} ± {pfi_before_std[0]:.4f}")
-    print(f"  X2: {pfi_before_mean[1]:.4f} ± {pfi_before_std[1]:.4f}")
+    print(f"  X1: {fi_before['importances_mean'][0]:.4f} ± "
+          f"{fi_before['importances_std'][0]:.4f}")
+    print(f"  X2: {fi_before['importances_mean'][1]:.4f} ± "
+          f"{fi_before['importances_std'][1]:.4f}")
     print("\nAfter Drift (X1, X2):")
-    print(f"  X1: {pfi_after_mean[0]:.4f} ± {pfi_after_std[0]:.4f}")
-    print(f"  X2: {pfi_after_mean[1]:.4f} ± {pfi_after_std[1]:.4f}")
+    print(f"  X1: {fi_after['importances_mean'][0]:.4f} ± "
+          f"{fi_after['importances_std'][0]:.4f}")
+    print(f"  X2: {fi_after['importances_mean'][1]:.4f} ± "
+          f"{fi_after['importances_std'][1]:.4f}")
     print("=" * 70)
 
     # Visualize results
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    fig.suptitle('Predictive Feature Importance (NN Before vs After Drift)',
+    fig.suptitle(f'Predictive Feature Importance (NN Before vs After Drift) - {fi_before["method"]}',
                  fontsize=14, fontweight='bold')
-
-    features_pred = ['X1', 'X2']
 
     # Plot 1: Bar comparison
     ax = axes[0]
-    x_pos = np.arange(len(features_pred))
+    x_pos = np.arange(len(feature_names))
     width = 0.35
-    ax.bar(x_pos - width/2, pfi_before_mean, width,
-           yerr=pfi_before_std, label='NN (Trained BEFORE Drift)',
+    ax.bar(x_pos - width/2, fi_before['importances_mean'], width,
+           yerr=fi_before['importances_std'], 
+           label='NN (Trained BEFORE Drift)',
            color='#1abc9c', alpha=0.8, edgecolor='black', capsize=5)
-    ax.bar(x_pos + width/2, pfi_after_mean, width,
-           yerr=pfi_after_std, label='NN (Trained AFTER Drift)',
+    ax.bar(x_pos + width/2, fi_after['importances_mean'], width,
+           yerr=fi_after['importances_std'], 
+           label='NN (Trained AFTER Drift)',
            color='#f39c12', alpha=0.8, edgecolor='black', capsize=5)
-    ax.set_ylabel('Mean Accuracy Drop (Importance Score)')
-    ax.set_title('PFI for Predicting Target Class')
+    ax.set_ylabel(f'Importance Score ({fi_before["method"]})')
+    ax.set_title('Feature Importance for Predicting Target Class')
     ax.set_xticks(x_pos)
-    ax.set_xticklabels(features_pred)
+    ax.set_xticklabels(feature_names)
     ax.legend()
     ax.grid(True, alpha=0.3, axis='y')
 
@@ -621,12 +836,10 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point):
     ax = axes[1]
     positions_before = [0.8, 2.8]
     positions_after = [1.2, 3.2]
-    bp1 = ax.boxplot([nn_before_pfi.importances[0],
-                      nn_before_pfi.importances[1]],
+    bp1 = ax.boxplot([fi_before['importances'][0], fi_before['importances'][1]],
                      positions=positions_before, widths=0.3,
                      patch_artist=True, showmeans=True)
-    bp2 = ax.boxplot([nn_after_pfi.importances[0],
-                      nn_after_pfi.importances[1]],
+    bp2 = ax.boxplot([fi_after['importances'][0], fi_after['importances'][1]],
                      positions=positions_after, widths=0.3,
                      patch_artist=True, showmeans=True)
     for patch in bp1['boxes']:
@@ -635,11 +848,11 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point):
     for patch in bp2['boxes']:
         patch.set_facecolor('#f39c12')
         patch.set_alpha(0.7)
-    ax.set_ylabel('Permutation Importance Score')
+    ax.set_ylabel(f'{fi_before["method"]} Score')
     ax.set_xlabel('Features')
-    ax.set_title('Distribution of PFI Scores')
+    ax.set_title(f'Distribution of {fi_before["method"]} Scores')
     ax.set_xticks([1, 3])
-    ax.set_xticklabels(features_pred)
+    ax.set_xticklabels(feature_names)
     ax.legend([bp1["boxes"][0], bp2["boxes"][0]],
               ['Before Drift', 'After Drift'], loc='upper right')
     ax.grid(True, alpha=0.3, axis='y')
@@ -652,12 +865,12 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point):
         'model_after': mlp_after,
         'accuracy_before': acc_before,
         'accuracy_after': acc_after,
-        'pfi_before': nn_before_pfi,
-        'pfi_after': nn_after_pfi
+        'fi_before': fi_before,
+        'fi_after': fi_after
     }
 
 
-def main():
+def main(importance_method="permutation"):
     """
     Main function to run the complete concept drift analysis pipeline.
 
@@ -667,10 +880,29 @@ def main():
     3. Analyzing data drift (changes in P(X))
     4. Analyzing concept drift (changes in P(Y|X))
     5. Analyzing predictive importance shift
-    (how feature-target relationships change)
+       (how feature-target relationships change)
+
+    Parameters
+    ----------
+    importance_method : str, default="permutation"
+        Method for feature importance calculation.
+        Options: "permutation", "shap", "lime"
     """
+    # Validate method
+    available_methods = FeatureImportanceMethod.all_available()
+    if importance_method not in available_methods:
+        print(f"Warning: '{importance_method}' not available.")
+        print(f"Available methods: {available_methods}")
+        print(f"Falling back to 'permutation'")
+        importance_method = "permutation"
+
+    print("=" * 70)
+    print("CONCEPT DRIFT ANALYSIS")
+    print(f"Feature Importance Method: {importance_method.upper()}")
+    print("=" * 70)
+
     # Step 1: Generate data
-    print("Generating synthetic data with concept drift...")
+    print("\nGenerating synthetic data with concept drift...")
     X1, X2, y, drift_point = generate_drift_data(
         n_samples_before=1000,
         n_samples_after=1000,
@@ -682,13 +914,16 @@ def main():
     visualize_data_stream(X1, X2, y, drift_point)
 
     # Step 3: Analyze data drift (P(X) changes)
-    analyze_data_drift(X1, X2, y, drift_point)
+    analyze_data_drift(X1, X2, y, drift_point, 
+                       importance_method=importance_method)
 
     # Step 4: Analyze concept drift (P(Y|X) changes)
-    analyze_concept_drift(X1, X2, y, drift_point)
+    analyze_concept_drift(X1, X2, y, drift_point, 
+                          importance_method=importance_method)
 
     # Step 5: Analyze predictive importance shift
-    analyze_predictive_importance_shift(X1, X2, y, drift_point)
+    analyze_predictive_importance_shift(X1, X2, y, drift_point,
+                                       importance_method=importance_method)
 
     print("\n" + "=" * 70)
     print("ANALYSIS COMPLETE")
@@ -699,7 +934,18 @@ def main():
     print("  2. Concept Drift: How P(Y|X) changes between periods")
     print("  3. Predictive Shift: How feature importance for predicting Y "
           "changes")
+    print(f"\nFeature Importance Method Used: {importance_method.upper()}")
 
 
 if __name__ == "__main__":
-    main()
+    # You can easily switch between methods by changing this parameter
+    # Options: "permutation", "shap", "lime"
+
+    # Example 1: Use Permutation Feature Importance (default, always available)
+    main(importance_method="permutation")
+
+    # Example 2: Use SHAP values
+    # main(importance_method="shap")
+
+    # Example 3: Use LIME
+    # main(importance_method="lime")
