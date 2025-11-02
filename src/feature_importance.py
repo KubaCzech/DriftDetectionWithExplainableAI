@@ -295,7 +295,8 @@ def analyze_data_drift(X1, X2, y, drift_point):
         - 'importance_std': standard deviation of importance scores
     """
     print("\n" + "=" * 70)
-    print("STEP 1: DATA DRIFT DETECTION (Classification using X features only)")
+    print("STEP 1: DATA DRIFT DETECTION "
+          "(Classification using X features only)")
     print("Goal: Classify if data point is BEFORE (0) or AFTER (1) drift, "
           "based on P(X).")
     print("=" * 70)
@@ -639,7 +640,7 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point):
     ax.set_title('Distribution of PFI Scores')
     ax.set_xticks([1, 3])
     ax.set_xticklabels(features_pred)
-    ax.legend([bp1["boxes"][0], bp2["boxes"][0]], 
+    ax.legend([bp1["boxes"][0], bp2["boxes"][0]],
               ['Before Drift', 'After Drift'], loc='upper right')
     ax.grid(True, alpha=0.3, axis='y')
 
