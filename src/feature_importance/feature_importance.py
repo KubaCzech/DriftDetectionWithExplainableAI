@@ -1110,13 +1110,17 @@ def visualize_predictive_importance_shift(analysis_result, feature_names):
 
     # Handle cases where importances might not be (n_features, n_samples)
     importances_before = fi_before['importances']
-    if (importances_before.shape[0] != n_features and
-        importances_before.shape[1] == n_features):
+    if (
+        importances_before.shape[0] != n_features and
+        importances_before.shape[1] == n_features
+    ):
         importances_before = importances_before.T
 
     importances_after = fi_after['importances']
-    if (importances_after.shape[0] != n_features and
-        importances_after.shape[1] == n_features):
+    if (
+        importances_after.shape[0] != n_features and
+        importances_after.shape[1] == n_features
+    ):
         importances_after = importances_after.T
 
     # Calculate positions for side-by-side boxplots
