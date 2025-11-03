@@ -713,7 +713,8 @@ def compute_data_drift_analysis(X, y, drift_point, feature_names,
     }
 
 
-def visualize_data_drift_analysis(analysis_result, feature_names):
+def visualize_data_drift_analysis(analysis_result, feature_names,
+                                  show_boxplot=True):
     """
     Visualize the results of data drift analysis.
 
@@ -723,16 +724,24 @@ def visualize_data_drift_analysis(analysis_result, feature_names):
         Result dictionary from compute_data_drift_analysis
     feature_names : list
         Names of features
+    show_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
     """
     fi_result = analysis_result['importance_result']
     importance_mean = analysis_result['importance_mean']
     importance_std = analysis_result['importance_std']
     n_features = len(feature_names)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    # Determine the number of subplots
+    n_plots = 2 if show_boxplot else 1
+    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
     fig.suptitle(f'Feature Importance for Data Drift (X-only Classification) '
                  f'- {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
+
+    # Ensure axes is an array even for 1 plot
+    if n_plots == 1:
+        axes = [axes]
 
     # Plot 1: Bar plot
     ax = axes[0]
@@ -741,37 +750,47 @@ def visualize_data_drift_analysis(analysis_result, feature_names):
            color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
     ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
     ax.set_title('Feature Importance for Detecting Time-Period '
-                 '(Concept Drift)')
+                 '(Data Drift)')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(feature_names)
     ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 2: Box plot
-    ax = axes[1]
-    importances = fi_result['importances']
+    # Plot 2: Box plot (Conditional)
+    if show_boxplot:
+        ax = axes[1]
+        importances = fi_result['importances']
 
-    # Handle cases where importances might not be (n_features, n_samples)
-    if importances.shape[0] != n_features and importances.shape[1] == n_features:
-        importances = importances.T
+        # Handle cases where importances might not be (n_features, n_samples)
+        if (importances.ndim == 2 and importances.shape[0] != n_features and
+            importances.shape[1] == n_features):
+            importances = importances.T
 
-    bp = ax.boxplot([importances[i] for i in range(n_features)],
-                    tick_labels=feature_names, patch_artist=True, notch=True,
-                    showmeans=True)
+        # Ensure importances is (n_features, n_samples) before boxplot
+        if importances.shape[0] == n_features:
+            bp = ax.boxplot([importances[i] for i in range(n_features)],
+                            tick_labels=feature_names, patch_artist=True,
+                            notch=True, showmeans=True)
 
-    for patch in bp['boxes']:
-        patch.set_facecolor('#e74c3c')
-        patch.set_alpha(0.7)
-    ax.set_ylabel(f'{fi_result["method"]} Score')
-    ax.set_xlabel('Features')
-    ax.set_title(f'Distribution of {fi_result["method"]} Scores')
-    ax.grid(True, alpha=0.3, axis='y')
+            for patch in bp['boxes']:
+                patch.set_facecolor('#e74c3c')
+                patch.set_alpha(0.7)
+            ax.set_ylabel(f'{fi_result["method"]} Score')
+            ax.set_xlabel('Features')
+            ax.set_title(f'Distribution of {fi_result["method"]} Scores')
+            ax.grid(True, alpha=0.3, axis='y')
+        else:
+            ax.text(0.5, 0.5, "Boxplot not available (SHAP/LIME 1D result)",
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax.transAxes)
+            ax.set_axis_off()
 
     plt.tight_layout()
     plt.show()
 
 
 def analyze_data_drift(X, y, drift_point, feature_names,
-                       importance_method="permutation"):
+                       importance_method="permutation",
+                       show_importance_boxplot=True):
     """
     Analyze and visualize data drift by classifying time periods using only
     features (X).
@@ -788,6 +807,8 @@ def analyze_data_drift(X, y, drift_point, feature_names,
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
+    show_importance_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
 
     Returns
     -------
@@ -796,7 +817,8 @@ def analyze_data_drift(X, y, drift_point, feature_names,
     """
     result = compute_data_drift_analysis(X, y, drift_point, feature_names,
                                          importance_method)
-    visualize_data_drift_analysis(result, feature_names)
+    visualize_data_drift_analysis(result, feature_names,
+                                  show_boxplot=show_importance_boxplot)
     return result
 
 
@@ -882,7 +904,8 @@ def compute_concept_drift_analysis(X, y, drift_point, feature_names,
     }
 
 
-def visualize_concept_drift_analysis(analysis_result, feature_names):
+def visualize_concept_drift_analysis(analysis_result, feature_names,
+                                     show_boxplot=True):
     """
     Visualize the results of concept drift analysis.
 
@@ -892,16 +915,24 @@ def visualize_concept_drift_analysis(analysis_result, feature_names):
         Result dictionary from compute_concept_drift_analysis
     feature_names : list
         Names of features (e.g., ['X1', 'X2', 'Y'])
+    show_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
     """
     fi_result = analysis_result['importance_result']
     importance_mean = analysis_result['importance_mean']
     importance_std = analysis_result['importance_std']
     n_features = len(feature_names)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    # Determine the number of subplots
+    n_plots = 2 if show_boxplot else 1
+    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
     fig.suptitle(f'Feature Importance for Concept Drift (X+Y Classification) '
                  f'- {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
+
+    # Ensure axes is an array even for 1 plot
+    if n_plots == 1:
+        axes = [axes]
 
     # Plot 1: Bar plot
     ax = axes[0]
@@ -915,31 +946,41 @@ def visualize_concept_drift_analysis(analysis_result, feature_names):
     ax.set_xticklabels(feature_names)
     ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 2: Box plot
-    ax = axes[1]
-    importances = fi_result['importances']
+    # Plot 2: Box plot (Conditional)
+    if show_boxplot:
+        ax = axes[1]
+        importances = fi_result['importances']
 
-    # Handle cases where importances might not be (n_features, n_samples)
-    if importances.shape[0] != n_features and importances.shape[1] == n_features:
-        importances = importances.T
+        # Handle cases where importances might not be (n_features, n_samples)
+        if (importances.ndim == 2 and importances.shape[0] != n_features and
+            importances.shape[1] == n_features):
+            importances = importances.T
 
-    bp = ax.boxplot([importances[i] for i in range(n_features)],
-                    tick_labels=feature_names, patch_artist=True, notch=True,
-                    showmeans=True)
-    for patch in bp['boxes']:
-        patch.set_facecolor('#e74c3c')
-        patch.set_alpha(0.7)
-    ax.set_ylabel(f'{fi_result["method"]} Score')
-    ax.set_xlabel('Features')
-    ax.set_title(f'Distribution of {fi_result["method"]} Scores')
-    ax.grid(True, alpha=0.3, axis='y')
+        # Ensure importances is (n_features, n_samples) before boxplot
+        if importances.shape[0] == n_features:
+            bp = ax.boxplot([importances[i] for i in range(n_features)],
+                            tick_labels=feature_names, patch_artist=True,
+                            notch=True, showmeans=True)
+            for patch in bp['boxes']:
+                patch.set_facecolor('#e74c3c')
+                patch.set_alpha(0.7)
+            ax.set_ylabel(f'{fi_result["method"]} Score')
+            ax.set_xlabel('Features')
+            ax.set_title(f'Distribution of {fi_result["method"]} Scores')
+            ax.grid(True, alpha=0.3, axis='y')
+        else:
+            ax.text(0.5, 0.5, "Boxplot not available (SHAP/LIME 1D result)",
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax.transAxes)
+            ax.set_axis_off()
 
     plt.tight_layout()
     plt.show()
 
 
 def analyze_concept_drift(X, y, drift_point, feature_names,
-                          importance_method="permutation"):
+                          importance_method="permutation",
+                          show_importance_boxplot=True):
     """
     Analyze and visualize concept drift by classifying time periods using
     features and target (X, Y).
@@ -956,6 +997,8 @@ def analyze_concept_drift(X, y, drift_point, feature_names,
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
+    show_importance_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
 
     Returns
     -------
@@ -966,7 +1009,8 @@ def analyze_concept_drift(X, y, drift_point, feature_names,
                                             importance_method)
     # Get the feature names list that includes 'Y' from the result
     feature_names_with_y = result['feature_names_with_y']
-    visualize_concept_drift_analysis(result, feature_names_with_y)
+    visualize_concept_drift_analysis(result, feature_names_with_y,
+                                     show_boxplot=show_importance_boxplot)
     return result
 
 
@@ -1066,7 +1110,8 @@ def compute_predictive_importance_shift(X, y, drift_point, feature_names,
     }
 
 
-def visualize_predictive_importance_shift(analysis_result, feature_names):
+def visualize_predictive_importance_shift(analysis_result, feature_names,
+                                          show_boxplot=True):
     """
     Visualize the results of predictive importance shift analysis.
 
@@ -1076,15 +1121,23 @@ def visualize_predictive_importance_shift(analysis_result, feature_names):
         Result dictionary from compute_predictive_importance_shift
     feature_names : list
         Names of features
+    show_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
     """
     fi_before = analysis_result['fi_before']
     fi_after = analysis_result['fi_after']
     n_features = len(feature_names)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    # Determine the number of subplots
+    n_plots = 2 if show_boxplot else 1
+    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
     fig.suptitle(f'Predictive Feature Importance (NN Before vs After Drift) '
                  f'- {fi_before["method"]}',
                  fontsize=14, fontweight='bold')
+
+    # Ensure axes is an array even for 1 plot
+    if n_plots == 1:
+        axes = [axes]
 
     # Plot 1: Bar comparison
     ax = axes[0]
@@ -1105,57 +1158,69 @@ def visualize_predictive_importance_shift(analysis_result, feature_names):
     ax.legend()
     ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 2: Side-by-side box plots (Generalized)
-    ax = axes[1]
+    # Plot 2: Side-by-side box plots (Conditional)
+    if show_boxplot:
+        ax = axes[1]
 
-    # Handle cases where importances might not be (n_features, n_samples)
-    importances_before = fi_before['importances']
-    if (
-        importances_before.shape[0] != n_features and
-        importances_before.shape[1] == n_features
-    ):
-        importances_before = importances_before.T
+        # Handle cases where importances might not be (n_features, n_samples)
+        importances_before = fi_before['importances']
+        if (
+            importances_before.ndim == 2 and
+            importances_before.shape[0] != n_features and
+            importances_before.shape[1] == n_features
+        ):
+            importances_before = importances_before.T
 
-    importances_after = fi_after['importances']
-    if (
-        importances_after.shape[0] != n_features and
-        importances_after.shape[1] == n_features
-    ):
-        importances_after = importances_after.T
+        importances_after = fi_after['importances']
+        if (
+            importances_after.ndim == 2 and
+            importances_after.shape[0] != n_features and
+            importances_after.shape[1] == n_features
+        ):
+            importances_after = importances_after.T
 
-    # Calculate positions for side-by-side boxplots
-    positions_before = np.arange(n_features) * 2 - 0.2
-    positions_after = np.arange(n_features) * 2 + 0.2
+        # Calculate positions for side-by-side boxplots
+        positions_before = np.arange(n_features) * 2 - 0.2
+        positions_after = np.arange(n_features) * 2 + 0.2
 
-    bp1 = ax.boxplot([importances_before[i] for i in range(n_features)],
-                     positions=positions_before, widths=0.3,
-                     patch_artist=True, showmeans=True, notch=True)
-    bp2 = ax.boxplot([importances_after[i] for i in range(n_features)],
-                     positions=positions_after, widths=0.3,
-                     patch_artist=True, showmeans=True, notch=True)
+        # Check if boxplot can be drawn (importances is 2D and aligned)
+        if (importances_before.shape[0] == n_features and
+            importances_after.shape[0] == n_features):
+            bp1 = ax.boxplot([importances_before[i] for i in range(n_features)],
+                             positions=positions_before, widths=0.3,
+                             patch_artist=True, showmeans=True, notch=True)
+            bp2 = ax.boxplot([importances_after[i] for i in range(n_features)],
+                             positions=positions_after, widths=0.3,
+                             patch_artist=True, showmeans=True, notch=True)
 
-    for patch in bp1['boxes']:
-        patch.set_facecolor('#1abc9c')
-        patch.set_alpha(0.7)
-    for patch in bp2['boxes']:
-        patch.set_facecolor('#f39c12')
-        patch.set_alpha(0.7)
+            for patch in bp1['boxes']:
+                patch.set_facecolor('#1abc9c')
+                patch.set_alpha(0.7)
+            for patch in bp2['boxes']:
+                patch.set_facecolor('#f39c12')
+                patch.set_alpha(0.7)
 
-    ax.set_ylabel(f'{fi_before["method"]} Score')
-    ax.set_xlabel('Features')
-    ax.set_title(f'Distribution of {fi_before["method"]} Scores')
-    ax.set_xticks(np.arange(n_features) * 2)
-    ax.set_xticklabels(feature_names)
-    ax.legend([bp1["boxes"][0], bp2["boxes"][0]],
-              ['Before Drift', 'After Drift'], loc='upper right')
-    ax.grid(True, alpha=0.3, axis='y')
+            ax.set_ylabel(f'{fi_before["method"]} Score')
+            ax.set_xlabel('Features')
+            ax.set_title(f'Distribution of {fi_before["method"]} Scores')
+            ax.set_xticks(np.arange(n_features) * 2)
+            ax.set_xticklabels(feature_names)
+            ax.legend([bp1["boxes"][0], bp2["boxes"][0]],
+                      ['Before Drift', 'After Drift'], loc='upper right')
+            ax.grid(True, alpha=0.3, axis='y')
+        else:
+            ax.text(0.5, 0.5, "Boxplot not available (SHAP/LIME 1D result)",
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax.transAxes)
+            ax.set_axis_off()
 
     plt.tight_layout()
     plt.show()
 
 
 def analyze_predictive_importance_shift(X, y, drift_point, feature_names,
-                                        importance_method="permutation"):
+                                        importance_method="permutation",
+                                        show_importance_boxplot=True):
     """
     Analyze and visualize how predictive feature importance shifts before
     and after drift.
@@ -1172,6 +1237,8 @@ def analyze_predictive_importance_shift(X, y, drift_point, feature_names,
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
+    show_importance_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
 
     Returns
     -------
@@ -1181,12 +1248,14 @@ def analyze_predictive_importance_shift(X, y, drift_point, feature_names,
     result = compute_predictive_importance_shift(X, y, drift_point,
                                                  feature_names,
                                                  importance_method)
-    visualize_predictive_importance_shift(result, feature_names)
+    visualize_predictive_importance_shift(result, feature_names,
+                                          show_boxplot=show_importance_boxplot)
     return result
 
 
 # --- MODIFIED: main ---
-def main(dataset_name, importance_method="permutation"):
+def main(dataset_name, importance_method="permutation",
+         show_importance_boxplot=True):
     """
     Main function to run the complete concept drift analysis pipeline.
 
@@ -1197,6 +1266,9 @@ def main(dataset_name, importance_method="permutation"):
     importance_method : str, default="permutation"
         Method for feature importance calculation.
         Options: "permutation", "shap", "lime"
+    show_importance_boxplot : bool, default=True
+        Whether to display the boxplots for feature importance distributions
+        in the analysis steps.
     """
     # Validate method
     available_methods = FeatureImportanceMethod.all_available()
@@ -1217,6 +1289,7 @@ def main(dataset_name, importance_method="permutation"):
     print("CONCEPT DRIFT ANALYSIS")
     print(f"Dataset: {dataset_name.upper()}")
     print(f"Feature Importance Method: {importance_method.upper()}")
+    print(f"Show Importance Boxplots: {show_importance_boxplot}")
     print("=" * 70)
 
     # Step 1: Generate data
@@ -1252,16 +1325,19 @@ def main(dataset_name, importance_method="permutation"):
 
     # Step 3: Analyze data drift (P(X) changes)
     analyze_data_drift(X, y, drift_point, feature_names,
-                       importance_method=importance_method)
+                       importance_method=importance_method,
+                       show_importance_boxplot=show_importance_boxplot)
 
     # Step 4: Analyze concept drift (P(Y|X) changes)
     analyze_concept_drift(X, y, drift_point, feature_names,
-                          importance_method=importance_method)
+                          importance_method=importance_method,
+                          show_importance_boxplot=show_importance_boxplot)
 
     # Step 5: Analyze predictive importance shift
     analyze_predictive_importance_shift(
         X, y, drift_point, feature_names,
-        importance_method=importance_method
+        importance_method=importance_method,
+        show_importance_boxplot=show_importance_boxplot
     )
 
     print("\n" + "=" * 70)
@@ -1296,18 +1372,24 @@ if __name__ == "__main__":
 
     IMPORTANCE_METHOD_TO_RUN = "permutation"
 
+    # 3. Toggle for showing importance score boxplots:
+    # Options: True or False
+    SHOW_IMPORTANCE_BOXPLOT = True
+
     # --- END SETTINGS ---
 
     # Run the main analysis
     main(dataset_name=DATASET_TO_RUN,
-         importance_method=IMPORTANCE_METHOD_TO_RUN)
+         importance_method=IMPORTANCE_METHOD_TO_RUN,
+         show_importance_boxplot=SHOW_IMPORTANCE_BOXPLOT)
 
     # --- EXAMPLES OF OTHER RUNS (uncomment to try) ---
 
-    # Example 2: Run SEA_DRIFT (2 features) with permutation
-    # print("\n\n" + "*"*80 + "\nRUNNING SEA_DRIFT ANALYSIS\n" + "*"*80)
+    # Example 2: Run SEA_DRIFT (2 features) with permutation (No Boxplots)
+    # print("\n\n" + "*"*80 + "\nRUNNING SEA_DRIFT ANALYSIS (NO BOXPLOT)\n" + "*"*80)
     # main(dataset_name=DatasetName.SEA_DRIFT,
-    #      importance_method="permutation")
+    #      importance_method="permutation",
+    #      show_importance_boxplot=False)
 
     # Example 3: Run HYPERPLANE_DRIFT (2 features) with permutation
     # print("\n\n" + "*"*80 + "\nRUNNING HYPERPLANE_DRIFT ANALYSIS\n" + "*"*80)
