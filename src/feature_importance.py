@@ -541,7 +541,7 @@ def compute_data_drift_analysis(X1, X2, y, drift_point,
         method=importance_method,
         feature_names=feature_names
     )
-    
+
     importance_mean = fi_result['importances_mean']
     importance_std = fi_result['importances_std']
 
@@ -710,7 +710,7 @@ def compute_concept_drift_analysis(X1, X2, y, drift_point,
         method=importance_method,
         feature_names=feature_names
     )
-    
+
     importance_mean = fi_result['importances_mean']
     importance_std = fi_result['importances_std']
 
@@ -814,14 +814,14 @@ def analyze_concept_drift(X1, X2, y, drift_point,
     return result
 
 
-def compute_predictive_importance_shift(X1, X2, y, drift_point, 
+def compute_predictive_importance_shift(X1, X2, y, drift_point,
                                         importance_method="permutation"):
     """
     Compute how predictive feature importance shifts before and after drift.
 
     This function trains separate neural networks to predict the target
     variable before and after the drift, then compares the feature importance
-    using the specified method. This reveals how the relationship between 
+    using the specified method. This reveals how the relationship between
     features and target changes.
 
     Parameters
@@ -950,11 +950,11 @@ def visualize_predictive_importance_shift(
     x_pos = np.arange(len(feature_names))
     width = 0.35
     ax.bar(x_pos - width/2, fi_before['importances_mean'], width,
-           yerr=fi_before['importances_std'], 
+           yerr=fi_before['importances_std'],
            label='NN (Trained BEFORE Drift)',
            color='#1abc9c', alpha=0.8, edgecolor='black', capsize=5)
     ax.bar(x_pos + width/2, fi_after['importances_mean'], width,
-           yerr=fi_after['importances_std'], 
+           yerr=fi_after['importances_std'],
            label='NN (Trained AFTER Drift)',
            color='#f39c12', alpha=0.8, edgecolor='black', capsize=5)
     ax.set_ylabel(f'Importance Score ({fi_before["method"]})')
@@ -994,7 +994,7 @@ def visualize_predictive_importance_shift(
     plt.show()
 
 
-def analyze_predictive_importance_shift(X1, X2, y, drift_point, 
+def analyze_predictive_importance_shift(X1, X2, y, drift_point,
                                         importance_method="permutation"):
     """
     Analyze and visualize how predictive feature importance shifts before
@@ -1068,11 +1068,11 @@ def main(importance_method="permutation"):
     visualize_data_stream(X1, X2, y, drift_point)
 
     # Step 3: Analyze data drift (P(X) changes)
-    analyze_data_drift(X1, X2, y, drift_point, 
+    analyze_data_drift(X1, X2, y, drift_point,
                        importance_method=importance_method)
 
     # Step 4: Analyze concept drift (P(Y|X) changes)
-    analyze_concept_drift(X1, X2, y, drift_point, 
+    analyze_concept_drift(X1, X2, y, drift_point,
                           importance_method=importance_method)
 
     # Step 5: Analyze predictive importance shift
