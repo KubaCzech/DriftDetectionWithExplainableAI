@@ -3,6 +3,21 @@ import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier
 from sklearn.inspection import permutation_importance
 import warnings
+import itertools
+
+# --- NEW IMPORTS ---
+# Added 'river' imports for synthetic dataset generation
+try:
+    from river.datasets import synth
+    from river import stream
+    RIVER_AVAILABLE = True
+except ImportError:
+    RIVER_AVAILABLE = False
+    warnings.warn(
+        "River not available. Install with: pip install river. "
+        "SEA and Hyperplane datasets will not be available."
+    )
+# --- END NEW IMPORTS ---
 
 # Optional imports for SHAP and LIME
 try:
@@ -130,6 +145,11 @@ def _calculate_shap(model, X, feature_names):
     # For binary classification, SHAP returns a list
     # [class_0_values, class_1_values]
     # We use class 1 (positive class) for binary classification
+    # For multiclass, this logic would need to adapt
+    if isinstance(shap_values, list) and len(shap_values) == 2:
+        shap_values = shap_values[1]
+    
+    # Handle possible 3D array for some model types
     if shap_values.ndim == 3:
         shap_values = shap_values[:, :, 1]
 
@@ -211,10 +231,26 @@ def _calculate_lime(model, X, y, feature_names, random_state=42):
     }
 
 
-def generate_drift_data(n_samples_before=1000, n_samples_after=1000,
-                        random_seed=42):
+# --- NEW: DATASET NAME ENUM ---
+class DatasetName:
+    """Enum-like class for selecting datasets."""
+    CUSTOM_NORMAL = "custom_normal"
+    SEA_DRIFT = "sea_drift"
+    HYPERPLANE_DRIFT = "hyperplane_drift"
+
+    @classmethod
+    def all_available(cls):
+        methods = [cls.CUSTOM_NORMAL]
+        if RIVER_AVAILABLE:
+            methods.extend([cls.SEA_DRIFT, cls.HYPERPLANE_DRIFT])
+        return methods
+
+
+# --- MODIFIED: Renamed function ---
+def generate_custom_normal_data(n_samples_before=1000, n_samples_after=1000,
+                                random_seed=42):
     """
-    Generate synthetic data stream with concept drift.
+    Generate synthetic data stream with concept drift (Original Function).
 
     This function creates a binary classification dataset where both the
     feature distributions P(X) and the conditional distribution P(Y|X) change
@@ -230,24 +266,11 @@ def generate_drift_data(n_samples_before=1000, n_samples_after=1000,
         - X2 ~ N(0.2, 1.05) - minor shift in mean and variance
         - P(y=1) ~ 0.3 (30% class 1, 70% class 0)
         - Decision boundary: -1.5*X1 + 0.6*X2 > threshold
-
-    Parameters
-    ----------
-    n_samples_before : int, default=1000
-        Number of samples to generate before drift
-    n_samples_after : int, default=1000
-        Number of samples to generate after drift
-    random_seed : int, default=42
-        Random seed for reproducibility
-
+    
     Returns
     -------
     tuple
-        (X1, X2, y, drift_point) where:
-        - X1: array of feature 1 values
-        - X2: array of feature 2 values
-        - y: array of binary class labels (0 or 1)
-        - drift_point: index where drift occurs
+        (X1, X2, y, drift_point)
     """
     np.random.seed(random_seed)
 
@@ -275,6 +298,82 @@ def generate_drift_data(n_samples_before=1000, n_samples_after=1000,
     drift_point = n_samples_before
 
     return X1, X2, y, drift_point
+
+
+# --- NEW: RIVER-BASED DATA GENERATORS ---
+
+def _generate_river_data(river_stream, n_samples_before, n_samples_after):
+    """Helper function to generate data from a river stream."""
+    if not RIVER_AVAILABLE:
+        raise ImportError("River library not installed.")
+        
+    X_all = []
+    y_all = []
+    total_samples = n_samples_before + n_samples_after
+
+    for x, y_val in itertools.islice(river_stream, total_samples):
+        # Ensure we only take 2 features for compatibility
+        # SEA has 3 features, but only first 2 are relevant
+        X_all.append([x[0], x[1]])
+        y_all.append(y_val)
+    
+    X_all = np.array(X_all)
+    y_all = np.array(y_all)
+    
+    X1 = X_all[:, 0]
+    X2 = X_all[:, 1]
+    y = y_all
+    drift_point = n_samples_before
+    
+    return X1, X2, y, drift_point
+
+def generate_sea_drift_data(n_samples_before=1000, n_samples_after=1000,
+                            random_seed=42):
+    """
+    Generate synthetic data stream using River's SEA generator.
+    
+    Drifts from variant 0 to variant 3 at the drift point.
+    The SEA generator has 3 features; we use the first 2.
+
+    Returns
+    -------
+    tuple
+        (X1, X2, y, drift_point)
+    """
+    stream_SEA = synth.ConceptDriftStream(
+        stream=synth.SEA(seed=random_seed, variant=0),
+        drift_stream=synth.SEA(seed=random_seed, variant=3),
+        position=n_samples_before,
+        width=400,  # Gradual drift
+        seed=random_seed
+    )
+    return _generate_river_data(stream_SEA, n_samples_before, n_samples_after)
+
+def generate_hyperplane_data(n_samples_before=1000, n_samples_after=1000,
+                             random_seed=42):
+    """
+    Generate synthetic data stream using River's Hyperplane generator.
+    
+    Drifts from a stable hyperplane to one with magnitude change.
+    Uses n_features=2 for compatibility with analysis functions.
+
+    Returns
+    -------
+    tuple
+        (X1, X2, y, drift_point)
+    """
+    stream_HP = synth.ConceptDriftStream(
+        stream=synth.Hyperplane(n_features=2, seed=random_seed,
+                                noise_percentage=0.05),
+        drift_stream=synth.Hyperplane(n_features=2, seed=random_seed,
+                                      mag_change=0.2, noise_percentage=0.1),
+        position=n_samples_before,
+        width=400,  # Gradual drift
+        seed=random_seed
+    )
+    return _generate_river_data(stream_HP, n_samples_before, n_samples_after)
+
+# --- END NEW DATA GENERATORS ---
 
 
 def visualize_data_stream(X1, X2, y, drift_point):
@@ -597,9 +696,15 @@ def visualize_data_drift_analysis(analysis_result, feature_names=['X1', 'X2']):
     # Plot 2: Box plot
     ax = axes[1]
     importances = fi_result['importances']
-    bp = ax.boxplot([importances.T[i] for i in range(len(feature_names))],
+    
+    # Handle cases where importances might not be (n_features, n_samples)
+    if importances.shape[0] != len(feature_names) and importances.shape[1] == len(feature_names):
+        importances = importances.T
+        
+    bp = ax.boxplot([importances[i] for i in range(len(feature_names))],
                     tick_labels=feature_names, patch_artist=True, notch=True,
                     showmeans=True)
+    
     for patch in bp['boxes']:
         patch.set_facecolor('#e74c3c')
         patch.set_alpha(0.7)
@@ -769,6 +874,11 @@ def visualize_concept_drift_analysis(analysis_result,
     # Plot 2: Box plot
     ax = axes[1]
     importances = fi_result['importances']
+    
+    # Handle cases where importances might not be (n_features, n_samples)
+    if importances.shape[0] != len(feature_names) and importances.shape[1] == len(feature_names):
+        importances = importances.T
+
     bp = ax.boxplot([importances[i] for i in range(len(feature_names))],
                     tick_labels=feature_names, patch_artist=True, notch=True,
                     showmeans=True)
@@ -966,13 +1076,23 @@ def visualize_predictive_importance_shift(
 
     # Plot 2: Side-by-side box plots
     ax = axes[1]
+    
+    # Handle cases where importances might not be (n_features, n_samples)
+    importances_before = fi_before['importances']
+    if importances_before.shape[0] != len(feature_names) and importances_before.shape[1] == len(feature_names):
+        importances_before = importances_before.T
+        
+    importances_after = fi_after['importances']
+    if importances_after.shape[0] != len(feature_names) and importances_after.shape[1] == len(feature_names):
+        importances_after = importances_after.T
+
     positions_before = [0.8, 2.8]
     positions_after = [1.2, 3.2]
-    bp1 = ax.boxplot([fi_before['importances'][0],
-                      fi_before['importances'][1]],
+    bp1 = ax.boxplot([importances_before[0],
+                      importances_before[1]],
                      positions=positions_before, widths=0.3,
                      patch_artist=True, showmeans=True)
-    bp2 = ax.boxplot([fi_after['importances'][0], fi_after['importances'][1]],
+    bp2 = ax.boxplot([importances_after[0], importances_after[1]],
                      positions=positions_after, widths=0.3,
                      patch_artist=True, showmeans=True)
     for patch in bp1['boxes']:
@@ -1024,7 +1144,7 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point,
     return result
 
 
-def main(importance_method="permutation"):
+def main(dataset_name, importance_method="permutation"):
     """
     Main function to run the complete concept drift analysis pipeline.
 
@@ -1038,6 +1158,8 @@ def main(importance_method="permutation"):
 
     Parameters
     ----------
+    dataset_name : str
+        Name of the dataset to generate (from DatasetName class)
     importance_method : str, default="permutation"
         Method for feature importance calculation.
         Options: "permutation", "shap", "lime"
@@ -1049,19 +1171,41 @@ def main(importance_method="permutation"):
         print(f"Available methods: {available_methods}")
         print("Falling back to 'permutation'")
         importance_method = "permutation"
+        
+    # Validate dataset
+    available_datasets = DatasetName.all_available()
+    if dataset_name not in available_datasets:
+        print(f"Error: Dataset '{dataset_name}' is not available.")
+        if not RIVER_AVAILABLE and dataset_name in [DatasetName.SEA_DRIFT, DatasetName.HYPERPLANE_DRIFT]:
+             print("The 'river' library is not installed. "
+                   "Please install it with: pip install river")
+        print(f"Available datasets: {available_datasets}")
+        return
 
     print("=" * 70)
     print("CONCEPT DRIFT ANALYSIS")
+    print(f"Dataset: {dataset_name.upper()}")
     print(f"Feature Importance Method: {importance_method.upper()}")
     print("=" * 70)
 
     # Step 1: Generate data
-    print("\nGenerating synthetic data with concept drift...")
-    X1, X2, y, drift_point = generate_drift_data(
-        n_samples_before=1000,
-        n_samples_after=1000,
-        random_seed=42
-    )
+    print(f"\nGenerating synthetic data for: {dataset_name}...")
+    
+    gen_params = {
+        "n_samples_before": 1000,
+        "n_samples_after": 1000,
+        "random_seed": 42
+    }
+    
+    if dataset_name == DatasetName.CUSTOM_NORMAL:
+        X1, X2, y, drift_point = generate_custom_normal_data(**gen_params)
+    elif dataset_name == DatasetName.SEA_DRIFT:
+        X1, X2, y, drift_point = generate_sea_drift_data(**gen_params)
+    elif dataset_name == DatasetName.HYPERPLANE_DRIFT:
+        X1, X2, y, drift_point = generate_hyperplane_data(**gen_params)
+    else:
+        # This case should be caught by the validation above, but as a fallback
+        raise ValueError(f"Unknown dataset name: {dataset_name}")
 
     # Step 2: Visualize data stream
     print("\nVisualizing data stream...")
@@ -1090,18 +1234,47 @@ def main(importance_method="permutation"):
     print("  2. Concept Drift: How P(Y|X) changes between periods")
     print("  3. Predictive Shift: How feature importance for predicting Y "
           "changes")
-    print(f"\nFeature Importance Method Used: {importance_method.upper()}")
+    print(f"\nDataset Used: {dataset_name.upper()}")
+    print(f"Feature Importance Method Used: {importance_method.upper()}")
 
 
 if __name__ == "__main__":
-    # You can easily switch between methods by changing this parameter
+
+    # --- CHOOSE YOUR SETTINGS HERE ---
+
+    # 1. Choose the dataset to run:
+    # Options:
+    # - DatasetName.CUSTOM_NORMAL (Your original dataset)
+    # - DatasetName.SEA_DRIFT (From the notebook, requires 'river')
+    # - DatasetName.HYPERPLANE_DRIFT (From the notebook, requires 'river')
+
+    DATASET_TO_RUN = DatasetName.HYPERPLANE_DRIFT
+
+    # 2. Choose the feature importance method:
     # Options: "permutation", "shap", "lime"
+    # (Note: "shap" and "lime" require installation)
 
-    # Example 1: Use Permutation Feature Importance (default, always available)
-    main(importance_method="permutation")
+    IMPORTANCE_METHOD_TO_RUN = "permutation"
 
-    # Example 2: Use SHAP values
-    # main(importance_method="shap")
+    # --- END SETTINGS ---
 
-    # Example 3: Use LIME
-    # main(importance_method="lime")
+    # Run the main analysis
+    main(dataset_name=DATASET_TO_RUN,
+         importance_method=IMPORTANCE_METHOD_TO_RUN)
+
+    # --- EXAMPLES OF OTHER RUNS (uncomment to try) ---
+
+    # Example 2: Run SEA_DRIFT with permutation
+    # print("\n\n" + "*"*80 + "\nRUNNING SEA_DRIFT ANALYSIS\n" + "*"*80)
+    # main(dataset_name=DatasetName.SEA_DRIFT,
+    #      importance_method="permutation")
+
+    # Example 3: Run HYPERPLANE_DRIFT with permutation
+    # print("\n\n" + "*"*80 + "\nRUNNING HYPERPLANE_DRIFT ANALYSIS\n" + "*"*80)
+    # main(dataset_name=DatasetName.HYPERPLANE_DRIFT,
+    #      importance_method="permutation")
+
+    # Example 4: Run CUSTOM_NORMAL with SHAP (if installed)
+    # print("\n\n" + "*"*80 + "\nRUNNING CUSTOM_NORMAL (SHAP) ANALYSIS\n" + "*"*80)
+    # main(dataset_name=DatasetName.CUSTOM_NORMAL,
+    #      importance_method="shap")
