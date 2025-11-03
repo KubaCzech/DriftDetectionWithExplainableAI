@@ -3,25 +3,10 @@ import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier
 from sklearn.inspection import permutation_importance
 from sklearn.decomposition import PCA
-import warnings
 import itertools
 from river.datasets import synth
-
-
-# Optional imports for SHAP and LIME
-try:
-    import shap
-    SHAP_AVAILABLE = True
-except ImportError:
-    SHAP_AVAILABLE = False
-    warnings.warn("SHAP not available. Install with: pip install shap")
-
-try:
-    from lime.lime_tabular import LimeTabularExplainer
-    LIME_AVAILABLE = True
-except ImportError:
-    LIME_AVAILABLE = False
-    warnings.warn("LIME not available. Install with: pip install lime")
+import shap
+from lime.lime_tabular import LimeTabularExplainer
 
 
 class FeatureImportanceMethod:
@@ -33,12 +18,7 @@ class FeatureImportanceMethod:
     @classmethod
     def all_available(cls):
         """Return list of all available methods."""
-        methods = [cls.PFI]  # PFI always available
-        if SHAP_AVAILABLE:
-            methods.append(cls.SHAP)
-        if LIME_AVAILABLE:
-            methods.append(cls.LIME)
-        return methods
+        return [cls.PFI, cls.SHAP, cls.LIME]
 
 
 def calculate_feature_importance(
@@ -82,15 +62,9 @@ def calculate_feature_importance(
         return _calculate_pfi(model, X, y, n_repeats, random_state)
 
     elif method == FeatureImportanceMethod.SHAP:
-        if not SHAP_AVAILABLE:
-            raise ImportError("SHAP not available. "
-                              "Install with: pip install shap")
         return _calculate_shap(model, X, feature_names)
 
     elif method == FeatureImportanceMethod.LIME:
-        if not LIME_AVAILABLE:
-            raise ImportError("LIME not available. "
-                              "Install with: pip install lime")
         return _calculate_lime(model, X, y, feature_names, random_state)
 
     else:
@@ -229,10 +203,8 @@ class DatasetName:
 
     @classmethod
     def all_available(cls):
-        methods = [cls.CUSTOM_NORMAL, cls.CUSTOM_3D_DRIFT]
-        if RIVER_AVAILABLE:
-            methods.extend([cls.SEA_DRIFT, cls.HYPERPLANE_DRIFT])
-        return methods
+        return [cls.CUSTOM_NORMAL, cls.CUSTOM_3D_DRIFT,
+                cls.SEA_DRIFT, cls.HYPERPLANE_DRIFT]
 
 
 def generate_custom_normal_data(n_samples_before=1000, n_samples_after=1000,
@@ -328,9 +300,6 @@ def _generate_river_data(river_stream, n_samples_before, n_samples_after):
     Helper function to generate data from a river stream.
     MODIFIED: Now returns a 2-feature dataset (X1, X2).
     """
-    if not RIVER_AVAILABLE:
-        raise ImportError("River library not installed.")
-
     X_all = []
     y_all = []
     total_samples = n_samples_before + n_samples_after
@@ -1237,9 +1206,6 @@ def main(dataset_name, importance_method="permutation"):
     available_datasets = DatasetName.all_available()
     if dataset_name not in available_datasets:
         print(f"Error: Dataset '{dataset_name}' is not available.")
-        if not RIVER_AVAILABLE and dataset_name in [DatasetName.SEA_DRIFT, DatasetName.HYPERPLANE_DRIFT]:
-            print("The 'river' library is not installed. "
-                  "Please install it with: pip install river")
         print(f"Available datasets: {available_datasets}")
         return
 
