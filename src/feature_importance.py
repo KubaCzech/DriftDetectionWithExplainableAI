@@ -38,10 +38,10 @@ class FeatureImportanceMethod:
 
 
 def calculate_feature_importance(
-        model, X, y, method="permutation",
-        feature_names=None, n_repeats=30,
-        random_state=42
-    ):
+    model, X, y, method="permutation",
+    feature_names=None, n_repeats=30,
+    random_state=42
+):
     """
     Calculate feature importance using specified method.
 
@@ -132,7 +132,7 @@ def _calculate_shap(model, X, feature_names):
     # We use class 1 (positive class) for binary classification
     if shap_values.ndim == 3:
         shap_values = shap_values[:, :, 1]
-    
+
     # Ensure shap_values is 2D: (n_samples, n_features)
     if shap_values.ndim == 1:
         shap_values = shap_values.reshape(-1, 1)
@@ -924,9 +924,9 @@ def compute_predictive_importance_shift(X1, X2, y, drift_point,
 
 
 def visualize_predictive_importance_shift(
-        analysis_result,
-        feature_names=['X1', 'X2']
-    ):
+    analysis_result,
+    feature_names=['X1', 'X2']
+):
     """
     Visualize the results of predictive importance shift analysis.
 
@@ -1047,7 +1047,7 @@ def main(importance_method="permutation"):
     if importance_method not in available_methods:
         print(f"Warning: '{importance_method}' not available.")
         print(f"Available methods: {available_methods}")
-        print(f"Falling back to 'permutation'")
+        print("Falling back to 'permutation'")
         importance_method = "permutation"
 
     print("=" * 70)
