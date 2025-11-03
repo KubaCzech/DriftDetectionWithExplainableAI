@@ -381,10 +381,11 @@ def visualize_data_stream(X, y, drift_point, feature_names):
     """
     Visualize the data stream before and after concept drift for N features.
 
-    Creates three separate figures:
+    Creates four separate figures:
     1. Feature distributions over time
     2. Feature-target relationships
-    3. Class distributions and 2D (PCA) Feature Space
+    3. Class distributions
+    4. 2D (PCA) Feature Space
 
     Parameters
     ----------
@@ -426,12 +427,12 @@ def visualize_data_stream(X, y, drift_point, feature_names):
     mask_after_c0 = mask_after & (y == 0)
     mask_after_c1 = mask_after & (y == 1)
 
-    # --- Figure 1: Feature Distributions over Time ---
+    # 🚀 --- Figure: Feature Distributions over Time --- 🚀
     fig1, axes1 = plt.subplots(n_features, 2,
                                figsize=(12, 4 * n_features),
                                squeeze=False)
-    fig1.suptitle('Figure 1: Feature Distributions over Time',
-                  fontsize=16, fontweight='bold', y=1.02)
+    fig1.suptitle('Feature Distributions over Time',
+                  fontsize=16, fontweight='bold', y=1.0)
 
     for i in range(n_features):
         ax_before = axes1[i, 0]
@@ -466,14 +467,16 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         ax_after.grid(True, alpha=0.3)
 
     plt.tight_layout()
+    # Increased top margin
+    fig1.subplots_adjust(top=0.92)
     plt.show()
 
-    # --- Figure 2: Feature vs Target Relationship ---
+    # 🔗 --- Figure: Feature vs Target Relationship --- 🔗
     fig2, axes2 = plt.subplots(n_features, 2,
                                figsize=(12, 4 * n_features),
                                squeeze=False)
-    fig2.suptitle('Figure 2: Feature vs Target Relationship',
-                  fontsize=16, fontweight='bold', y=1.02)
+    fig2.suptitle('Feature vs Target Relationship',
+                  fontsize=16, fontweight='bold', y=1.0)
 
     for i in range(n_features):
         ax_before = axes2[i, 0]
@@ -518,36 +521,40 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         ax_after.grid(True, alpha=0.3)
 
     plt.tight_layout()
+    # Increased top margin
+    fig2.subplots_adjust(top=0.92)
     plt.show()
+    
+    # 📊 --- Figure: Class Distribution --- 📊
+    fig3, (ax_class_before, ax_class_after) = plt.subplots(1, 2, figsize=(12, 6))
+    fig3.suptitle('Class Distribution',
+                  fontsize=16, fontweight='bold', y=1.0)
 
-    # --- Figure 3: Class Distribution and Feature Space ---
-    fig3 = plt.figure(figsize=(14, 12))
-    fig3.suptitle('Figure 3: Class Distribution and Feature Space',
-                  fontsize=16, fontweight='bold')
-
-    # Class distributions
-    ax_class_before = plt.subplot(2, 2, 1)
+    # Class distributions - Before
     ax_class_before.bar(['Class 0', 'Class 1'], class_dist_before,
                         color=[class_colors[0], class_colors[1]],
                         alpha=0.7, edgecolor='black')
     ax_class_before.set_ylabel('Proportion')
-    ax_class_before.set_title('Class Distribution - Before Drift')
+    ax_class_before.set_title('Before Drift')
     ax_class_before.set_ylim([0, 1])
     ax_class_before.grid(True, alpha=0.3, axis='y')
 
-    ax_class_after = plt.subplot(2, 2, 2)
+    # Class distributions - After
     ax_class_after.bar(['Class 0', 'Class 1'], class_dist_after,
                        color=[class_colors[0], class_colors[1]],
                        alpha=0.7, edgecolor='black')
     ax_class_after.set_ylabel('Proportion')
-    ax_class_after.set_title('Class Distribution - After Drift')
+    ax_class_after.set_title('After Drift')
     ax_class_after.set_ylim([0, 1])
     ax_class_after.grid(True, alpha=0.3, axis='y')
 
-    # Feature space
-    ax_fs_before = plt.subplot(2, 2, 3)
-    ax_fs_after = plt.subplot(2, 2, 4)
+    plt.tight_layout()
+    # Increased top margin
+    fig3.subplots_adjust(top=0.88)
+    plt.show()
 
+    # 🗺️ --- Figure: Feature Space --- 🗺️
+    fig4, (ax_fs_before, ax_fs_after) = plt.subplots(1, 2, figsize=(14, 7))
     fs_title_suffix = ""
 
     if n_features == 1:
@@ -564,27 +571,29 @@ def visualize_data_stream(X, y, drift_point, feature_names):
                          label='Class 1', color=class_colors[1])
         ax_fs_before.set_xlabel(feature_names[0])
         ax_fs_after.set_xlabel(feature_names[0])
+        ax_fs_before.set_ylabel('Frequency')
+        ax_fs_after.set_ylabel('Frequency')
 
     elif n_features == 2:
         # 2D plot
         X_before = X[mask_before]
         X_after = X[mask_after]
         ax_fs_before.scatter(X_before[y_before == 0, 0],
-                             X_before[y_before == 0, 1],
+                              X_before[y_before == 0, 1],
+                              alpha=0.5, s=20, label='Class 0',
+                              color=class_colors[0])
+        ax_fs_before.scatter(X_before[y_before == 1, 0],
+                              X_before[y_before == 1, 1],
+                              alpha=0.5, s=20, label='Class 1',
+                              color=class_colors[1])
+        ax_fs_after.scatter(X_after[y_after == 0, 0],
+                             X_after[y_after == 0, 1],
                              alpha=0.5, s=20, label='Class 0',
                              color=class_colors[0])
-        ax_fs_before.scatter(X_before[y_before == 1, 0],
-                             X_before[y_before == 1, 1],
+        ax_fs_after.scatter(X_after[y_after == 1, 0],
+                             X_after[y_after == 1, 1],
                              alpha=0.5, s=20, label='Class 1',
                              color=class_colors[1])
-        ax_fs_after.scatter(X_after[y_after == 0, 0],
-                            X_after[y_after == 0, 1],
-                            alpha=0.5, s=20, label='Class 0',
-                            color=class_colors[0])
-        ax_fs_after.scatter(X_after[y_after == 1, 0],
-                            X_after[y_after == 1, 1],
-                            alpha=0.5, s=20, label='Class 1',
-                            color=class_colors[1])
         ax_fs_before.set_xlabel(feature_names[0])
         ax_fs_before.set_ylabel(feature_names[1])
         ax_fs_after.set_xlabel(feature_names[0])
@@ -600,36 +609,41 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         y_after_pca = y[mask_after]
 
         ax_fs_before.scatter(X_2d_before[y_before_pca == 0, 0],
-                             X_2d_before[y_before_pca == 0, 1],
+                              X_2d_before[y_before_pca == 0, 1],
+                              alpha=0.5, s=20, label='Class 0',
+                              color=class_colors[0])
+        ax_fs_before.scatter(X_2d_before[y_before_pca == 1, 0],
+                              X_2d_before[y_before_pca == 1, 1],
+                              alpha=0.5, s=20, label='Class 1',
+                              color=class_colors[1])
+        ax_fs_after.scatter(X_2d_after[y_after_pca == 0, 0],
+                             X_2d_after[y_after_pca == 0, 1],
                              alpha=0.5, s=20, label='Class 0',
                              color=class_colors[0])
-        ax_fs_before.scatter(X_2d_before[y_before_pca == 1, 0],
-                             X_2d_before[y_before_pca == 1, 1],
+        ax_fs_after.scatter(X_2d_after[y_after_pca == 1, 0],
+                             X_2d_after[y_after_pca == 1, 1],
                              alpha=0.5, s=20, label='Class 1',
                              color=class_colors[1])
-        ax_fs_after.scatter(X_2d_after[y_after_pca == 0, 0],
-                            X_2d_after[y_after_pca == 0, 1],
-                            alpha=0.5, s=20, label='Class 0',
-                            color=class_colors[0])
-        ax_fs_after.scatter(X_2d_after[y_after_pca == 1, 0],
-                            X_2d_after[y_after_pca == 1, 1],
-                            alpha=0.5, s=20, label='Class 1',
-                            color=class_colors[1])
         ax_fs_before.set_xlabel('Principal Component 1')
         ax_fs_before.set_ylabel('Principal Component 2')
         ax_fs_after.set_xlabel('Principal Component 1')
         ax_fs_after.set_ylabel('Principal Component 2')
         fs_title_suffix = " (PCA)"
 
-    ax_fs_before.set_title(f'Feature Space{fs_title_suffix} - Before Drift')
+    ax_fs_before.set_title('Before Drift')
     ax_fs_before.legend()
     ax_fs_before.grid(True, alpha=0.3)
 
-    ax_fs_after.set_title(f'Feature Space{fs_title_suffix} - After Drift')
+    ax_fs_after.set_title('After Drift')
     ax_fs_after.legend()
     ax_fs_after.grid(True, alpha=0.3)
+    
+    fig4.suptitle('Feature Space' + fs_title_suffix,
+                  fontsize=16, fontweight='bold', y=1.0)
 
     plt.tight_layout()
+    # Increased top margin
+    fig4.subplots_adjust(top=0.88)
     plt.show()
 
 
@@ -1364,7 +1378,7 @@ if __name__ == "__main__":
     # - DatasetName.SEA_DRIFT (2-feature dataset, requires 'river')
     # - DatasetName.HYPERPLANE_DRIFT (2-feature dataset, requires 'river')
 
-    DATASET_TO_RUN = DatasetName.SEA_DRIFT
+    DATASET_TO_RUN = DatasetName.CUSTOM_NORMAL
 
     # 2. Choose the feature importance method:
     # Options: "permutation", "shap", "lime"
@@ -1374,7 +1388,7 @@ if __name__ == "__main__":
 
     # 3. Toggle for showing importance score boxplots:
     # Options: True or False
-    SHOW_IMPORTANCE_BOXPLOT = True
+    SHOW_IMPORTANCE_BOXPLOT = False
 
     # --- END SETTINGS ---
 
