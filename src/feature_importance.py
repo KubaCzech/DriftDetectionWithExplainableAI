@@ -464,9 +464,9 @@ def visualize_data_stream(X1, X2, y, drift_point):
     plt.show()
 
 
-def analyze_data_drift(X1, X2, y, drift_point, importance_method="permutation"):
+def compute_data_drift_analysis(X1, X2, y, drift_point, importance_method="permutation"):
     """
-    Analyze data drift by classifying time periods using only features (X).
+    Compute data drift analysis by classifying time periods using only features (X).
 
     This function trains a neural network to distinguish between before-drift
     and after-drift data points based solely on feature distributions P(X).
@@ -543,7 +543,30 @@ def analyze_data_drift(X1, X2, y, drift_point, importance_method="permutation"):
     print(f"  X1: {importance_mean[0]:.4f} ± {importance_std[0]:.4f}")
     print(f"  X2: {importance_mean[1]:.4f} ± {importance_std[1]:.4f}")
 
-    # Visualize results
+    return {
+        'model': nn_model,
+        'accuracy': nn_accuracy,
+        'importance_result': fi_result,
+        'importance_mean': importance_mean,
+        'importance_std': importance_std
+    }
+
+
+def visualize_data_drift_analysis(analysis_result, feature_names=['X1', 'X2']):
+    """
+    Visualize the results of data drift analysis.
+
+    Parameters
+    ----------
+    analysis_result : dict
+        Result dictionary from compute_data_drift_analysis
+    feature_names : list, default=['X1', 'X2']
+        Names of features
+    """
+    fi_result = analysis_result['importance_result']
+    importance_mean = analysis_result['importance_mean']
+    importance_std = analysis_result['importance_std']
+
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     fig.suptitle(f'Feature Importance for Data Drift (X-only Classification) - {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
@@ -576,19 +599,37 @@ def analyze_data_drift(X1, X2, y, drift_point, importance_method="permutation"):
     plt.tight_layout()
     plt.show()
 
-    return {
-        'model': nn_model,
-        'accuracy': nn_accuracy,
-        'importance_result': fi_result,
-        'importance_mean': importance_mean,
-        'importance_std': importance_std
-    }
 
-
-def analyze_concept_drift(X1, X2, y, drift_point, importance_method="permutation"):
+def analyze_data_drift(X1, X2, y, drift_point, importance_method="permutation"):
     """
-    Analyze concept drift by classifying time periods using features and target
-    (X, Y).
+    Analyze and visualize data drift by classifying time periods using only features (X).
+
+    Parameters
+    ----------
+    X1 : array-like
+        Feature 1 values
+    X2 : array-like
+        Feature 2 values
+    y : array-like
+        Binary class labels (not used in this analysis)
+    drift_point : int
+        Index where drift occurs
+    importance_method : str, default="permutation"
+        Method for feature importance: "permutation", "shap", or "lime"
+
+    Returns
+    -------
+    dict
+        Dictionary containing analysis results
+    """
+    result = compute_data_drift_analysis(X1, X2, y, drift_point, importance_method)
+    visualize_data_drift_analysis(result)
+    return result
+
+
+def compute_concept_drift_analysis(X1, X2, y, drift_point, importance_method="permutation"):
+    """
+    Compute concept drift analysis by classifying time periods using features and target (X, Y).
 
     This function trains a neural network to distinguish between before-drift
     and after-drift data points using both features and target P(X, Y).
@@ -665,29 +706,50 @@ def analyze_concept_drift(X1, X2, y, drift_point, importance_method="permutation
     print(f"  Y:  {importance_mean[2]:.4f} ± {importance_std[2]:.4f}")
     print("=" * 70)
 
-    # Visualize results
+    return {
+        'model': nn_model_xy,
+        'accuracy': nn_accuracy_xy,
+        'importance_result': fi_result,
+        'importance_mean': importance_mean,
+        'importance_std': importance_std
+    }
+
+
+def visualize_concept_drift_analysis(analysis_result, feature_names=['X1', 'X2', 'Y']):
+    """
+    Visualize the results of concept drift analysis.
+
+    Parameters
+    ----------
+    analysis_result : dict
+        Result dictionary from compute_concept_drift_analysis
+    feature_names : list, default=['X1', 'X2', 'Y']
+        Names of features
+    """
+    fi_result = analysis_result['importance_result']
+    importance_mean = analysis_result['importance_mean']
+    importance_std = analysis_result['importance_std']
+
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     fig.suptitle(f'Feature Importance for Concept Drift (X+Y Classification) - {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
 
-    features_x_y = ['X1', 'X2', 'Y']
-
     # Plot 1: Bar plot
     ax = axes[0]
-    x_pos = np.arange(len(features_x_y))
+    x_pos = np.arange(len(feature_names))
     ax.bar(x_pos, importance_mean, yerr=importance_std,
            color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
     ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
     ax.set_title(f'{fi_result["method"]} for Detecting Time-Period (Concept Drift)')
     ax.set_xticks(x_pos)
-    ax.set_xticklabels(features_x_y)
+    ax.set_xticklabels(feature_names)
     ax.grid(True, alpha=0.3, axis='y')
 
     # Plot 2: Box plot
     ax = axes[1]
     importances = fi_result['importances']
-    bp = ax.boxplot([importances[i] for i in range(len(features_x_y))],
-                    tick_labels=features_x_y, patch_artist=True, notch=True,
+    bp = ax.boxplot([importances[i] for i in range(len(feature_names))],
+                    tick_labels=feature_names, patch_artist=True, notch=True,
                     showmeans=True)
     for patch in bp['boxes']:
         patch.set_facecolor('#e74c3c')
@@ -700,19 +762,38 @@ def analyze_concept_drift(X1, X2, y, drift_point, importance_method="permutation
     plt.tight_layout()
     plt.show()
 
-    return {
-        'model': nn_model_xy,
-        'accuracy': nn_accuracy_xy,
-        'importance_result': fi_result,
-        'importance_mean': importance_mean,
-        'importance_std': importance_std
-    }
+
+def analyze_concept_drift(X1, X2, y, drift_point, importance_method="permutation"):
+    """
+    Analyze and visualize concept drift by classifying time periods using features and target (X, Y).
+
+    Parameters
+    ----------
+    X1 : array-like
+        Feature 1 values
+    X2 : array-like
+        Feature 2 values
+    y : array-like
+        Binary class labels
+    drift_point : int
+        Index where drift occurs
+    importance_method : str, default="permutation"
+        Method for feature importance: "permutation", "shap", or "lime"
+
+    Returns
+    -------
+    dict
+        Dictionary containing analysis results
+    """
+    result = compute_concept_drift_analysis(X1, X2, y, drift_point, importance_method)
+    visualize_concept_drift_analysis(result)
+    return result
 
 
-def analyze_predictive_importance_shift(X1, X2, y, drift_point, 
+def compute_predictive_importance_shift(X1, X2, y, drift_point, 
                                         importance_method="permutation"):
     """
-    Analyze how predictive feature importance shifts before and after drift.
+    Compute how predictive feature importance shifts before and after drift.
 
     This function trains separate neural networks to predict the target
     variable before and after the drift, then compares the feature importance
@@ -808,7 +889,30 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point,
           f"{fi_after['importances_std'][1]:.4f}")
     print("=" * 70)
 
-    # Visualize results
+    return {
+        'model_before': mlp_before,
+        'model_after': mlp_after,
+        'accuracy_before': acc_before,
+        'accuracy_after': acc_after,
+        'fi_before': fi_before,
+        'fi_after': fi_after
+    }
+
+
+def visualize_predictive_importance_shift(analysis_result, feature_names=['X1', 'X2']):
+    """
+    Visualize the results of predictive importance shift analysis.
+
+    Parameters
+    ----------
+    analysis_result : dict
+        Result dictionary from compute_predictive_importance_shift
+    feature_names : list, default=['X1', 'X2']
+        Names of features
+    """
+    fi_before = analysis_result['fi_before']
+    fi_after = analysis_result['fi_after']
+
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     fig.suptitle(f'Predictive Feature Importance (NN Before vs After Drift) - {fi_before["method"]}',
                  fontsize=14, fontweight='bold')
@@ -860,14 +964,33 @@ def analyze_predictive_importance_shift(X1, X2, y, drift_point,
     plt.tight_layout()
     plt.show()
 
-    return {
-        'model_before': mlp_before,
-        'model_after': mlp_after,
-        'accuracy_before': acc_before,
-        'accuracy_after': acc_after,
-        'fi_before': fi_before,
-        'fi_after': fi_after
-    }
+
+def analyze_predictive_importance_shift(X1, X2, y, drift_point, 
+                                        importance_method="permutation"):
+    """
+    Analyze and visualize how predictive feature importance shifts before and after drift.
+
+    Parameters
+    ----------
+    X1 : array-like
+        Feature 1 values
+    X2 : array-like
+        Feature 2 values
+    y : array-like
+        Binary class labels
+    drift_point : int
+        Index where drift occurs
+    importance_method : str, default="permutation"
+        Method for feature importance: "permutation", "shap", or "lime"
+
+    Returns
+    -------
+    dict
+        Dictionary containing analysis results
+    """
+    result = compute_predictive_importance_shift(X1, X2, y, drift_point, importance_method)
+    visualize_predictive_importance_shift(result)
+    return result
 
 
 def main(importance_method="permutation"):
