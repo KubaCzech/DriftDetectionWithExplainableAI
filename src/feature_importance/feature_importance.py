@@ -2,37 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier
 from sklearn.inspection import permutation_importance
-import warnings
+from sklearn.decomposition import PCA
 import itertools
-
-# --- NEW IMPORTS ---
-# Added 'river' imports for synthetic dataset generation
-try:
-    from river.datasets import synth
-    from river import stream
-    RIVER_AVAILABLE = True
-except ImportError:
-    RIVER_AVAILABLE = False
-    warnings.warn(
-        "River not available. Install with: pip install river. "
-        "SEA and Hyperplane datasets will not be available."
-    )
-# --- END NEW IMPORTS ---
-
-# Optional imports for SHAP and LIME
-try:
-    import shap
-    SHAP_AVAILABLE = True
-except ImportError:
-    SHAP_AVAILABLE = False
-    warnings.warn("SHAP not available. Install with: pip install shap")
-
-try:
-    from lime.lime_tabular import LimeTabularExplainer
-    LIME_AVAILABLE = True
-except ImportError:
-    LIME_AVAILABLE = False
-    warnings.warn("LIME not available. Install with: pip install lime")
+from river.datasets import synth
+import shap
+from lime.lime_tabular import LimeTabularExplainer
 
 
 class FeatureImportanceMethod:
@@ -44,12 +18,7 @@ class FeatureImportanceMethod:
     @classmethod
     def all_available(cls):
         """Return list of all available methods."""
-        methods = [cls.PFI]  # PFI always available
-        if SHAP_AVAILABLE:
-            methods.append(cls.SHAP)
-        if LIME_AVAILABLE:
-            methods.append(cls.LIME)
-        return methods
+        return [cls.PFI, cls.SHAP, cls.LIME]
 
 
 def calculate_feature_importance(
@@ -93,15 +62,9 @@ def calculate_feature_importance(
         return _calculate_pfi(model, X, y, n_repeats, random_state)
 
     elif method == FeatureImportanceMethod.SHAP:
-        if not SHAP_AVAILABLE:
-            raise ImportError("SHAP not available. "
-                              "Install with: pip install shap")
         return _calculate_shap(model, X, feature_names)
 
     elif method == FeatureImportanceMethod.LIME:
-        if not LIME_AVAILABLE:
-            raise ImportError("LIME not available. "
-                              "Install with: pip install lime")
         return _calculate_lime(model, X, y, feature_names, random_state)
 
     else:
@@ -148,7 +111,7 @@ def _calculate_shap(model, X, feature_names):
     # For multiclass, this logic would need to adapt
     if isinstance(shap_values, list) and len(shap_values) == 2:
         shap_values = shap_values[1]
-    
+
     # Handle possible 3D array for some model types
     if shap_values.ndim == 3:
         shap_values = shap_values[:, :, 1]
@@ -231,46 +194,28 @@ def _calculate_lime(model, X, y, feature_names, random_state=42):
     }
 
 
-# --- NEW: DATASET NAME ENUM ---
 class DatasetName:
     """Enum-like class for selecting datasets."""
     CUSTOM_NORMAL = "custom_normal"
+    CUSTOM_3D_DRIFT = "custom_3d_drift"
     SEA_DRIFT = "sea_drift"
     HYPERPLANE_DRIFT = "hyperplane_drift"
 
     @classmethod
     def all_available(cls):
-        methods = [cls.CUSTOM_NORMAL]
-        if RIVER_AVAILABLE:
-            methods.extend([cls.SEA_DRIFT, cls.HYPERPLANE_DRIFT])
-        return methods
+        return [cls.CUSTOM_NORMAL, cls.CUSTOM_3D_DRIFT,
+                cls.SEA_DRIFT, cls.HYPERPLANE_DRIFT]
 
 
-# --- MODIFIED: Renamed function ---
 def generate_custom_normal_data(n_samples_before=1000, n_samples_after=1000,
                                 random_seed=42):
     """
-    Generate synthetic data stream with concept drift (Original Function).
+    Generate synthetic data stream with concept drift (Original Function, 2D).
 
-    This function creates a binary classification dataset where both the
-    feature distributions P(X) and the conditional distribution P(Y|X) change
-    between two time periods, simulating concept drift.
-
-    Before drift:
-        - X1 ~ N(0, 1), X2 ~ N(0, 1)
-        - P(y=1) ~ 0.7 (70% class 1, 30% class 0)
-        - Decision boundary: 2*X1 + 0.5*X2 > threshold
-
-    After drift:
-        - X1 ~ N(2, 1.5) - MAJOR SHIFT in mean and variance
-        - X2 ~ N(0.2, 1.05) - minor shift in mean and variance
-        - P(y=1) ~ 0.3 (30% class 1, 70% class 0)
-        - Decision boundary: -1.5*X1 + 0.6*X2 > threshold
-    
     Returns
     -------
     tuple
-        (X1, X2, y, drift_point)
+        (X, y, drift_point, feature_names)
     """
     np.random.seed(random_seed)
 
@@ -293,52 +238,109 @@ def generate_custom_normal_data(n_samples_before=1000, n_samples_after=1000,
     # Combine data
     X1 = np.concatenate([X1_before, X1_after])
     X2 = np.concatenate([X2_before, X2_after])
+    X = np.column_stack([X1, X2])
     y = np.concatenate([y_before, y_after])
-
     drift_point = n_samples_before
+    feature_names = ['X1', 'X2']
 
-    return X1, X2, y, drift_point
+    return X, y, drift_point, feature_names
 
 
-# --- NEW: RIVER-BASED DATA GENERATORS ---
+def generate_custom_3d_drift_data(n_samples_before=1000, n_samples_after=1000,
+                                  random_seed=42):
+    """
+    Generate synthetic 3D data stream with concept drift.
+
+    Before drift:
+        - X1, X2, X3 ~ N(0, 1)
+        - Decision boundary: X1 + X2 + X3 > threshold
+
+    After drift:
+        - X1, X2 ~ N(0, 1)
+        - X3 ~ N(3, 1.5)  (Data Drift on X3)
+        - Decision boundary: X1 + X2 - 2*X3 > threshold (Concept Drift)
+
+    Returns
+    -------
+    tuple
+        (X, y, drift_point, feature_names)
+    """
+    np.random.seed(random_seed)
+
+    # Before drift
+    X_before = np.random.normal(0, 1, (n_samples_before, 3))
+    scores_before = (X_before[:, 0] + X_before[:, 1] + X_before[:, 2] +
+                     np.random.normal(0, 0.5, n_samples_before))
+    threshold_before = np.percentile(scores_before, 40)
+    y_before = (scores_before > threshold_before).astype(int)
+
+    # After drift
+    X1_after = np.random.normal(0, 1, n_samples_after)
+    X2_after = np.random.normal(0, 1, n_samples_after)
+    X3_after = np.random.normal(3, 1.5, n_samples_after)  # Data drift on X3
+    X_after = np.column_stack([X1_after, X2_after, X3_after])
+
+    # Concept drift: X3 becomes more important and inverts relationship
+    scores_after = (X_after[:, 0] + X_after[:, 1] - 2 * X_after[:, 2] +
+                    np.random.normal(0, 0.5, n_samples_after))
+    threshold_after = np.percentile(scores_after, 60)
+    y_after = (scores_after > threshold_after).astype(int)
+
+    # Combine data
+    X = np.concatenate([X_before, X_after])
+    y = np.concatenate([y_before, y_after])
+    drift_point = n_samples_before
+    feature_names = ['X1', 'X2', 'X3']
+
+    return X, y, drift_point, feature_names
+
 
 def _generate_river_data(river_stream, n_samples_before, n_samples_after):
-    """Helper function to generate data from a river stream."""
-    if not RIVER_AVAILABLE:
-        raise ImportError("River library not installed.")
-        
+    """
+    Helper function to generate data from a river stream.
+    MODIFIED: Now returns a 2-feature dataset (X1, X2).
+    """
     X_all = []
     y_all = []
     total_samples = n_samples_before + n_samples_after
 
-    for x, y_val in itertools.islice(river_stream, total_samples):
-        # Ensure we only take 2 features for compatibility
-        # SEA has 3 features, but only first 2 are relevant
-        X_all.append([x[0], x[1]])
-        y_all.append(y_val)
-    
-    X_all = np.array(X_all)
-    y_all = np.array(y_all)
-    
-    X1 = X_all[:, 0]
-    X2 = X_all[:, 1]
-    y = y_all
+    # Take first sample to determine feature names
+    try:
+        # Get remaining samples
+        for x, y_val in itertools.islice(river_stream, total_samples):
+            # Explicitly take only the first two features
+            X_all.append([x[0], x[1]])
+            y_all.append(y_val)
+
+    except StopIteration:
+        print("Warning: Stream is empty or has fewer samples than requested.")
+        return np.array([]), np.array([]), 0, []
+    except KeyError:
+        print("Warning: Stream does not use numeric keys 0 and 1. "
+              "Failed to extract 2 features.")
+        return np.array([]), np.array([]), 0, []
+
+    X = np.array(X_all)
+    y = np.array(y_all)
     drift_point = n_samples_before
-    
-    return X1, X2, y, drift_point
+
+    # Rename river features for clarity
+    feature_names = ['X1', 'X2']
+
+    return X, y, drift_point, feature_names
+
 
 def generate_sea_drift_data(n_samples_before=1000, n_samples_after=1000,
                             random_seed=42):
     """
     Generate synthetic data stream using River's SEA generator.
-    
     Drifts from variant 0 to variant 3 at the drift point.
-    The SEA generator has 3 features; we use the first 2.
+    The SEA generator has 3 features, but we only use the first 2.
 
     Returns
     -------
     tuple
-        (X1, X2, y, drift_point)
+        (X, y, drift_point, feature_names)
     """
     stream_SEA = synth.ConceptDriftStream(
         stream=synth.SEA(seed=random_seed, variant=0),
@@ -349,23 +351,24 @@ def generate_sea_drift_data(n_samples_before=1000, n_samples_after=1000,
     )
     return _generate_river_data(stream_SEA, n_samples_before, n_samples_after)
 
+
 def generate_hyperplane_data(n_samples_before=1000, n_samples_after=1000,
                              random_seed=42):
     """
     Generate synthetic data stream using River's Hyperplane generator.
-    
     Drifts from a stable hyperplane to one with magnitude change.
-    Uses n_features=2 for compatibility with analysis functions.
+    Uses n_features=2 for this example.
 
     Returns
     -------
     tuple
-        (X1, X2, y, drift_point)
+        (X, y, drift_point, feature_names)
     """
     stream_HP = synth.ConceptDriftStream(
-        stream=synth.Hyperplane(n_features=2, seed=random_seed,
-                                noise_percentage=0.05),
-        drift_stream=synth.Hyperplane(n_features=2, seed=random_seed,
+        stream=synth.Hyperplane(n_features=2,
+                                seed=random_seed, noise_percentage=0.05),
+        drift_stream=synth.Hyperplane(n_features=2,
+                                      seed=random_seed,
                                       mag_change=0.2, noise_percentage=0.1),
         position=n_samples_before,
         width=400,  # Gradual drift
@@ -373,31 +376,30 @@ def generate_hyperplane_data(n_samples_before=1000, n_samples_after=1000,
     )
     return _generate_river_data(stream_HP, n_samples_before, n_samples_after)
 
-# --- END NEW DATA GENERATORS ---
 
-
-def visualize_data_stream(X1, X2, y, drift_point):
+def visualize_data_stream(X, y, drift_point, feature_names):
     """
-    Visualize the data stream before and after concept drift.
+    Visualize the data stream before and after concept drift for N features.
 
-    Creates a comprehensive 3x4 grid of plots showing:
-    - Feature distributions over time (X1 and X2)
-    - Class distributions before and after drift
-    - Feature space visualizations
-    - Feature-target relationships
+    Creates four separate figures:
+    1. Feature distributions over time
+    2. Feature-target relationships
+    3. Class distributions
+    4. 2D (PCA) Feature Space
 
     Parameters
     ----------
-    X1 : array-like
-        Feature 1 values
-    X2 : array-like
-        Feature 2 values
-    y : array-like
+    X : array-like (n_samples, n_features)
+        Feature matrix
+    y : array-like (n_samples,)
         Binary class labels
     drift_point : int
         Index where drift occurs
+    feature_names : list
+        Names of features
     """
-    time_steps = np.arange(len(X1))
+    n_features = X.shape[1]
+    time_steps = np.arange(len(y))
     y_before = y[:drift_point]
     y_after = y[drift_point:]
 
@@ -414,195 +416,260 @@ def visualize_data_stream(X1, X2, y, drift_point):
           f"Class 1: {class_dist_after[1]:.2%}")
     print("=" * 70)
 
-    # Create figure
-    fig = plt.figure(figsize=(16, 12))
-    fig.suptitle('Data Stream Visualization: Before vs After Concept Drift',
-                 fontsize=16, fontweight='bold')
-
     # Colors for the two classes
     class_colors = {0: '#FF6B6B', 1: '#4ECDC4'}
 
     # Create masks for different periods and classes
-    mask_before_c0 = (time_steps < drift_point) & (y == 0)
-    mask_before_c1 = (time_steps < drift_point) & (y == 1)
-    mask_after_c0 = (time_steps >= drift_point) & (y == 0)
-    mask_after_c1 = (time_steps >= drift_point) & (y == 1)
+    mask_before = (time_steps < drift_point)
+    mask_after = (time_steps >= drift_point)
+    mask_before_c0 = mask_before & (y == 0)
+    mask_before_c1 = mask_before & (y == 1)
+    mask_after_c0 = mask_after & (y == 0)
+    mask_after_c1 = mask_after & (y == 1)
 
-    # Row 1: X1 distributions
-    ax1 = plt.subplot(3, 4, 1)
-    ax1.scatter(time_steps[mask_before_c0], X1[mask_before_c0], alpha=0.5,
-                s=20, label='Class 0', color=class_colors[0])
-    ax1.scatter(time_steps[mask_before_c1], X1[mask_before_c1], alpha=0.5,
-                s=20, label='Class 1', color=class_colors[1])
-    ax1.set_xlabel('Time')
-    ax1.set_ylabel('X1 Value')
-    ax1.set_title('X1 - Before Drift')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
+    # 🚀 --- Figure: Feature Distributions over Time --- 🚀
+    fig1, axes1 = plt.subplots(n_features, 2,
+                               figsize=(12, 4 * n_features),
+                               squeeze=False)
+    fig1.suptitle('Feature Distributions over Time',
+                  fontsize=16, fontweight='bold', y=1.0)
 
-    ax2 = plt.subplot(3, 4, 2)
-    ax2.scatter(time_steps[mask_after_c0], X1[mask_after_c0], alpha=0.5,
-                s=20, label='Class 0', color=class_colors[0])
-    ax2.scatter(time_steps[mask_after_c1], X1[mask_after_c1], alpha=0.5,
-                s=20, label='Class 1', color=class_colors[1])
-    ax2.set_xlabel('Time')
-    ax2.set_ylabel('X1 Value')
-    ax2.set_title('X1 - After Drift')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+    for i in range(n_features):
+        ax_before = axes1[i, 0]
+        ax_after = axes1[i, 1]
+        feat_name = feature_names[i]
+        feat_data = X[:, i]
 
-    # Row 1: X2 distributions
-    ax3 = plt.subplot(3, 4, 3)
-    ax3.scatter(time_steps[mask_before_c0], X2[mask_before_c0], alpha=0.5,
-                s=20, label='Class 0', color=class_colors[0])
-    ax3.scatter(time_steps[mask_before_c1], X2[mask_before_c1], alpha=0.5,
-                s=20, label='Class 1', color=class_colors[1])
-    ax3.set_xlabel('Time')
-    ax3.set_ylabel('X2 Value')
-    ax3.set_title('X2 - Before Drift')
-    ax3.legend()
-    ax3.grid(True, alpha=0.3)
+        # Before Drift
+        ax_before.scatter(time_steps[mask_before_c0], feat_data[mask_before_c0],
+                          alpha=0.5, s=20, label='Class 0',
+                          color=class_colors[0])
+        ax_before.scatter(time_steps[mask_before_c1], feat_data[mask_before_c1],
+                          alpha=0.5, s=20, label='Class 1',
+                          color=class_colors[1])
+        ax_before.set_xlabel('Time')
+        ax_before.set_ylabel(f'{feat_name} Value')
+        ax_before.set_title(f'{feat_name} - Before Drift')
+        ax_before.legend()
+        ax_before.grid(True, alpha=0.3)
 
-    ax4 = plt.subplot(3, 4, 4)
-    ax4.scatter(time_steps[mask_after_c0], X2[mask_after_c0], alpha=0.5,
-                s=20, label='Class 0', color=class_colors[0])
-    ax4.scatter(time_steps[mask_after_c1], X2[mask_after_c1], alpha=0.5,
-                s=20, label='Class 1', color=class_colors[1])
-    ax4.set_xlabel('Time')
-    ax4.set_ylabel('X2 Value')
-    ax4.set_title('X2 - After Drift')
-    ax4.legend()
-    ax4.grid(True, alpha=0.3)
-
-    # Row 2: Class distributions
-    ax5 = plt.subplot(3, 4, 5)
-    ax5.bar(['Class 0', 'Class 1'], class_dist_before,
-            color=[class_colors[0], class_colors[1]],
-            alpha=0.7, edgecolor='black')
-    ax5.set_ylabel('Proportion')
-    ax5.set_title('Class Distribution - Before Drift')
-    ax5.set_ylim([0, 1])
-    ax5.grid(True, alpha=0.3, axis='y')
-
-    ax6 = plt.subplot(3, 4, 6)
-    ax6.bar(['Class 0', 'Class 1'], class_dist_after,
-            color=[class_colors[0], class_colors[1]],
-            alpha=0.7, edgecolor='black')
-    ax6.set_ylabel('Proportion')
-    ax6.set_title('Class Distribution - After Drift')
-    ax6.set_ylim([0, 1])
-    ax6.grid(True, alpha=0.3, axis='y')
-
-    # Row 2: X1 vs X2 feature space
-    ax7 = plt.subplot(3, 4, 7)
-    ax7.scatter(X1[mask_before_c0], X2[mask_before_c0], alpha=0.5, s=20,
-                label='Class 0', color=class_colors[0])
-    ax7.scatter(X1[mask_before_c1], X2[mask_before_c1], alpha=0.5, s=20,
-                label='Class 1', color=class_colors[1])
-    ax7.set_xlabel('X1')
-    ax7.set_ylabel('X2')
-    ax7.set_title('Feature Space - Before Drift')
-    ax7.legend()
-    ax7.grid(True, alpha=0.3)
-
-    ax8 = plt.subplot(3, 4, 8)
-    ax8.scatter(X1[mask_after_c0], X2[mask_after_c0], alpha=0.5, s=20,
-                label='Class 0', color=class_colors[0])
-    ax8.scatter(X1[mask_after_c1], X2[mask_after_c1], alpha=0.5, s=20,
-                label='Class 1', color=class_colors[1])
-    ax8.set_xlabel('X1')
-    ax8.set_ylabel('X2')
-    ax8.set_title('Feature Space - After Drift')
-    ax8.legend()
-    ax8.grid(True, alpha=0.3)
-
-    # Row 3: X1 vs Y relationship
-    ax9 = plt.subplot(3, 4, 9)
-    ax9.scatter(X1[mask_before_c0], [0]*np.sum(mask_before_c0), alpha=0.5,
-                s=20, label='Class 0', color=class_colors[0])
-    ax9.scatter(X1[mask_before_c1], [1]*np.sum(mask_before_c1), alpha=0.5,
-                s=20, label='Class 1', color=class_colors[1])
-    ax9.set_xlabel('X1')
-    ax9.set_ylabel('Target Class')
-    ax9.set_title('X1 vs Target - Before Drift')
-    ax9.set_yticks([0, 1])
-    ax9.legend()
-    ax9.grid(True, alpha=0.3)
-
-    ax10 = plt.subplot(3, 4, 10)
-    ax10.scatter(X1[mask_after_c0], [0]*np.sum(mask_after_c0), alpha=0.5,
-                 s=20, label='Class 0', color=class_colors[0])
-    ax10.scatter(X1[mask_after_c1], [1]*np.sum(mask_after_c1), alpha=0.5,
-                 s=20, label='Class 1', color=class_colors[1])
-    ax10.set_xlabel('X1')
-    ax10.set_ylabel('Target Class')
-    ax10.set_title('X1 vs Target - After Drift')
-    ax10.set_yticks([0, 1])
-    ax10.legend()
-    ax10.grid(True, alpha=0.3)
-
-    # Row 3: X2 vs Y relationship
-    ax11 = plt.subplot(3, 4, 11)
-    ax11.scatter(X2[mask_before_c0], [0]*np.sum(mask_before_c0), alpha=0.5,
-                 s=20, label='Class 0', color=class_colors[0])
-    ax11.scatter(X2[mask_before_c1], [1]*np.sum(mask_before_c1), alpha=0.5,
-                 s=20, label='Class 1', color=class_colors[1])
-    ax11.set_xlabel('X2')
-    ax11.set_ylabel('Target Class')
-    ax11.set_title('X2 vs Target - Before Drift')
-    ax11.set_yticks([0, 1])
-    ax11.legend()
-    ax11.grid(True, alpha=0.3)
-
-    ax12 = plt.subplot(3, 4, 12)
-    ax12.scatter(X2[mask_after_c0], [0]*np.sum(mask_after_c0), alpha=0.5,
-                 s=20, label='Class 0', color=class_colors[0])
-    ax12.scatter(X2[mask_after_c1], [1]*np.sum(mask_after_c1), alpha=0.5,
-                 s=20, label='Class 1', color=class_colors[1])
-    ax12.set_xlabel('X2')
-    ax12.set_ylabel('Target Class')
-    ax12.set_title('X2 vs Target - After Drift')
-    ax12.set_yticks([0, 1])
-    ax12.legend()
-    ax12.grid(True, alpha=0.3)
+        # After Drift
+        ax_after.scatter(time_steps[mask_after_c0], feat_data[mask_after_c0],
+                         alpha=0.5, s=20, label='Class 0',
+                         color=class_colors[0])
+        ax_after.scatter(time_steps[mask_after_c1], feat_data[mask_after_c1],
+                         alpha=0.5, s=20, label='Class 1',
+                         color=class_colors[1])
+        ax_after.set_xlabel('Time')
+        ax_after.set_ylabel(f'{feat_name} Value')
+        ax_after.set_title(f'{feat_name} - After Drift')
+        ax_after.legend()
+        ax_after.grid(True, alpha=0.3)
 
     plt.tight_layout()
+    # Increased top margin
+    fig1.subplots_adjust(top=0.92)
+    plt.show()
+
+    # 🔗 --- Figure: Feature vs Target Relationship --- 🔗
+    fig2, axes2 = plt.subplots(n_features, 2,
+                               figsize=(12, 4 * n_features),
+                               squeeze=False)
+    fig2.suptitle('Feature vs Target Relationship',
+                  fontsize=16, fontweight='bold', y=1.0)
+
+    for i in range(n_features):
+        ax_before = axes2[i, 0]
+        ax_after = axes2[i, 1]
+        feat_name = feature_names[i]
+        feat_data = X[:, i]
+
+        # Add jitter to Y for better visualization
+        y_jitter_before_c0 = (np.random.normal(0, 0.02, np.sum(mask_before_c0)))
+        y_jitter_before_c1 = (1 + np.random.normal(0, 0.02, np.sum(mask_before_c1)))
+        y_jitter_after_c0 = (np.random.normal(0, 0.02, np.sum(mask_after_c0)))
+        y_jitter_after_c1 = (1 + np.random.normal(0, 0.02, np.sum(mask_after_c1)))
+
+        # Before Drift
+        ax_before.scatter(feat_data[mask_before_c0], y_jitter_before_c0,
+                          alpha=0.5, s=20, label='Class 0',
+                          color=class_colors[0])
+        ax_before.scatter(feat_data[mask_before_c1], y_jitter_before_c1,
+                          alpha=0.5, s=20, label='Class 1',
+                          color=class_colors[1])
+        ax_before.set_xlabel(feat_name)
+        ax_before.set_ylabel('Target Class (with jitter)')
+        ax_before.set_title(f'{feat_name} vs Target - Before Drift')
+        ax_before.set_yticks([0, 1])
+        ax_before.set_yticklabels(['Class 0', 'Class 1'])
+        ax_before.legend()
+        ax_before.grid(True, alpha=0.3)
+
+        # After Drift
+        ax_after.scatter(feat_data[mask_after_c0], y_jitter_after_c0,
+                         alpha=0.5, s=20, label='Class 0',
+                         color=class_colors[0])
+        ax_after.scatter(feat_data[mask_after_c1], y_jitter_after_c1,
+                         alpha=0.5, s=20, label='Class 1',
+                         color=class_colors[1])
+        ax_after.set_xlabel(feat_name)
+        ax_after.set_ylabel('Target Class (with jitter)')
+        ax_after.set_title(f'{feat_name} vs Target - After Drift')
+        ax_after.set_yticks([0, 1])
+        ax_after.set_yticklabels(['Class 0', 'Class 1'])
+        ax_after.legend()
+        ax_after.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    # Increased top margin
+    fig2.subplots_adjust(top=0.92)
+    plt.show()
+    
+    # 📊 --- Figure: Class Distribution --- 📊
+    fig3, (ax_class_before, ax_class_after) = plt.subplots(1, 2, figsize=(12, 6))
+    fig3.suptitle('Class Distribution',
+                  fontsize=16, fontweight='bold', y=1.0)
+
+    # Class distributions - Before
+    ax_class_before.bar(['Class 0', 'Class 1'], class_dist_before,
+                        color=[class_colors[0], class_colors[1]],
+                        alpha=0.7, edgecolor='black')
+    ax_class_before.set_ylabel('Proportion')
+    ax_class_before.set_title('Before Drift')
+    ax_class_before.set_ylim([0, 1])
+    ax_class_before.grid(True, alpha=0.3, axis='y')
+
+    # Class distributions - After
+    ax_class_after.bar(['Class 0', 'Class 1'], class_dist_after,
+                       color=[class_colors[0], class_colors[1]],
+                       alpha=0.7, edgecolor='black')
+    ax_class_after.set_ylabel('Proportion')
+    ax_class_after.set_title('After Drift')
+    ax_class_after.set_ylim([0, 1])
+    ax_class_after.grid(True, alpha=0.3, axis='y')
+
+    plt.tight_layout()
+    # Increased top margin
+    fig3.subplots_adjust(top=0.88)
+    plt.show()
+
+    # 🗺️ --- Figure: Feature Space --- 🗺️
+    fig4, (ax_fs_before, ax_fs_after) = plt.subplots(1, 2, figsize=(14, 7))
+    fs_title_suffix = ""
+
+    if n_features == 1:
+        # 1D plot (Histogram)
+        X_before = X[mask_before]
+        X_after = X[mask_after]
+        ax_fs_before.hist(X_before[y_before == 0], bins=30, alpha=0.5,
+                          label='Class 0', color=class_colors[0])
+        ax_fs_before.hist(X_before[y_before == 1], bins=30, alpha=0.5,
+                          label='Class 1', color=class_colors[1])
+        ax_fs_after.hist(X_after[y_after == 0], bins=30, alpha=0.5,
+                         label='Class 0', color=class_colors[0])
+        ax_fs_after.hist(X_after[y_after == 1], bins=30, alpha=0.5,
+                         label='Class 1', color=class_colors[1])
+        ax_fs_before.set_xlabel(feature_names[0])
+        ax_fs_after.set_xlabel(feature_names[0])
+        ax_fs_before.set_ylabel('Frequency')
+        ax_fs_after.set_ylabel('Frequency')
+
+    elif n_features == 2:
+        # 2D plot
+        X_before = X[mask_before]
+        X_after = X[mask_after]
+        ax_fs_before.scatter(X_before[y_before == 0, 0],
+                              X_before[y_before == 0, 1],
+                              alpha=0.5, s=20, label='Class 0',
+                              color=class_colors[0])
+        ax_fs_before.scatter(X_before[y_before == 1, 0],
+                              X_before[y_before == 1, 1],
+                              alpha=0.5, s=20, label='Class 1',
+                              color=class_colors[1])
+        ax_fs_after.scatter(X_after[y_after == 0, 0],
+                             X_after[y_after == 0, 1],
+                             alpha=0.5, s=20, label='Class 0',
+                             color=class_colors[0])
+        ax_fs_after.scatter(X_after[y_after == 1, 0],
+                             X_after[y_after == 1, 1],
+                             alpha=0.5, s=20, label='Class 1',
+                             color=class_colors[1])
+        ax_fs_before.set_xlabel(feature_names[0])
+        ax_fs_before.set_ylabel(feature_names[1])
+        ax_fs_after.set_xlabel(feature_names[0])
+        ax_fs_after.set_ylabel(feature_names[1])
+
+    else:
+        # > 2D plot (Use PCA)
+        pca = PCA(n_components=2, random_state=42)
+        X_2d = pca.fit_transform(X)
+        X_2d_before = X_2d[mask_before]
+        X_2d_after = X_2d[mask_after]
+        y_before_pca = y[mask_before]
+        y_after_pca = y[mask_after]
+
+        ax_fs_before.scatter(X_2d_before[y_before_pca == 0, 0],
+                              X_2d_before[y_before_pca == 0, 1],
+                              alpha=0.5, s=20, label='Class 0',
+                              color=class_colors[0])
+        ax_fs_before.scatter(X_2d_before[y_before_pca == 1, 0],
+                              X_2d_before[y_before_pca == 1, 1],
+                              alpha=0.5, s=20, label='Class 1',
+                              color=class_colors[1])
+        ax_fs_after.scatter(X_2d_after[y_after_pca == 0, 0],
+                             X_2d_after[y_after_pca == 0, 1],
+                             alpha=0.5, s=20, label='Class 0',
+                             color=class_colors[0])
+        ax_fs_after.scatter(X_2d_after[y_after_pca == 1, 0],
+                             X_2d_after[y_after_pca == 1, 1],
+                             alpha=0.5, s=20, label='Class 1',
+                             color=class_colors[1])
+        ax_fs_before.set_xlabel('Principal Component 1')
+        ax_fs_before.set_ylabel('Principal Component 2')
+        ax_fs_after.set_xlabel('Principal Component 1')
+        ax_fs_after.set_ylabel('Principal Component 2')
+        fs_title_suffix = " (PCA)"
+
+    ax_fs_before.set_title('Before Drift')
+    ax_fs_before.legend()
+    ax_fs_before.grid(True, alpha=0.3)
+
+    ax_fs_after.set_title('After Drift')
+    ax_fs_after.legend()
+    ax_fs_after.grid(True, alpha=0.3)
+    
+    fig4.suptitle('Feature Space' + fs_title_suffix,
+                  fontsize=16, fontweight='bold', y=1.0)
+
+    plt.tight_layout()
+    # Increased top margin
+    fig4.subplots_adjust(top=0.88)
     plt.show()
 
 
-def compute_data_drift_analysis(X1, X2, y, drift_point,
+def compute_data_drift_analysis(X, y, drift_point, feature_names,
                                 importance_method="permutation"):
     """
     Compute data drift analysis by classifying time periods using only
     features (X).
 
-    This function trains a neural network to distinguish between before-drift
-    and after-drift data points based solely on feature distributions P(X).
-    It then uses the specified feature importance method to determine which
-    features are most important for detecting the data drift.
-
     Parameters
     ----------
-    X1 : array-like
-        Feature 1 values
-    X2 : array-like
-        Feature 2 values
-    y : array-like
+    X : array-like (n_samples, n_features)
+        Feature matrix
+    y : array-like (n_samples,)
         Binary class labels (not used in this analysis)
     drift_point : int
         Index where drift occurs
+    feature_names : list
+        Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
 
     Returns
     -------
     dict
-        Dictionary containing:
-        - 'model': trained MLPClassifier
-        - 'accuracy': model accuracy
-        - 'importance_result': feature importance result
-        - 'importance_mean': mean importance scores
-        - 'importance_std': standard deviation of importance scores
+        Dictionary containing analysis results
     """
     print("\n" + "=" * 70)
     print("STEP 1: DATA DRIFT DETECTION "
@@ -613,9 +680,9 @@ def compute_data_drift_analysis(X1, X2, y, drift_point,
     print("=" * 70)
 
     # Prepare features and labels
-    X_features = np.column_stack([X1, X2])
+    X_features = X
     n_samples_before = drift_point
-    n_samples_after = len(X1) - drift_point
+    n_samples_after = len(y) - drift_point
     time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
 
     # Train Neural Network
@@ -634,7 +701,6 @@ def compute_data_drift_analysis(X1, X2, y, drift_point,
     print("(Higher accuracy = stronger P(X) drift, Random guess = 0.50)")
 
     # Calculate Feature Importance
-    feature_names = ['X1', 'X2']
     fi_result = calculate_feature_importance(
         nn_model, X_features, time_labels,
         method=importance_method,
@@ -649,8 +715,8 @@ def compute_data_drift_analysis(X1, X2, y, drift_point,
           "time-period using X only)")
     print("-" * 70)
     print(f"\nNeural Network (MLP) {fi_result['method']}:")
-    print(f"  X1: {importance_mean[0]:.4f} ± {importance_std[0]:.4f}")
-    print(f"  X2: {importance_mean[1]:.4f} ± {importance_std[1]:.4f}")
+    for i, name in enumerate(feature_names):
+        print(f"  {name}: {importance_mean[i]:.4f} ± {importance_std[i]:.4f}")
 
     return {
         'model': nn_model,
@@ -661,7 +727,8 @@ def compute_data_drift_analysis(X1, X2, y, drift_point,
     }
 
 
-def visualize_data_drift_analysis(analysis_result, feature_names=['X1', 'X2']):
+def visualize_data_drift_analysis(analysis_result, feature_names,
+                                  show_boxplot=True):
     """
     Visualize the results of data drift analysis.
 
@@ -669,70 +736,122 @@ def visualize_data_drift_analysis(analysis_result, feature_names=['X1', 'X2']):
     ----------
     analysis_result : dict
         Result dictionary from compute_data_drift_analysis
-    feature_names : list, default=['X1', 'X2']
+    feature_names : list
         Names of features
+    show_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
     """
     fi_result = analysis_result['importance_result']
     importance_mean = analysis_result['importance_mean']
     importance_std = analysis_result['importance_std']
+    n_features = len(feature_names)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    # Determine the number of subplots
+    n_plots = 2 if show_boxplot else 1
+    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
     fig.suptitle(f'Feature Importance for Data Drift (X-only Classification) '
                  f'- {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
 
+    # Ensure axes is an array even for 1 plot
+    if n_plots == 1:
+        axes = [axes]
+
     # Plot 1: Bar plot
     ax = axes[0]
-    x_pos = np.arange(len(feature_names))
+    x_pos = np.arange(n_features)
     ax.bar(x_pos, importance_mean, yerr=importance_std,
            color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
     ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
     ax.set_title('Feature Importance for Detecting Time-Period '
-                 '(Concept Drift)')
+                 '(Data Drift)')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(feature_names)
     ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 2: Box plot
-    ax = axes[1]
-    importances = fi_result['importances']
-    
-    # Handle cases where importances might not be (n_features, n_samples)
-    if importances.shape[0] != len(feature_names) and importances.shape[1] == len(feature_names):
-        importances = importances.T
-        
-    bp = ax.boxplot([importances[i] for i in range(len(feature_names))],
-                    tick_labels=feature_names, patch_artist=True, notch=True,
-                    showmeans=True)
-    
-    for patch in bp['boxes']:
-        patch.set_facecolor('#e74c3c')
-        patch.set_alpha(0.7)
-    ax.set_ylabel(f'{fi_result["method"]} Score')
-    ax.set_xlabel('Features')
-    ax.set_title(f'Distribution of {fi_result["method"]} Scores')
-    ax.grid(True, alpha=0.3, axis='y')
+    # Plot 2: Box plot (Conditional)
+    if show_boxplot:
+        ax = axes[1]
+        importances = fi_result['importances']
+
+        # Handle cases where importances might not be (n_features, n_samples)
+        if (importances.ndim == 2 and importances.shape[0] != n_features and
+            importances.shape[1] == n_features):
+            importances = importances.T
+
+        # Ensure importances is (n_features, n_samples) before boxplot
+        if importances.shape[0] == n_features:
+            bp = ax.boxplot([importances[i] for i in range(n_features)],
+                            tick_labels=feature_names, patch_artist=True,
+                            notch=True, showmeans=True)
+
+            for patch in bp['boxes']:
+                patch.set_facecolor('#e74c3c')
+                patch.set_alpha(0.7)
+            ax.set_ylabel(f'{fi_result["method"]} Score')
+            ax.set_xlabel('Features')
+            ax.set_title(f'Distribution of {fi_result["method"]} Scores')
+            ax.grid(True, alpha=0.3, axis='y')
+        else:
+            ax.text(0.5, 0.5, "Boxplot not available (SHAP/LIME 1D result)",
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax.transAxes)
+            ax.set_axis_off()
 
     plt.tight_layout()
     plt.show()
 
 
-def analyze_data_drift(X1, X2, y, drift_point,
-                       importance_method="permutation"):
+def analyze_data_drift(X, y, drift_point, feature_names,
+                       importance_method="permutation",
+                       show_importance_boxplot=True):
     """
     Analyze and visualize data drift by classifying time periods using only
     features (X).
 
     Parameters
     ----------
-    X1 : array-like
-        Feature 1 values
-    X2 : array-like
-        Feature 2 values
-    y : array-like
+    X : array-like (n_samples, n_features)
+        Feature matrix
+    y : array-like (n_samples,)
         Binary class labels (not used in this analysis)
     drift_point : int
         Index where drift occurs
+    feature_names : list
+        Names of features
+    importance_method : str, default="permutation"
+        Method for feature importance: "permutation", "shap", or "lime"
+    show_importance_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
+
+    Returns
+    -------
+    dict
+        Dictionary containing analysis results
+    """
+    result = compute_data_drift_analysis(X, y, drift_point, feature_names,
+                                         importance_method)
+    visualize_data_drift_analysis(result, feature_names,
+                                  show_boxplot=show_importance_boxplot)
+    return result
+
+
+def compute_concept_drift_analysis(X, y, drift_point, feature_names,
+                                   importance_method="permutation"):
+    """
+    Compute concept drift analysis by classifying time periods using features
+    and target (X, Y).
+
+    Parameters
+    ----------
+    X : array-like (n_samples, n_features)
+        Feature matrix
+    y : array-like (n_samples,)
+        Binary class labels
+    drift_point : int
+        Index where drift occurs
+    feature_names : list
+        Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
 
@@ -740,45 +859,6 @@ def analyze_data_drift(X1, X2, y, drift_point,
     -------
     dict
         Dictionary containing analysis results
-    """
-    result = compute_data_drift_analysis(X1, X2, y, drift_point,
-                                         importance_method)
-    visualize_data_drift_analysis(result)
-    return result
-
-
-def compute_concept_drift_analysis(X1, X2, y, drift_point,
-                                   importance_method="permutation"):
-    """
-    Compute concept drift analysis by classifying time periods using features
-    and target (X, Y).
-
-    This function trains a neural network to distinguish between before-drift
-    and after-drift data points using both features and target P(X, Y).
-    This is sensitive to changes in P(Y|X), which indicates concept drift.
-
-    Parameters
-    ----------
-    X1 : array-like
-        Feature 1 values
-    X2 : array-like
-        Feature 2 values
-    y : array-like
-        Binary class labels
-    drift_point : int
-        Index where drift occurs
-    importance_method : str, default="permutation"
-        Method for feature importance: "permutation", "shap", or "lime"
-
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - 'model': trained MLPClassifier
-        - 'accuracy': model accuracy
-        - 'importance_result': feature importance result
-        - 'importance_mean': mean importance scores
-        - 'importance_std': standard deviation of importance scores
     """
     print("\n" + "=" * 70)
     print("STEP 2: CONCEPT DRIFT DETECTION (Classification using X and Y "
@@ -789,9 +869,9 @@ def compute_concept_drift_analysis(X1, X2, y, drift_point,
     print("=" * 70)
 
     # Prepare features and labels
-    X_features_with_y = np.column_stack([X1, X2, y])
+    X_features_with_y = np.column_stack([X, y])
     n_samples_before = drift_point
-    n_samples_after = len(X1) - drift_point
+    n_samples_after = len(y) - drift_point
     time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
 
     # Train Neural Network
@@ -809,11 +889,11 @@ def compute_concept_drift_analysis(X1, X2, y, drift_point,
     print(f"  Neural Network (MLP) Accuracy: {nn_accuracy_xy:.4f}")
 
     # Calculate Feature Importance
-    feature_names = ['X1', 'X2', 'Y']
+    feature_names_with_y = feature_names + ['Y']
     fi_result = calculate_feature_importance(
         nn_model_xy, X_features_with_y, time_labels,
         method=importance_method,
-        feature_names=feature_names
+        feature_names=feature_names_with_y
     )
 
     importance_mean = fi_result['importances_mean']
@@ -824,9 +904,8 @@ def compute_concept_drift_analysis(X1, X2, y, drift_point,
           "time-period using X and Y)")
     print("-" * 70)
     print(f"\nNeural Network (MLP) {fi_result['method']}:")
-    print(f"  X1: {importance_mean[0]:.4f} ± {importance_std[0]:.4f}")
-    print(f"  X2: {importance_mean[1]:.4f} ± {importance_std[1]:.4f}")
-    print(f"  Y:  {importance_mean[2]:.4f} ± {importance_std[2]:.4f}")
+    for i, name in enumerate(feature_names_with_y):
+        print(f"  {name}: {importance_mean[i]:.4f} ± {importance_std[i]:.4f}")
     print("=" * 70)
 
     return {
@@ -834,12 +913,13 @@ def compute_concept_drift_analysis(X1, X2, y, drift_point,
         'accuracy': nn_accuracy_xy,
         'importance_result': fi_result,
         'importance_mean': importance_mean,
-        'importance_std': importance_std
+        'importance_std': importance_std,
+        'feature_names_with_y': feature_names_with_y  # <-- NEW: Pass this back
     }
 
 
-def visualize_concept_drift_analysis(analysis_result,
-                                     feature_names=['X1', 'X2', 'Y']):
+def visualize_concept_drift_analysis(analysis_result, feature_names,
+                                     show_boxplot=True):
     """
     Visualize the results of concept drift analysis.
 
@@ -847,21 +927,30 @@ def visualize_concept_drift_analysis(analysis_result,
     ----------
     analysis_result : dict
         Result dictionary from compute_concept_drift_analysis
-    feature_names : list, default=['X1', 'X2', 'Y']
-        Names of features
+    feature_names : list
+        Names of features (e.g., ['X1', 'X2', 'Y'])
+    show_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
     """
     fi_result = analysis_result['importance_result']
     importance_mean = analysis_result['importance_mean']
     importance_std = analysis_result['importance_std']
+    n_features = len(feature_names)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    # Determine the number of subplots
+    n_plots = 2 if show_boxplot else 1
+    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
     fig.suptitle(f'Feature Importance for Concept Drift (X+Y Classification) '
                  f'- {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
 
+    # Ensure axes is an array even for 1 plot
+    if n_plots == 1:
+        axes = [axes]
+
     # Plot 1: Bar plot
     ax = axes[0]
-    x_pos = np.arange(len(feature_names))
+    x_pos = np.arange(n_features)
     ax.bar(x_pos, importance_mean, yerr=importance_std,
            color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
     ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
@@ -871,45 +960,89 @@ def visualize_concept_drift_analysis(analysis_result,
     ax.set_xticklabels(feature_names)
     ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 2: Box plot
-    ax = axes[1]
-    importances = fi_result['importances']
-    
-    # Handle cases where importances might not be (n_features, n_samples)
-    if importances.shape[0] != len(feature_names) and importances.shape[1] == len(feature_names):
-        importances = importances.T
+    # Plot 2: Box plot (Conditional)
+    if show_boxplot:
+        ax = axes[1]
+        importances = fi_result['importances']
 
-    bp = ax.boxplot([importances[i] for i in range(len(feature_names))],
-                    tick_labels=feature_names, patch_artist=True, notch=True,
-                    showmeans=True)
-    for patch in bp['boxes']:
-        patch.set_facecolor('#e74c3c')
-        patch.set_alpha(0.7)
-    ax.set_ylabel(f'{fi_result["method"]} Score')
-    ax.set_xlabel('Features')
-    ax.set_title(f'Distribution of {fi_result["method"]} Scores')
-    ax.grid(True, alpha=0.3, axis='y')
+        # Handle cases where importances might not be (n_features, n_samples)
+        if (importances.ndim == 2 and importances.shape[0] != n_features and
+            importances.shape[1] == n_features):
+            importances = importances.T
+
+        # Ensure importances is (n_features, n_samples) before boxplot
+        if importances.shape[0] == n_features:
+            bp = ax.boxplot([importances[i] for i in range(n_features)],
+                            tick_labels=feature_names, patch_artist=True,
+                            notch=True, showmeans=True)
+            for patch in bp['boxes']:
+                patch.set_facecolor('#e74c3c')
+                patch.set_alpha(0.7)
+            ax.set_ylabel(f'{fi_result["method"]} Score')
+            ax.set_xlabel('Features')
+            ax.set_title(f'Distribution of {fi_result["method"]} Scores')
+            ax.grid(True, alpha=0.3, axis='y')
+        else:
+            ax.text(0.5, 0.5, "Boxplot not available (SHAP/LIME 1D result)",
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax.transAxes)
+            ax.set_axis_off()
 
     plt.tight_layout()
     plt.show()
 
 
-def analyze_concept_drift(X1, X2, y, drift_point,
-                          importance_method="permutation"):
+def analyze_concept_drift(X, y, drift_point, feature_names,
+                          importance_method="permutation",
+                          show_importance_boxplot=True):
     """
     Analyze and visualize concept drift by classifying time periods using
     features and target (X, Y).
 
     Parameters
     ----------
-    X1 : array-like
-        Feature 1 values
-    X2 : array-like
-        Feature 2 values
-    y : array-like
+    X : array-like (n_samples, n_features)
+        Feature matrix
+    y : array-like (n_samples,)
         Binary class labels
     drift_point : int
         Index where drift occurs
+    feature_names : list
+        Names of features
+    importance_method : str, default="permutation"
+        Method for feature importance: "permutation", "shap", or "lime"
+    show_importance_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
+
+    Returns
+    -------
+    dict
+        Dictionary containing analysis results
+    """
+    result = compute_concept_drift_analysis(X, y, drift_point, feature_names,
+                                            importance_method)
+    # Get the feature names list that includes 'Y' from the result
+    feature_names_with_y = result['feature_names_with_y']
+    visualize_concept_drift_analysis(result, feature_names_with_y,
+                                     show_boxplot=show_importance_boxplot)
+    return result
+
+
+def compute_predictive_importance_shift(X, y, drift_point, feature_names,
+                                        importance_method="permutation"):
+    """
+    Compute how predictive feature importance shifts before and after drift.
+
+    Parameters
+    ----------
+    X : array-like (n_samples, n_features)
+        Feature matrix
+    y : array-like (n_samples,)
+        Binary class labels
+    drift_point : int
+        Index where drift occurs
+    feature_names : list
+        Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
 
@@ -917,46 +1050,6 @@ def analyze_concept_drift(X1, X2, y, drift_point,
     -------
     dict
         Dictionary containing analysis results
-    """
-    result = compute_concept_drift_analysis(X1, X2, y, drift_point,
-                                            importance_method)
-    visualize_concept_drift_analysis(result)
-    return result
-
-
-def compute_predictive_importance_shift(X1, X2, y, drift_point,
-                                        importance_method="permutation"):
-    """
-    Compute how predictive feature importance shifts before and after drift.
-
-    This function trains separate neural networks to predict the target
-    variable before and after the drift, then compares the feature importance
-    using the specified method. This reveals how the relationship between
-    features and target changes.
-
-    Parameters
-    ----------
-    X1 : array-like
-        Feature 1 values
-    X2 : array-like
-        Feature 2 values
-    y : array-like
-        Binary class labels
-    drift_point : int
-        Index where drift occurs
-    importance_method : str, default="permutation"
-        Method for feature importance: "permutation", "shap", or "lime"
-
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - 'model_before': trained MLPClassifier on before-drift data
-        - 'model_after': trained MLPClassifier on after-drift data
-        - 'accuracy_before': accuracy on before-drift data
-        - 'accuracy_after': accuracy on after-drift data
-        - 'fi_before': feature importance results for before-drift model
-        - 'fi_after': feature importance results for after-drift model
     """
     print("\n" + "=" * 70)
     print("STEP 3: PREDICTIVE POWER SHIFT (Classification)")
@@ -966,7 +1059,7 @@ def compute_predictive_importance_shift(X1, X2, y, drift_point,
     print("=" * 70)
 
     # Split data into before and after drift
-    X_features = np.column_stack([X1, X2])
+    X_features = X
     X_features_before = X_features[:drift_point]
     y_before = y[:drift_point]
     X_features_after = X_features[drift_point:]
@@ -996,7 +1089,6 @@ def compute_predictive_importance_shift(X1, X2, y, drift_point,
     print(f"  NN Model (After Drift) Accuracy: {acc_after:.4f}")
 
     # Feature Importance for BEFORE drift
-    feature_names = ['X1', 'X2']
     fi_before = calculate_feature_importance(
         mlp_before, X_features_before, y_before,
         method=importance_method,
@@ -1011,16 +1103,15 @@ def compute_predictive_importance_shift(X1, X2, y, drift_point,
     )
 
     print(f"\nPredictive {fi_before['method']}:")
-    print("Before Drift (X1, X2):")
-    print(f"  X1: {fi_before['importances_mean'][0]:.4f} ± "
-          f"{fi_before['importances_std'][0]:.4f}")
-    print(f"  X2: {fi_before['importances_mean'][1]:.4f} ± "
-          f"{fi_before['importances_std'][1]:.4f}")
-    print("\nAfter Drift (X1, X2):")
-    print(f"  X1: {fi_after['importances_mean'][0]:.4f} ± "
-          f"{fi_after['importances_std'][0]:.4f}")
-    print(f"  X2: {fi_after['importances_mean'][1]:.4f} ± "
-          f"{fi_after['importances_std'][1]:.4f}")
+    print("Before Drift:")
+    for i, name in enumerate(feature_names):
+        print(f"  {name}: {fi_before['importances_mean'][i]:.4f} ± "
+              f"{fi_before['importances_std'][i]:.4f}")
+
+    print("\nAfter Drift:")
+    for i, name in enumerate(feature_names):
+        print(f"  {name}: {fi_after['importances_mean'][i]:.4f} ± "
+              f"{fi_after['importances_std'][i]:.4f}")
     print("=" * 70)
 
     return {
@@ -1033,10 +1124,8 @@ def compute_predictive_importance_shift(X1, X2, y, drift_point,
     }
 
 
-def visualize_predictive_importance_shift(
-    analysis_result,
-    feature_names=['X1', 'X2']
-):
+def visualize_predictive_importance_shift(analysis_result, feature_names,
+                                          show_boxplot=True):
     """
     Visualize the results of predictive importance shift analysis.
 
@@ -1044,20 +1133,29 @@ def visualize_predictive_importance_shift(
     ----------
     analysis_result : dict
         Result dictionary from compute_predictive_importance_shift
-    feature_names : list, default=['X1', 'X2']
+    feature_names : list
         Names of features
+    show_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
     """
     fi_before = analysis_result['fi_before']
     fi_after = analysis_result['fi_after']
+    n_features = len(feature_names)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    # Determine the number of subplots
+    n_plots = 2 if show_boxplot else 1
+    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
     fig.suptitle(f'Predictive Feature Importance (NN Before vs After Drift) '
                  f'- {fi_before["method"]}',
                  fontsize=14, fontweight='bold')
 
+    # Ensure axes is an array even for 1 plot
+    if n_plots == 1:
+        axes = [axes]
+
     # Plot 1: Bar comparison
     ax = axes[0]
-    x_pos = np.arange(len(feature_names))
+    x_pos = np.arange(n_features)
     width = 0.35
     ax.bar(x_pos - width/2, fi_before['importances_mean'], width,
            yerr=fi_before['importances_std'],
@@ -1074,87 +1172,106 @@ def visualize_predictive_importance_shift(
     ax.legend()
     ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 2: Side-by-side box plots
-    ax = axes[1]
-    
-    # Handle cases where importances might not be (n_features, n_samples)
-    importances_before = fi_before['importances']
-    if importances_before.shape[0] != len(feature_names) and importances_before.shape[1] == len(feature_names):
-        importances_before = importances_before.T
-        
-    importances_after = fi_after['importances']
-    if importances_after.shape[0] != len(feature_names) and importances_after.shape[1] == len(feature_names):
-        importances_after = importances_after.T
+    # Plot 2: Side-by-side box plots (Conditional)
+    if show_boxplot:
+        ax = axes[1]
 
-    positions_before = [0.8, 2.8]
-    positions_after = [1.2, 3.2]
-    bp1 = ax.boxplot([importances_before[0],
-                      importances_before[1]],
-                     positions=positions_before, widths=0.3,
-                     patch_artist=True, showmeans=True)
-    bp2 = ax.boxplot([importances_after[0], importances_after[1]],
-                     positions=positions_after, widths=0.3,
-                     patch_artist=True, showmeans=True)
-    for patch in bp1['boxes']:
-        patch.set_facecolor('#1abc9c')
-        patch.set_alpha(0.7)
-    for patch in bp2['boxes']:
-        patch.set_facecolor('#f39c12')
-        patch.set_alpha(0.7)
-    ax.set_ylabel(f'{fi_before["method"]} Score')
-    ax.set_xlabel('Features')
-    ax.set_title(f'Distribution of {fi_before["method"]} Scores')
-    ax.set_xticks([1, 3])
-    ax.set_xticklabels(feature_names)
-    ax.legend([bp1["boxes"][0], bp2["boxes"][0]],
-              ['Before Drift', 'After Drift'], loc='upper right')
-    ax.grid(True, alpha=0.3, axis='y')
+        # Handle cases where importances might not be (n_features, n_samples)
+        importances_before = fi_before['importances']
+        if (
+            importances_before.ndim == 2 and
+            importances_before.shape[0] != n_features and
+            importances_before.shape[1] == n_features
+        ):
+            importances_before = importances_before.T
+
+        importances_after = fi_after['importances']
+        if (
+            importances_after.ndim == 2 and
+            importances_after.shape[0] != n_features and
+            importances_after.shape[1] == n_features
+        ):
+            importances_after = importances_after.T
+
+        # Calculate positions for side-by-side boxplots
+        positions_before = np.arange(n_features) * 2 - 0.2
+        positions_after = np.arange(n_features) * 2 + 0.2
+
+        # Check if boxplot can be drawn (importances is 2D and aligned)
+        if (importances_before.shape[0] == n_features and
+            importances_after.shape[0] == n_features):
+            bp1 = ax.boxplot([importances_before[i] for i in range(n_features)],
+                             positions=positions_before, widths=0.3,
+                             patch_artist=True, showmeans=True, notch=True)
+            bp2 = ax.boxplot([importances_after[i] for i in range(n_features)],
+                             positions=positions_after, widths=0.3,
+                             patch_artist=True, showmeans=True, notch=True)
+
+            for patch in bp1['boxes']:
+                patch.set_facecolor('#1abc9c')
+                patch.set_alpha(0.7)
+            for patch in bp2['boxes']:
+                patch.set_facecolor('#f39c12')
+                patch.set_alpha(0.7)
+
+            ax.set_ylabel(f'{fi_before["method"]} Score')
+            ax.set_xlabel('Features')
+            ax.set_title(f'Distribution of {fi_before["method"]} Scores')
+            ax.set_xticks(np.arange(n_features) * 2)
+            ax.set_xticklabels(feature_names)
+            ax.legend([bp1["boxes"][0], bp2["boxes"][0]],
+                      ['Before Drift', 'After Drift'], loc='upper right')
+            ax.grid(True, alpha=0.3, axis='y')
+        else:
+            ax.text(0.5, 0.5, "Boxplot not available (SHAP/LIME 1D result)",
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax.transAxes)
+            ax.set_axis_off()
 
     plt.tight_layout()
     plt.show()
 
 
-def analyze_predictive_importance_shift(X1, X2, y, drift_point,
-                                        importance_method="permutation"):
+def analyze_predictive_importance_shift(X, y, drift_point, feature_names,
+                                        importance_method="permutation",
+                                        show_importance_boxplot=True):
     """
     Analyze and visualize how predictive feature importance shifts before
     and after drift.
 
     Parameters
     ----------
-    X1 : array-like
-        Feature 1 values
-    X2 : array-like
-        Feature 2 values
-    y : array-like
+    X : array-like (n_samples, n_features)
+        Feature matrix
+    y : array-like (n_samples,)
         Binary class labels
     drift_point : int
         Index where drift occurs
+    feature_names : list
+        Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
+    show_importance_boxplot : bool, default=True
+        Whether to display the boxplot of importance score distributions.
 
     Returns
     -------
     dict
         Dictionary containing analysis results
     """
-    result = compute_predictive_importance_shift(X1, X2, y, drift_point,
+    result = compute_predictive_importance_shift(X, y, drift_point,
+                                                 feature_names,
                                                  importance_method)
-    visualize_predictive_importance_shift(result)
+    visualize_predictive_importance_shift(result, feature_names,
+                                          show_boxplot=show_importance_boxplot)
     return result
 
 
-def main(dataset_name, importance_method="permutation"):
+# --- MODIFIED: main ---
+def main(dataset_name, importance_method="permutation",
+         show_importance_boxplot=True):
     """
     Main function to run the complete concept drift analysis pipeline.
-
-    This function orchestrates the entire analysis by:
-    1. Generating synthetic data with concept drift
-    2. Visualizing the data stream
-    3. Analyzing data drift (changes in P(X))
-    4. Analyzing concept drift (changes in P(Y|X))
-    5. Analyzing predictive importance shift
-       (how feature-target relationships change)
 
     Parameters
     ----------
@@ -1163,6 +1280,9 @@ def main(dataset_name, importance_method="permutation"):
     importance_method : str, default="permutation"
         Method for feature importance calculation.
         Options: "permutation", "shap", "lime"
+    show_importance_boxplot : bool, default=True
+        Whether to display the boxplots for feature importance distributions
+        in the analysis steps.
     """
     # Validate method
     available_methods = FeatureImportanceMethod.all_available()
@@ -1171,14 +1291,11 @@ def main(dataset_name, importance_method="permutation"):
         print(f"Available methods: {available_methods}")
         print("Falling back to 'permutation'")
         importance_method = "permutation"
-        
+
     # Validate dataset
     available_datasets = DatasetName.all_available()
     if dataset_name not in available_datasets:
         print(f"Error: Dataset '{dataset_name}' is not available.")
-        if not RIVER_AVAILABLE and dataset_name in [DatasetName.SEA_DRIFT, DatasetName.HYPERPLANE_DRIFT]:
-             print("The 'river' library is not installed. "
-                   "Please install it with: pip install river")
         print(f"Available datasets: {available_datasets}")
         return
 
@@ -1186,43 +1303,55 @@ def main(dataset_name, importance_method="permutation"):
     print("CONCEPT DRIFT ANALYSIS")
     print(f"Dataset: {dataset_name.upper()}")
     print(f"Feature Importance Method: {importance_method.upper()}")
+    print(f"Show Importance Boxplots: {show_importance_boxplot}")
     print("=" * 70)
 
     # Step 1: Generate data
     print(f"\nGenerating synthetic data for: {dataset_name}...")
-    
+
     gen_params = {
         "n_samples_before": 1000,
         "n_samples_after": 1000,
         "random_seed": 42
     }
-    
+
     if dataset_name == DatasetName.CUSTOM_NORMAL:
-        X1, X2, y, drift_point = generate_custom_normal_data(**gen_params)
+        X, y, drift_point, feature_names = \
+            generate_custom_normal_data(**gen_params)
+    elif dataset_name == DatasetName.CUSTOM_3D_DRIFT:
+        X, y, drift_point, feature_names = \
+            generate_custom_3d_drift_data(**gen_params)
     elif dataset_name == DatasetName.SEA_DRIFT:
-        X1, X2, y, drift_point = generate_sea_drift_data(**gen_params)
+        X, y, drift_point, feature_names = \
+            generate_sea_drift_data(**gen_params)
     elif dataset_name == DatasetName.HYPERPLANE_DRIFT:
-        X1, X2, y, drift_point = generate_hyperplane_data(**gen_params)
+        X, y, drift_point, feature_names = \
+            generate_hyperplane_data(**gen_params)
     else:
         # This case should be caught by the validation above, but as a fallback
         raise ValueError(f"Unknown dataset name: {dataset_name}")
 
+    print(f"Data generated with {X.shape[1]} features: {feature_names}")
+
     # Step 2: Visualize data stream
     print("\nVisualizing data stream...")
-    visualize_data_stream(X1, X2, y, drift_point)
+    visualize_data_stream(X, y, drift_point, feature_names)
 
     # Step 3: Analyze data drift (P(X) changes)
-    analyze_data_drift(X1, X2, y, drift_point,
-                       importance_method=importance_method)
+    analyze_data_drift(X, y, drift_point, feature_names,
+                       importance_method=importance_method,
+                       show_importance_boxplot=show_importance_boxplot)
 
     # Step 4: Analyze concept drift (P(Y|X) changes)
-    analyze_concept_drift(X1, X2, y, drift_point,
-                          importance_method=importance_method)
+    analyze_concept_drift(X, y, drift_point, feature_names,
+                          importance_method=importance_method,
+                          show_importance_boxplot=show_importance_boxplot)
 
     # Step 5: Analyze predictive importance shift
     analyze_predictive_importance_shift(
-        X1, X2, y, drift_point,
-        importance_method=importance_method
+        X, y, drift_point, feature_names,
+        importance_method=importance_method,
+        show_importance_boxplot=show_importance_boxplot
     )
 
     print("\n" + "=" * 70)
@@ -1244,11 +1373,12 @@ if __name__ == "__main__":
 
     # 1. Choose the dataset to run:
     # Options:
-    # - DatasetName.CUSTOM_NORMAL (Your original dataset)
-    # - DatasetName.SEA_DRIFT (From the notebook, requires 'river')
-    # - DatasetName.HYPERPLANE_DRIFT (From the notebook, requires 'river')
+    # - DatasetName.CUSTOM_NORMAL (Original 2-feature dataset)
+    # - DatasetName.CUSTOM_3D_DRIFT (NEW 3-feature dataset)
+    # - DatasetName.SEA_DRIFT (2-feature dataset, requires 'river')
+    # - DatasetName.HYPERPLANE_DRIFT (2-feature dataset, requires 'river')
 
-    DATASET_TO_RUN = DatasetName.HYPERPLANE_DRIFT
+    DATASET_TO_RUN = DatasetName.CUSTOM_NORMAL
 
     # 2. Choose the feature importance method:
     # Options: "permutation", "shap", "lime"
@@ -1256,25 +1386,31 @@ if __name__ == "__main__":
 
     IMPORTANCE_METHOD_TO_RUN = "permutation"
 
+    # 3. Toggle for showing importance score boxplots:
+    # Options: True or False
+    SHOW_IMPORTANCE_BOXPLOT = False
+
     # --- END SETTINGS ---
 
     # Run the main analysis
     main(dataset_name=DATASET_TO_RUN,
-         importance_method=IMPORTANCE_METHOD_TO_RUN)
+         importance_method=IMPORTANCE_METHOD_TO_RUN,
+         show_importance_boxplot=SHOW_IMPORTANCE_BOXPLOT)
 
     # --- EXAMPLES OF OTHER RUNS (uncomment to try) ---
 
-    # Example 2: Run SEA_DRIFT with permutation
-    # print("\n\n" + "*"*80 + "\nRUNNING SEA_DRIFT ANALYSIS\n" + "*"*80)
+    # Example 2: Run SEA_DRIFT (2 features) with permutation (No Boxplots)
+    # print("\n\n" + "*"*80 + "\nRUNNING SEA_DRIFT ANALYSIS (NO BOXPLOT)\n" + "*"*80)
     # main(dataset_name=DatasetName.SEA_DRIFT,
-    #      importance_method="permutation")
+    #      importance_method="permutation",
+    #      show_importance_boxplot=False)
 
-    # Example 3: Run HYPERPLANE_DRIFT with permutation
+    # Example 3: Run HYPERPLANE_DRIFT (2 features) with permutation
     # print("\n\n" + "*"*80 + "\nRUNNING HYPERPLANE_DRIFT ANALYSIS\n" + "*"*80)
     # main(dataset_name=DatasetName.HYPERPLANE_DRIFT,
     #      importance_method="permutation")
 
-    # Example 4: Run CUSTOM_NORMAL with SHAP (if installed)
-    # print("\n\n" + "*"*80 + "\nRUNNING CUSTOM_NORMAL (SHAP) ANALYSIS\n" + "*"*80)
-    # main(dataset_name=DatasetName.CUSTOM_NORMAL,
+    # Example 4: Run CUSTOM_3D_DRIFT with SHAP (if installed)
+    # print("\n\n" + "*"*80 + "\nRUNNING CUSTOM_3D_DRIFT (SHAP) ANALYSIS\n" + "*"*80)
+    # main(dataset_name=DatasetName.CUSTOM_3D_DRIFT,
     #      importance_method="shap")
