@@ -53,15 +53,7 @@ with st.sidebar:
         help="Select the synthetic dataset to analyze."
     )
 
-    # 2. Select Feature Importance Method
-    importance_method = st.selectbox(
-        "Choose a Feature Importance Method",
-        options=FeatureImportanceMethod.all_available(),
-        format_func=lambda x: x.upper(),
-        help="Select the method to explain the drift."
-    )
-
-    # 3. Toggle for Boxplots
+    # 2. Toggle for Boxplots
     show_boxplot = st.checkbox(
         "Show Importance Boxplots",
         value=True,
@@ -168,8 +160,17 @@ with tab1:
 
 
 with tab2:
+    st.header("2. Drift Analysis Configuration & Results")
+
+    # Move: Select Feature Importance Method into this tab
+    importance_method = st.selectbox(
+        "Choose a Feature Importance Method",
+        options=FeatureImportanceMethod.all_available(),
+        format_func=lambda x: x.upper(),
+        help="Select the method to explain the drift."
+    )
+
     if st.session_state.analysis_done:
-        st.header("2. Drift Analysis Results")
         st.markdown(f"Running analysis with **{importance_method.upper()}** method.")
 
         # --- Analysis Step 1: Data Drift ---
