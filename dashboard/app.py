@@ -2,6 +2,8 @@ import streamlit as st
 import sys
 import os
 import matplotlib.pyplot as plt
+from io import StringIO
+import contextlib
 
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -93,6 +95,38 @@ def generate_data(dataset):
 
 X, y, drift_point, feature_names = generate_data(dataset_name)
 
+# --- Plot Generation and Capturing (Modified Logic) ---
+
+# Define plot names and their assumed index based on creation order in visualize_data_stream
+# I have added the 4th plot back as 'Classification Boundary Plot' (index 3).
+PLOT_OPTIONS = {
+    "Feature Space Distribution": 0, # Assumed first plot
+    "Feature vs Index Plots": 1,     # Assumed second plot
+    "Target vs Index Plot": 2,       # Assumed third plot
+    "Classification Boundary Plot": 3, # Assumed fourth plot
+}
+DEFAULT_PLOT = "Feature Space Distribution"
+
+@st.cache_data(show_spinner="Generating data stream visualizations...")
+def generate_and_capture_plots(X, y, drift_point, feature_names):
+    """Generates all visualization plots and captures them."""
+    # Redirect stdout to capture print statements
+    stdout_capture = StringIO()
+    with contextlib.redirect_stdout(stdout_capture):
+        # This function call creates multiple figures and leaves them open
+        visualize_data_stream(X, y, drift_point, feature_names)
+
+    # Capture the figures and close them immediately
+    all_figs = []
+    for fig_id in plt.get_fignums():
+        fig = plt.figure(fig_id)
+        all_figs.append(fig)
+        plt.close(fig) # Close the figure to free up memory
+        
+    return all_figs, stdout_capture.getvalue()
+
+all_figs, info_log = generate_and_capture_plots(X, y, drift_point, feature_names)
+
 # --- Analysis Trigger ---
 if 'analysis_done' not in st.session_state:
     st.session_state.analysis_done = False
@@ -107,29 +141,31 @@ with tab1:
     st.header("1. Data Stream Visualization")
     st.markdown("This section visualizes the generated data before and after the drift point.")
 
-    # Use a placeholder to show a spinner while the initial visualization runs
-    with st.spinner('Generating data stream visualizations...'):
-        # Capture and display the plots from visualize_data_stream
-        # This function creates multiple plots, so we need to capture them all.
-        # We can't directly get the figures, so we'll rely on st.pyplot() to grab
-        # the current figure. This is a bit of a hack, but it works.
-        
-        # Redirect stdout to capture print statements
-        from io import StringIO
-        import contextlib
+    # Display captured print output
+    st.text_area("Class Distribution Info", info_log, height=150)
 
-        stdout_capture = StringIO()
-        with contextlib.redirect_stdout(stdout_capture):
-            visualize_data_stream(X, y, drift_point, feature_names)
-        
-        # Display captured print output
-        st.text_area("Class Distribution Info", stdout_capture.getvalue(), height=150)
+    # New: Plot selection dropdown
+    plot_choice = st.selectbox(
+        "Select Plot to View",
+        options=list(PLOT_OPTIONS.keys()),
+        index=list(PLOT_OPTIONS.keys()).index(DEFAULT_PLOT),
+        help="Choose one of the visualizations of the data stream. **Note**: The exact plots available depend on the data generation function."
+    )
 
-        # Get all open matplotlib figures and display them
-        figs = [plt.figure(i) for i in plt.get_fignums()]
-        for i, fig in enumerate(figs):
-            st.pyplot(fig)
-            plt.close(fig) # Close the figure to free up memory
+    # Display the selected plot
+    selected_index = PLOT_OPTIONS[plot_choice]
+    
+    if selected_index < len(all_figs):
+        st.subheader(f"Plot: {plot_choice}")
+        st.pyplot(all_figs[selected_index])
+    else:
+        st.warning(f"The selected plot ('{plot_choice}') is not available for the currently selected dataset type. Showing the first available plot instead.")
+        if all_figs:
+            st.subheader(f"Plot: {list(PLOT_OPTIONS.keys())[0]}")
+            st.pyplot(all_figs[0])
+        else:
+            st.error("No visualization plots were generated.")
+
 
 with tab2:
     if st.session_state.analysis_done:
