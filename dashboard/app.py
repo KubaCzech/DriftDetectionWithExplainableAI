@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from io import StringIO
 import contextlib
+import pandas as pd
 
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -18,9 +19,12 @@ from src.datasets.datasets import (
 from src.feature_importance.feature_importance import (
     FeatureImportanceMethod,
     visualize_data_stream,
-    analyze_data_drift,
-    analyze_concept_drift,
-    analyze_predictive_importance_shift,
+    compute_data_drift_analysis,
+    compute_concept_drift_analysis,
+    compute_predictive_importance_shift,
+    visualize_data_drift_analysis,
+    visualize_concept_drift_analysis,
+    visualize_predictive_importance_shift,
 )
 
 # --- App Configuration ---
@@ -174,14 +178,35 @@ with tab2:
         The feature importance scores show which features contributed most to this change.
         """)
         with st.spinner(f'Running Data Drift analysis with {importance_method.upper()}...'):
+            # Compute the analysis results
+            data_drift_result = compute_data_drift_analysis(
+                X, y, drift_point, feature_names,
+                importance_method=importance_method
+            )
+            
+            # Display the importance table
+            st.markdown("#### Feature Importance Summary")
+            importance_df = pd.DataFrame({
+                'Feature': feature_names,
+                'Mean Importance': data_drift_result['importance_mean'],
+                'Std Deviation': data_drift_result['importance_std']
+            })
+            importance_df = importance_df.sort_values('Mean Importance', ascending=False)
+            st.dataframe(
+                importance_df.style.format({
+                    'Mean Importance': '{:.4f}',
+                    'Std Deviation': '{:.4f}'
+                }),
+                use_container_width=True
+            )
+            
+            # Display visualizations
             stdout_capture = StringIO()
             with contextlib.redirect_stdout(stdout_capture):
-                analyze_data_drift(
-                    X, y, drift_point, feature_names,
-                    importance_method=importance_method,
-                    show_importance_boxplot=show_boxplot
+                visualize_data_drift_analysis(
+                    data_drift_result, feature_names,
+                    show_boxplot=show_boxplot
                 )
-            st.text_area("Data Drift Analysis Log", stdout_capture.getvalue(), height=200)
             figs = [plt.figure(i) for i in plt.get_fignums()]
             for fig in figs:
                 st.pyplot(fig)
@@ -195,14 +220,36 @@ with tab2:
         If the 'Y' feature has high importance, it suggests that the relationship between features and the target has changed (i.e., concept drift).
         """)
         with st.spinner(f'Running Concept Drift analysis with {importance_method.upper()}...'):
+            # Compute the analysis results
+            concept_drift_result = compute_concept_drift_analysis(
+                X, y, drift_point, feature_names,
+                importance_method=importance_method
+            )
+            
+            # Display the importance table
+            st.markdown("#### Feature Importance Summary")
+            feature_names_with_y = concept_drift_result['feature_names_with_y']
+            importance_df = pd.DataFrame({
+                'Feature': feature_names_with_y,
+                'Mean Importance': concept_drift_result['importance_mean'],
+                'Std Deviation': concept_drift_result['importance_std']
+            })
+            importance_df = importance_df.sort_values('Mean Importance', ascending=False)
+            st.dataframe(
+                importance_df.style.format({
+                    'Mean Importance': '{:.4f}',
+                    'Std Deviation': '{:.4f}'
+                }),
+                use_container_width=True
+            )
+            
+            # Display visualizations
             stdout_capture = StringIO()
             with contextlib.redirect_stdout(stdout_capture):
-                analyze_concept_drift(
-                    X, y, drift_point, feature_names,
-                    importance_method=importance_method,
-                    show_importance_boxplot=show_boxplot
+                visualize_concept_drift_analysis(
+                    concept_drift_result, feature_names_with_y,
+                    show_boxplot=show_boxplot
                 )
-            st.text_area("Concept Drift Analysis Log", stdout_capture.getvalue(), height=200)
             figs = [plt.figure(i) for i in plt.get_fignums()]
             for fig in figs:
                 st.pyplot(fig)
@@ -218,14 +265,55 @@ with tab2:
         A significant shift in feature importance between the two models indicates concept drift.
         """)
         with st.spinner(f'Running Predictive Power Shift analysis with {importance_method.upper()}...'):
+            # Compute the analysis results
+            shift_result = compute_predictive_importance_shift(
+                X, y, drift_point, feature_names,
+                importance_method=importance_method
+            )
+            
+            # Display the importance tables side by side
+            st.markdown("#### Feature Importance Summary")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Before Drift**")
+                importance_before_df = pd.DataFrame({
+                    'Feature': feature_names,
+                    'Mean Importance': shift_result['fi_before']['importances_mean'],
+                    'Std Deviation': shift_result['fi_before']['importances_std']
+                })
+                importance_before_df = importance_before_df.sort_values('Mean Importance', ascending=False)
+                st.dataframe(
+                    importance_before_df.style.format({
+                        'Mean Importance': '{:.4f}',
+                        'Std Deviation': '{:.4f}'
+                    }),
+                    use_container_width=True
+                )
+            
+            with col2:
+                st.markdown("**After Drift**")
+                importance_after_df = pd.DataFrame({
+                    'Feature': feature_names,
+                    'Mean Importance': shift_result['fi_after']['importances_mean'],
+                    'Std Deviation': shift_result['fi_after']['importances_std']
+                })
+                importance_after_df = importance_after_df.sort_values('Mean Importance', ascending=False)
+                st.dataframe(
+                    importance_after_df.style.format({
+                        'Mean Importance': '{:.4f}',
+                        'Std Deviation': '{:.4f}'
+                    }),
+                    use_container_width=True
+                )
+            
+            # Display visualizations
             stdout_capture = StringIO()
             with contextlib.redirect_stdout(stdout_capture):
-                analyze_predictive_importance_shift(
-                    X, y, drift_point, feature_names,
-                    importance_method=importance_method,
-                    show_importance_boxplot=show_boxplot
+                visualize_predictive_importance_shift(
+                    shift_result, feature_names,
+                    show_boxplot=show_boxplot
                 )
-            st.text_area("Predictive Power Shift Analysis Log", stdout_capture.getvalue(), height=200)
             figs = [plt.figure(i) for i in plt.get_fignums()]
             for fig in figs:
                 st.pyplot(fig)
