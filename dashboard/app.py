@@ -57,6 +57,27 @@ with st.sidebar:
         help="Select the synthetic dataset to analyze."
     )
 
+    # Conditionally display options for Hyperplane Drift dataset
+    n_features = None
+    n_drift_features = None
+    if dataset_name == DatasetName.HYPERPLANE_DRIFT:
+        st.subheader("Hyperplane Drift Settings")
+        n_features = st.number_input(
+            "Number of Features (n_features)",
+            min_value=2,
+            value=2,
+            step=1,
+            help="Total number of features for the hyperplane. Must be >= 2."
+        )
+        n_drift_features = st.number_input(
+            "Number of Drifting Features (n_drift_features)",
+            min_value=2,
+            max_value=n_features,
+            value=min(2, n_features),
+            step=1,
+            help="Number of features that will drift. Must be <= n_features."
+        )
+
     # 2. Toggle for Boxplots
     show_boxplot = st.checkbox(
         "Show Importance Boxplots",
@@ -70,7 +91,7 @@ with st.sidebar:
 
 # --- Data Generation ---
 @st.cache_data
-def generate_data(dataset):
+def generate_data(dataset, n_features=None, n_drift_features=None):
     """Cached function to generate data."""
     gen_params = {
         "n_samples_before": 500,
@@ -84,21 +105,30 @@ def generate_data(dataset):
     elif dataset == DatasetName.SEA_DRIFT:
         return generate_sea_drift_data(**gen_params)
     elif dataset == DatasetName.HYPERPLANE_DRIFT:
-        return generate_hyperplane_data(**gen_params)
+        hyperplane_params = gen_params.copy()
+        if n_features is not None:
+            hyperplane_params['n_features'] = n_features
+        if n_drift_features is not None:
+            hyperplane_params['n_drift_features'] = n_drift_features
+        return generate_hyperplane_data(**hyperplane_params)
     else:
         st.error(f"Unknown dataset: {dataset}")
         return None, None, None, None
 
-X, y, drift_point, feature_names = generate_data(dataset_name)
+
+X, y, drift_point, feature_names = generate_data(
+    dataset_name, n_features=n_features, n_drift_features=n_drift_features
+)
 
 # --- Plot Generation and Capturing (Modified Logic) ---
 
-# Define plot names and their assumed index based on creation order in visualize_data_stream
+# Define plot names and their assumed index based on creation
+# order in visualize_data_stream
 PLOT_OPTIONS = {
-    "Feature Space Distribution": 0, # Assumed first plot
-    "Feature vs Index Plots": 1,     # Assumed second plot
-    "Target vs Index Plot": 2,       # Assumed third plot
-    "Classification Boundary Plot": 3, # Assumed fourth plot
+    "Feature Space Distribution": 0,  # Assumed first plot
+    "Feature vs Index Plots": 1,      # Assumed second plot
+    "Target vs Index Plot": 2,        # Assumed third plot
+    "Classification Boundary Plot": 3,  # Assumed fourth plot
 }
 DEFAULT_PLOT = "Feature Space Distribution"
 
@@ -116,9 +146,10 @@ def generate_and_capture_plots(X, y, drift_point, feature_names):
     for fig_id in plt.get_fignums():
         fig = plt.figure(fig_id)
         all_figs.append(fig)
-        plt.close(fig) # Close the figure to free up memory
-        
+        plt.close(fig)  # Close the figure to free up memory
+
     return all_figs, stdout_capture.getvalue()
+
 
 all_figs, info_log = generate_and_capture_plots(X, y, drift_point, feature_names)
 
@@ -128,9 +159,6 @@ tab1, tab2 = st.tabs(["Dataset Selection and Visualization", "Feature Importance
 with tab1:
     st.header("1. Data Stream Visualization")
     st.markdown("This section visualizes the generated data before and after the drift point.")
-
-    # Display captured print output
-    st.text_area("Class Distribution Info", info_log, height=150)
 
     # Plot selection dropdown
     plot_choice = st.selectbox(
@@ -183,7 +211,7 @@ with tab2:
                 X, y, drift_point, feature_names,
                 importance_method=importance_method
             )
-            
+
             # Display the importance table
             st.markdown("#### Feature Importance Summary")
             importance_df = pd.DataFrame({
@@ -199,7 +227,7 @@ with tab2:
                 }),
                 use_container_width=True
             )
-            
+
             # Display visualizations
             stdout_capture = StringIO()
             with contextlib.redirect_stdout(stdout_capture):
