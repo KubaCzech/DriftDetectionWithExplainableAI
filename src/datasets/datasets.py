@@ -104,37 +104,48 @@ def generate_custom_3d_drift_data(n_samples_before=1000, n_samples_after=1000,
     return X, y, drift_point, feature_names
 
 
-def _generate_river_data(river_stream, n_samples_before, n_samples_after):
+def _generate_river_data(river_stream, n_samples_before,
+                         n_samples_after, n_features=2):
     """
     Helper function to generate data from a river stream.
-    MODIFIED: Now returns a 2-feature dataset (X1, X2).
+
+    Parameters
+    ----------
+    river_stream : river stream object
+        The stream generator
+    n_samples_before : int
+        Samples before drift point
+    n_samples_after : int
+        Samples after drift point
+    n_features : int, default=2
+        Number of features to extract
+
+    Returns
+    -------
+    tuple
+        (X, y, drift_point, feature_names)
     """
     X_all = []
     y_all = []
     total_samples = n_samples_before + n_samples_after
 
-    # Take first sample to determine feature names
     try:
-        # Get remaining samples
         for x, y_val in itertools.islice(river_stream, total_samples):
-            # Explicitly take only the first two features
-            X_all.append([x[0], x[1]])
+            # Extract the specified number of features
+            features = [x[i] for i in range(n_features)]
+            X_all.append(features)
             y_all.append(y_val)
 
-    except StopIteration:
-        print("Warning: Stream is empty or has fewer samples than requested.")
-        return np.array([]), np.array([]), 0, []
-    except KeyError:
-        print("Warning: Stream does not use numeric keys 0 and 1. "
-              "Failed to extract 2 features.")
+    except (StopIteration, KeyError) as e:
+        print(f"Warning: Stream generation failed: {e}")
         return np.array([]), np.array([]), 0, []
 
     X = np.array(X_all)
     y = np.array(y_all)
     drift_point = n_samples_before
 
-    # Rename river features for clarity
-    feature_names = ['X1', 'X2']
+    # Generate feature names
+    feature_names = [f'X{i+1}' for i in range(n_features)]
 
     return X, y, drift_point, feature_names
 
@@ -162,25 +173,59 @@ def generate_sea_drift_data(n_samples_before=1000, n_samples_after=1000,
 
 
 def generate_hyperplane_data(n_samples_before=1000, n_samples_after=1000,
-                             random_seed=42):
+                             n_features=2, n_drift_features=2, random_seed=42):
     """
     Generate synthetic data stream using River's Hyperplane generator.
     Drifts from a stable hyperplane to one with magnitude change.
-    Uses n_features=2 for this example.
+
+    Parameters
+    ----------
+    n_samples_before : int, default=1000
+        Number of samples before drift point
+    n_samples_after : int, default=1000
+        Number of samples after drift point
+    n_features : int, default=2
+        The number of features to generate (must be >= 2)
+    n_drift_features : int, default=2
+        The number of features with drift (must be >= 2 and <= n_features)
+    random_seed : int, default=42
+        Random seed for reproducibility
 
     Returns
     -------
     tuple
         (X, y, drift_point, feature_names)
+        - X: numpy array of shape
+          (n_samples_before + n_samples_after, n_features)
+        - y: numpy array of binary labels
+        - drift_point: int, index where drift begins
+        - feature_names: list of feature names
     """
+    # Validation
+    if n_features < 2:
+        raise ValueError("n_features must be at least 2")
+    if n_drift_features < 2:
+        raise ValueError("n_drift_features must be at least 2")
+    if n_drift_features > n_features:
+        raise ValueError("n_drift_features cannot exceed n_features")
+
     stream_HP = synth.ConceptDriftStream(
-        stream=synth.Hyperplane(n_features=2,
-                                seed=random_seed, noise_percentage=0.05),
-        drift_stream=synth.Hyperplane(n_features=2,
-                                      seed=random_seed,
-                                      mag_change=0.2, noise_percentage=0.1),
+        stream=synth.Hyperplane(
+            n_features=n_features,
+            n_drift_features=n_drift_features,
+            seed=random_seed,
+            noise_percentage=0.05
+        ),
+        drift_stream=synth.Hyperplane(
+            n_features=n_features,
+            n_drift_features=n_drift_features,
+            seed=random_seed,
+            mag_change=0.2,
+            noise_percentage=0.1
+        ),
         position=n_samples_before,
         width=400,  # Gradual drift
         seed=random_seed
     )
-    return _generate_river_data(stream_HP, n_samples_before, n_samples_after)
+    return _generate_river_data(stream_HP, n_samples_before,
+                                n_samples_after, n_features)
