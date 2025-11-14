@@ -15,6 +15,7 @@ from src.datasets.datasets import (
     generate_custom_normal_data,
     generate_hyperplane_data,
     generate_sea_drift_data,
+    generate_controlled_concept_drift_data
 )
 from src.feature_importance.feature_importance import (
     FeatureImportanceMethod,
@@ -77,6 +78,23 @@ with st.sidebar:
             step=1,
             help="Number of features that will drift. Must be <= n_features."
         )
+    elif dataset_name == DatasetName.CONTROLLED_CONCEPT_DRIFT:
+        st.subheader("Controlled Concept Drift Settings")
+        n_features = st.number_input(
+            "Number of Features (n_features)",
+            min_value=2,
+            value=11,
+            step=1,
+            help="Total number of features for the dataset. Must be >= 2."
+        )
+        n_drift_features = st.number_input(
+            "Number of Drifting Features (n_drift_features)",
+            min_value=1,
+            max_value=n_features,
+            value=min(5, n_features),
+            step=1,
+            help="Number of features that will drift. Must be <= n_features."
+        )
 
     # 2. Toggle for Boxplots
     show_boxplot = st.checkbox(
@@ -111,6 +129,13 @@ def generate_data(dataset, n_features=None, n_drift_features=None):
         if n_drift_features is not None:
             hyperplane_params['n_drift_features'] = n_drift_features
         return generate_hyperplane_data(**hyperplane_params)
+    elif dataset == DatasetName.CONTROLLED_CONCEPT_DRIFT:
+        controlled_params = gen_params.copy()
+        if n_features is not None:
+            controlled_params['n_features'] = n_features
+        if n_drift_features is not None:
+            controlled_params['n_drift_features'] = n_drift_features
+        return generate_controlled_concept_drift_data(**controlled_params)
     else:
         st.error(f"Unknown dataset: {dataset}")
         return None, None, None, None
