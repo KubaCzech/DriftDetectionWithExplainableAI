@@ -9,11 +9,13 @@ class DatasetName:
     CUSTOM_3D_DRIFT = "custom_3d_drift"
     SEA_DRIFT = "sea_drift"
     HYPERPLANE_DRIFT = "hyperplane_drift"
+    CONTROLLED_CONCEPT_DRIFT = "controlled_concept_drift"
 
     @classmethod
     def all_available(cls):
         return [cls.CUSTOM_NORMAL, cls.CUSTOM_3D_DRIFT,
-                cls.SEA_DRIFT, cls.HYPERPLANE_DRIFT]
+                cls.SEA_DRIFT, cls.HYPERPLANE_DRIFT,
+                cls.CONTROLLED_CONCEPT_DRIFT]
 
 
 def generate_custom_normal_data(n_samples_before=1000, n_samples_after=1000,
