@@ -22,7 +22,7 @@ Make sure you have Python 3.8+ and pip installed.
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/your_username/DriftDetectionWithExplainableAI.git
+   git clone https://github.com/KubaCzech/DriftDetectionWithExplainableAI.git
    ```
 2. Install Python packages
    ```sh
