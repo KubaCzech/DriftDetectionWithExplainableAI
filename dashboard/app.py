@@ -150,12 +150,12 @@ X, y, drift_point, feature_names = generate_data(
 # Define plot names and their assumed index based on creation
 # order in visualize_data_stream
 PLOT_OPTIONS = {
-    "Feature Space Distribution": 0,  # Assumed first plot
+    "Feature Space Distribution for particular features": 0,  # Assumed first plot
     "Feature vs Index Plots": 1,      # Assumed second plot
     "Target vs Index Plot": 2,        # Assumed third plot
-    "Classification Boundary Plot": 3,  # Assumed fourth plot
+    "Feature Space Distribution": 3,  # Assumed fourth plot
 }
-DEFAULT_PLOT = "Feature Space Distribution"
+DEFAULT_PLOT = "Feature Space Distribution for particular features"
 
 @st.cache_data(show_spinner="Generating data stream visualizations...")
 def generate_and_capture_plots(X, y, drift_point, feature_names):
