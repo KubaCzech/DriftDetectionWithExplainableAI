@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 def render_settings_from_schema(schema: list[dict]) -> dict:
     """
     Render Streamlit widgets based on a settings schema.
@@ -15,7 +16,7 @@ def render_settings_from_schema(schema: list[dict]) -> dict:
         A dictionary of selected parameter values.
     """
     params = {}
-    
+
     if not schema:
         return params
 
@@ -24,7 +25,7 @@ def render_settings_from_schema(schema: list[dict]) -> dict:
         label = setting["label"]
         help_text = setting.get("help", "")
         default = setting.get("default")
-        
+
         if setting["type"] == "int":
             params[name] = st.number_input(
                 label,
@@ -61,5 +62,5 @@ def render_settings_from_schema(schema: list[dict]) -> dict:
                 type=setting.get("allowed_types"),
                 help=help_text
             )
-            
+
     return params

@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
+
 def visualize_data_stream(X, y, drift_point, feature_names):
     """
     Visualize the data stream before and after concept drift for N features.
@@ -204,21 +205,21 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         X_before = X[mask_before]
         X_after = X[mask_after]
         ax_fs_before.scatter(X_before[y_before == 0, 0],
-                              X_before[y_before == 0, 1],
-                              alpha=0.5, s=20, label='Class 0',
-                              color=class_colors[0])
-        ax_fs_before.scatter(X_before[y_before == 1, 0],
-                              X_before[y_before == 1, 1],
-                              alpha=0.5, s=20, label='Class 1',
-                              color=class_colors[1])
-        ax_fs_after.scatter(X_after[y_after == 0, 0],
-                             X_after[y_after == 0, 1],
+                             X_before[y_before == 0, 1],
                              alpha=0.5, s=20, label='Class 0',
                              color=class_colors[0])
-        ax_fs_after.scatter(X_after[y_after == 1, 0],
-                             X_after[y_after == 1, 1],
+        ax_fs_before.scatter(X_before[y_before == 1, 0],
+                             X_before[y_before == 1, 1],
                              alpha=0.5, s=20, label='Class 1',
                              color=class_colors[1])
+        ax_fs_after.scatter(X_after[y_after == 0, 0],
+                            X_after[y_after == 0, 1],
+                            alpha=0.5, s=20, label='Class 0',
+                            color=class_colors[0])
+        ax_fs_after.scatter(X_after[y_after == 1, 0],
+                            X_after[y_after == 1, 1],
+                            alpha=0.5, s=20, label='Class 1',
+                            color=class_colors[1])
         ax_fs_before.set_xlabel(feature_names[0])
         ax_fs_before.set_ylabel(feature_names[1])
         ax_fs_after.set_xlabel(feature_names[0])
@@ -234,21 +235,21 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         y_after_pca = y[mask_after]
 
         ax_fs_before.scatter(X_2d_before[y_before_pca == 0, 0],
-                              X_2d_before[y_before_pca == 0, 1],
-                              alpha=0.5, s=20, label='Class 0',
-                              color=class_colors[0])
-        ax_fs_before.scatter(X_2d_before[y_before_pca == 1, 0],
-                              X_2d_before[y_before_pca == 1, 1],
-                              alpha=0.5, s=20, label='Class 1',
-                              color=class_colors[1])
-        ax_fs_after.scatter(X_2d_after[y_after_pca == 0, 0],
-                             X_2d_after[y_after_pca == 0, 1],
+                             X_2d_before[y_before_pca == 0, 1],
                              alpha=0.5, s=20, label='Class 0',
                              color=class_colors[0])
-        ax_fs_after.scatter(X_2d_after[y_after_pca == 1, 0],
-                             X_2d_after[y_after_pca == 1, 1],
+        ax_fs_before.scatter(X_2d_before[y_before_pca == 1, 0],
+                             X_2d_before[y_before_pca == 1, 1],
                              alpha=0.5, s=20, label='Class 1',
                              color=class_colors[1])
+        ax_fs_after.scatter(X_2d_after[y_after_pca == 0, 0],
+                            X_2d_after[y_after_pca == 0, 1],
+                            alpha=0.5, s=20, label='Class 0',
+                            color=class_colors[0])
+        ax_fs_after.scatter(X_2d_after[y_after_pca == 1, 0],
+                            X_2d_after[y_after_pca == 1, 1],
+                            alpha=0.5, s=20, label='Class 1',
+                            color=class_colors[1])
         ax_fs_before.set_xlabel('Principal Component 1')
         ax_fs_before.set_ylabel('Principal Component 2')
         ax_fs_after.set_xlabel('Principal Component 1')
@@ -321,7 +322,7 @@ def visualize_data_drift_analysis(analysis_result, feature_names,
 
         # Handle cases where importances might not be (n_features, n_samples)
         if (importances.ndim == 2 and importances.shape[0] != n_features and
-            importances.shape[1] == n_features):
+                importances.shape[1] == n_features):
             importances = importances.T
 
         # Ensure importances is (n_features, n_samples) before boxplot
@@ -396,7 +397,7 @@ def visualize_concept_drift_analysis(analysis_result, feature_names,
 
         # Handle cases where importances might not be (n_features, n_samples)
         if (importances.ndim == 2 and importances.shape[0] != n_features and
-            importances.shape[1] == n_features):
+                importances.shape[1] == n_features):
             importances = importances.T
 
         # Ensure importances is (n_features, n_samples) before boxplot
@@ -496,7 +497,7 @@ def visualize_predictive_importance_shift(analysis_result, feature_names,
 
         # Check if boxplot can be drawn (importances is 2D and aligned)
         if (importances_before.shape[0] == n_features and
-            importances_after.shape[0] == n_features):
+                importances_after.shape[0] == n_features):
             bp1 = ax.boxplot([importances_before[i] for i in range(n_features)],
                              positions=positions_before, widths=0.3,
                              patch_artist=True, showmeans=True, notch=True)

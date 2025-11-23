@@ -1,5 +1,5 @@
 import streamlit as st
-import matplotlib.pyplot as plt
+
 
 def render_data_visualization_tab(X, y, drift_point, feature_names, all_figs):
     """
@@ -36,17 +36,21 @@ def render_data_visualization_tab(X, y, drift_point, feature_names, all_figs):
         "Select Plot to View",
         options=list(PLOT_OPTIONS.keys()),
         index=list(PLOT_OPTIONS.keys()).index(DEFAULT_PLOT),
-        help="Choose one of the visualizations of the data stream. **Note**: The exact plots available depend on the data generation function."
+        help="Choose one of the visualizations of the data stream. "
+             "**Note**: The exact plots available depend on the data generation function."
     )
 
     # Display the selected plot
     selected_index = PLOT_OPTIONS[plot_choice]
-    
+
     if selected_index < len(all_figs):
         st.subheader(f"Plot: {plot_choice}")
         st.pyplot(all_figs[selected_index])
     else:
-        st.warning(f"The selected plot ('{plot_choice}') is not available for the currently selected dataset type. Showing the first available plot instead.")
+        st.warning(
+            f"The selected plot ('{plot_choice}') is not available for the currently selected dataset type. "
+            "Showing the first available plot instead."
+        )
         if all_figs:
             st.subheader(f"Plot: {list(PLOT_OPTIONS.keys())[0]}")
             st.pyplot(all_figs[0])

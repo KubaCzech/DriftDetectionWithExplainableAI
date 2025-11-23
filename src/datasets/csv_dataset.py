@@ -1,6 +1,6 @@
-import numpy as np
 import pandas as pd
 from .base import BaseDataset
+
 
 class CSVDataset(BaseDataset):
     @property
@@ -56,5 +56,5 @@ class CSVDataset(BaseDataset):
         if drift_point is None:
             # Default to halfway if not specified
             drift_point = len(df) // 2
-        
+
         return X, y, drift_point, feature_names

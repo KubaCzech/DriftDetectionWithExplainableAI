@@ -14,6 +14,7 @@ from src.feature_importance import (
     visualize_predictive_importance_shift,
 )
 
+
 def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, show_boxplot):
     """
     Renders the Feature Importance Analysis tab.
@@ -47,26 +48,26 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
         "Data Drift - P(X) Changes": "data_drift",
         "Predictive Power Shift": "predictive_shift"
     }
-    
     analysis_choice = st.selectbox(
         "Select Analysis Type",
         options=list(ANALYSIS_OPTIONS.keys()),
         index=0,  # Default to Concept Drift (P(Y|X))
         help="Choose which drift analysis to display."
     )
-    
+
     selected_analysis = ANALYSIS_OPTIONS[analysis_choice]
 
     st.markdown(f"Running **{analysis_choice}** analysis with **{importance_method.upper()}** method.")
 
     # --- Conditional Analysis Display ---
-    
+
     if selected_analysis == "data_drift":
         # --- Analysis: Data Drift ---
         with st.container():
             st.subheader("Analysis: Data Drift - P(X) Changes")
             st.markdown("""
-            This analysis trains a model to distinguish between the 'before' and 'after' periods using **only the input features (X)**.
+            This analysis trains a model to distinguish between the 'before' and 'after' periods
+            using **only the input features (X)**.
             High accuracy indicates that the feature distribution P(X) has changed significantly.
             The feature importance scores show which features contributed most to this change.
             """)
@@ -110,8 +111,10 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
         with st.container():
             st.subheader("Analysis: Concept Drift - P(Y|X) Changes")
             st.markdown("""
-            This analysis trains a model to distinguish between the 'before' and 'after' periods using **both input features (X) and the target variable (Y)**.
-            If the 'Y' feature has high importance, it suggests that the relationship between features and the target has changed (i.e., concept drift).
+            This analysis trains a model to distinguish between the 'before' and 'after' periods
+            using **both input features (X) and the target variable (Y)**.
+            If the 'Y' feature has high importance, it suggests that the relationship between features
+            and the target has changed (i.e., concept drift).
             """)
             with st.spinner(f'Running Concept Drift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
@@ -119,7 +122,7 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
                     X, y, drift_point, feature_names,
                     importance_method=importance_method
                 )
-                
+
                 # Display the importance table
                 st.markdown("#### Feature Importance Summary")
                 feature_names_with_y = concept_drift_result['feature_names_with_y']
@@ -136,7 +139,7 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
                     }),
                     use_container_width=True
                 )
-                
+
                 # Display visualizations
                 stdout_capture = StringIO()
                 with contextlib.redirect_stdout(stdout_capture):
@@ -165,11 +168,11 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
                     X, y, drift_point, feature_names,
                     importance_method=importance_method
                 )
-                
+
                 # Display the importance tables side by side
                 st.markdown("#### Feature Importance Summary")
                 col1, col2 = st.columns(2)
-                
+
                 with col1:
                     st.markdown("**Before Drift**")
                     importance_before_df = pd.DataFrame({
@@ -185,7 +188,7 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
                         }),
                         use_container_width=True
                     )
-                
+
                 with col2:
                     st.markdown("**After Drift**")
                     importance_after_df = pd.DataFrame({
@@ -201,7 +204,7 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
                         }),
                         use_container_width=True
                     )
-                
+
                 # Display visualizations
                 stdout_capture = StringIO()
                 with contextlib.redirect_stdout(stdout_capture):

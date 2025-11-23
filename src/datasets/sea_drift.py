@@ -2,6 +2,7 @@ from river.datasets import synth
 from .base import BaseDataset
 from .utils import generate_river_data
 
+
 class SeaDriftDataset(BaseDataset):
     @property
     def name(self) -> str:

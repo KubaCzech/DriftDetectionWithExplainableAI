@@ -1,6 +1,7 @@
 import numpy as np
 from .base import BaseDataset
 
+
 class CustomNormalDataset(BaseDataset):
     @property
     def name(self) -> str:

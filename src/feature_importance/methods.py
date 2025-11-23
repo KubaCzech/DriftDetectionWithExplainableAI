@@ -4,6 +4,7 @@ import shap
 from lime.lime_tabular import LimeTabularExplainer
 from .base import FeatureImportanceMethod
 
+
 def calculate_feature_importance(
     model, X, y, method="permutation",
     feature_names=None, n_repeats=30,

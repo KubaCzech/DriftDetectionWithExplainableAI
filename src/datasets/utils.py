@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 
+
 def generate_river_data(river_stream, n_samples_before, n_samples_after, n_features=2):
     """
     Helper function to generate data from a river stream.

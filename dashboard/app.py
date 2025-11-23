@@ -4,15 +4,14 @@ import os
 import matplotlib.pyplot as plt
 from io import StringIO
 import contextlib
-import pandas as pd
 
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.datasets import DATASETS, get_all_datasets
-from src.feature_importance import visualize_data_stream
-from dashboard.components.settings import render_settings_from_schema
-from dashboard.tabs import (
+from src.datasets import DATASETS  # noqa: E402
+from src.feature_importance import visualize_data_stream  # noqa: E402
+from dashboard.components.settings import render_settings_from_schema  # noqa: E402
+from dashboard.tabs import (  # noqa: E402
     render_data_visualization_tab,
     render_feature_importance_analysis_tab
 )
@@ -46,13 +45,15 @@ with st.sidebar:
         format_func=lambda x: DATASETS[x].display_name,
         help="Select the synthetic dataset to analyze."
     )
-    
+
     selected_dataset = DATASETS[dataset_key]
 
     # 2. Render Dataset Settings
-    if selected_dataset.name != "custom_normal" and selected_dataset.name != "custom_3d_drift" and selected_dataset.name != "sea_drift":
-         st.subheader(f"{selected_dataset.display_name} Settings")
-    
+    if (selected_dataset.name != "custom_normal" and
+            selected_dataset.name != "custom_3d_drift" and
+            selected_dataset.name != "sea_drift"):
+        st.subheader(f"{selected_dataset.display_name} Settings")
+
     dataset_params = render_settings_from_schema(selected_dataset.get_settings_schema())
 
     # 3. Toggle for Boxplots
@@ -95,6 +96,7 @@ if X is None:
     st.stop()
 
 # --- Plot Generation and Capturing (Modified Logic) ---
+
 
 @st.cache_data(show_spinner="Generating data stream visualizations...")
 def generate_and_capture_plots(X, y, drift_point, feature_names):

@@ -1,7 +1,9 @@
 import numpy as np
 from .base import BaseDataset
 
+
 class ControlledConceptDriftDataset(BaseDataset):
+
     @property
     def name(self) -> str:
         return "controlled_concept_drift"

@@ -1,6 +1,7 @@
 import numpy as np
 from .base import BaseDataset
 
+
 class Custom3DDriftDataset(BaseDataset):
     @property
     def name(self) -> str:

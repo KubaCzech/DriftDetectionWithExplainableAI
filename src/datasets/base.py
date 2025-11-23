@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
+
 class BaseDataset(ABC):
     """Abstract base class for all datasets."""
 
@@ -42,7 +43,7 @@ class BaseDataset(ABC):
     def get_settings_schema(self) -> list[dict]:
         """
         Return a schema describing the settings for this dataset.
-        
+
         Returns
         -------
         list[dict]

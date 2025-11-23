@@ -1,0 +1,7 @@
+[flake8]
+exclude = .venv,sdbm
+max-line-length = 127
+max-complexity = 10
+count = True
+statistics = True
+show-source = True

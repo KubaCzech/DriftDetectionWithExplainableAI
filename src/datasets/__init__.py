@@ -17,8 +17,10 @@ DATASETS = {
     ]
 }
 
+
 def get_dataset(name: str) -> BaseDataset:
     return DATASETS.get(name)
+
 
 def get_all_datasets() -> list[BaseDataset]:
     return list(DATASETS.values())
