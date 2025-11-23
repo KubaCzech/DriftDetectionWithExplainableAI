@@ -9,14 +9,8 @@ import pandas as pd
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.datasets.datasets import (
-    DatasetName,
-    generate_custom_3d_drift_data,
-    generate_custom_normal_data,
-    generate_hyperplane_data,
-    generate_sea_drift_data,
-    generate_controlled_concept_drift_data
-)
+from src.datasets import DATASETS, get_all_datasets
+
 from src.feature_importance.feature_importance import (
     FeatureImportanceMethod,
     visualize_data_stream,
@@ -51,17 +45,22 @@ with st.sidebar:
     st.header("⚙️ Configuration")
 
     # 1. Select Dataset
-    dataset_name = st.selectbox(
+    dataset_key = st.selectbox(
         "Choose a Dataset",
-        options=DatasetName.all_available(),
-        format_func=lambda x: x.replace("_", " ").title(),
+        options=list(DATASETS.keys()),
+        format_func=lambda x: DATASETS[x].display_name,
         help="Select the synthetic dataset to analyze."
     )
+    
+    selected_dataset = DATASETS[dataset_key]
 
-    # Conditionally display options for Hyperplane Drift dataset
+    # Conditionally display options based on dataset type
     n_features = None
     n_drift_features = None
-    if dataset_name == DatasetName.HYPERPLANE_DRIFT:
+    csv_file = None
+    target_col = "target"
+    
+    if dataset_key == "hyperplane_drift":
         st.subheader("Hyperplane Drift Settings")
         n_features = st.number_input(
             "Number of Features (n_features)",
@@ -78,7 +77,7 @@ with st.sidebar:
             step=1,
             help="Number of features that will drift. Must be <= n_features."
         )
-    elif dataset_name == DatasetName.CONTROLLED_CONCEPT_DRIFT:
+    elif dataset_key == "controlled_concept_drift":
         st.subheader("Controlled Concept Drift Settings")
         n_features = st.number_input(
             "Number of Features (n_features)",
@@ -95,6 +94,10 @@ with st.sidebar:
             step=1,
             help="Number of features that will drift. Must be <= n_features."
         )
+    elif dataset_key == "csv_dataset":
+        st.subheader("CSV Dataset Settings")
+        csv_file = st.file_uploader("Upload CSV File", type=["csv"])
+        target_col = st.text_input("Target Column Name", value="target")
 
     # 2. Toggle for Boxplots
     show_boxplot = st.checkbox(
@@ -109,41 +112,46 @@ with st.sidebar:
 
 # --- Data Generation ---
 @st.cache_data
-def generate_data(dataset, n_features=None, n_drift_features=None):
+def generate_data(dataset_name, n_features=None, n_drift_features=None, csv_file=None, target_col="target"):
     """Cached function to generate data."""
-    gen_params = {
-        "n_samples_before": 500,
-        "n_samples_after": 500,
-        "random_seed": 42
-    }
-    if dataset == DatasetName.CUSTOM_NORMAL:
-        return generate_custom_normal_data(**gen_params)
-    elif dataset == DatasetName.CUSTOM_3D_DRIFT:
-        return generate_custom_3d_drift_data(**gen_params)
-    elif dataset == DatasetName.SEA_DRIFT:
-        return generate_sea_drift_data(**gen_params)
-    elif dataset == DatasetName.HYPERPLANE_DRIFT:
-        hyperplane_params = gen_params.copy()
-        if n_features is not None:
-            hyperplane_params['n_features'] = n_features
-        if n_drift_features is not None:
-            hyperplane_params['n_drift_features'] = n_drift_features
-        return generate_hyperplane_data(**hyperplane_params)
-    elif dataset == DatasetName.CONTROLLED_CONCEPT_DRIFT:
-        controlled_params = gen_params.copy()
-        if n_features is not None:
-            controlled_params['n_features'] = n_features
-        if n_drift_features is not None:
-            controlled_params['n_drift_features'] = n_drift_features
-        return generate_controlled_concept_drift_data(**controlled_params)
-    else:
-        st.error(f"Unknown dataset: {dataset}")
+    dataset = DATASETS.get(dataset_name)
+    if not dataset:
+        st.error(f"Unknown dataset: {dataset_name}")
+        return None, None, None, None
+
+    gen_params = dataset.get_params()
+    
+    # Update params with user input
+    if n_features is not None:
+        gen_params['n_features'] = n_features
+    if n_drift_features is not None:
+        gen_params['n_drift_features'] = n_drift_features
+        
+    if dataset_name == "csv_dataset":
+        if csv_file is not None:
+            gen_params['file_path'] = csv_file
+            gen_params['target_column'] = target_col
+        else:
+            return None, None, None, None
+
+    try:
+        return dataset.generate(**gen_params)
+    except Exception as e:
+        st.error(f"Error generating data: {e}")
         return None, None, None, None
 
 
 X, y, drift_point, feature_names = generate_data(
-    dataset_name, n_features=n_features, n_drift_features=n_drift_features
+    dataset_key, 
+    n_features=n_features, 
+    n_drift_features=n_drift_features,
+    csv_file=csv_file,
+    target_col=target_col
 )
+
+if X is None:
+    st.warning("Please upload a CSV file or select a valid dataset to proceed.")
+    st.stop()
 
 # --- Plot Generation and Capturing (Modified Logic) ---
 
