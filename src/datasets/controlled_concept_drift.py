@@ -64,7 +64,8 @@ class ControlledConceptDriftDataset(BaseDataset):
         # --- Define Weights for Equal Magnitude Concept Drift ---
 
         # Base weight for non-drifting features (e.g., X3, X4, ...)
-        stable_weight = 0.1
+        # Set to 1.0 so they have equal importance to drifting features (which are 1.0 or -1.0)
+        stable_weight = 1.0
         stable_weights = np.full(n_features - n_drift_features, stable_weight)
 
         # Weights for the drifting features (e.g., X1, X2)
