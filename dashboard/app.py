@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.datasets import DATASETS, get_all_datasets
 
-from src.feature_importance.feature_importance import (
+from src.feature_importance import (
     FeatureImportanceMethod,
     visualize_data_stream,
     compute_data_drift_analysis,
