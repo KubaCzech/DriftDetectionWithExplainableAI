@@ -38,3 +38,26 @@ class BaseDataset(ABC):
             "n_samples_after": 1000,
             "random_seed": 42
         }
+
+    def get_settings_schema(self) -> list[dict]:
+        """
+        Return a schema describing the settings for this dataset.
+        
+        Returns
+        -------
+        list[dict]
+            A list of dictionaries, where each dictionary describes a setting.
+            Format:
+            {
+                "name": "param_name",
+                "type": "int" | "float" | "text" | "file" | "bool",
+                "label": "Display Label",
+                "default": value,
+                "min_value": min, # optional
+                "max_value": max, # optional
+                "step": step,     # optional
+                "allowed_types": [], # for file
+                "help": "Tooltip text"
+            }
+        """
+        return []

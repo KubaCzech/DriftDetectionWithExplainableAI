@@ -19,6 +19,28 @@ class HyperplaneDriftDataset(BaseDataset):
         })
         return params
 
+    def get_settings_schema(self) -> list[dict]:
+        return [
+            {
+                "name": "n_features",
+                "type": "int",
+                "label": "Number of Features (n_features)",
+                "default": 2,
+                "min_value": 2,
+                "step": 1,
+                "help": "Total number of features for the hyperplane. Must be >= 2."
+            },
+            {
+                "name": "n_drift_features",
+                "type": "int",
+                "label": "Number of Drifting Features (n_drift_features)",
+                "default": 2,
+                "min_value": 2,
+                "step": 1,
+                "help": "Number of features that will drift. Must be <= n_features."
+            }
+        ]
+
     def generate(self, n_samples_before=1000, n_samples_after=1000,
                  n_features=2, n_drift_features=2, random_seed=42, **kwargs):
         """

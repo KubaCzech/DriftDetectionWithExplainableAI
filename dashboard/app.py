@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.datasets import DATASETS, get_all_datasets
 from src.feature_importance import visualize_data_stream
+from dashboard.components.settings import render_settings_from_schema
 from dashboard.tabs import (
     render_data_visualization_tab,
     render_feature_importance_analysis_tab
@@ -48,52 +49,13 @@ with st.sidebar:
     
     selected_dataset = DATASETS[dataset_key]
 
-    # Conditionally display options based on dataset type
-    n_features = None
-    n_drift_features = None
-    csv_file = None
-    target_col = "target"
+    # 2. Render Dataset Settings
+    if selected_dataset.name != "custom_normal" and selected_dataset.name != "custom_3d_drift" and selected_dataset.name != "sea_drift":
+         st.subheader(f"{selected_dataset.display_name} Settings")
     
-    if dataset_key == "hyperplane_drift":
-        st.subheader("Hyperplane Drift Settings")
-        n_features = st.number_input(
-            "Number of Features (n_features)",
-            min_value=2,
-            value=2,
-            step=1,
-            help="Total number of features for the hyperplane. Must be >= 2."
-        )
-        n_drift_features = st.number_input(
-            "Number of Drifting Features (n_drift_features)",
-            min_value=2,
-            max_value=n_features,
-            value=min(2, n_features),
-            step=1,
-            help="Number of features that will drift. Must be <= n_features."
-        )
-    elif dataset_key == "controlled_concept_drift":
-        st.subheader("Controlled Concept Drift Settings")
-        n_features = st.number_input(
-            "Number of Features (n_features)",
-            min_value=2,
-            value=11,
-            step=1,
-            help="Total number of features for the dataset. Must be >= 2."
-        )
-        n_drift_features = st.number_input(
-            "Number of Drifting Features (n_drift_features)",
-            min_value=1,
-            max_value=n_features,
-            value=min(5, n_features),
-            step=1,
-            help="Number of features that will drift. Must be <= n_features."
-        )
-    elif dataset_key == "csv_dataset":
-        st.subheader("CSV Dataset Settings")
-        csv_file = st.file_uploader("Upload CSV File", type=["csv"])
-        target_col = st.text_input("Target Column Name", value="target")
+    dataset_params = render_settings_from_schema(selected_dataset.get_settings_schema())
 
-    # 2. Toggle for Boxplots
+    # 3. Toggle for Boxplots
     show_boxplot = st.checkbox(
         "Show Importance Boxplots",
         value=True,
@@ -106,7 +68,7 @@ with st.sidebar:
 
 # --- Data Generation ---
 @st.cache_data
-def generate_data(dataset_name, n_features=None, n_drift_features=None, csv_file=None, target_col="target"):
+def generate_data(dataset_name, **kwargs):
     """Cached function to generate data."""
     dataset = DATASETS.get(dataset_name)
     if not dataset:
@@ -114,19 +76,7 @@ def generate_data(dataset_name, n_features=None, n_drift_features=None, csv_file
         return None, None, None, None
 
     gen_params = dataset.get_params()
-    
-    # Update params with user input
-    if n_features is not None:
-        gen_params['n_features'] = n_features
-    if n_drift_features is not None:
-        gen_params['n_drift_features'] = n_drift_features
-        
-    if dataset_name == "csv_dataset":
-        if csv_file is not None:
-            gen_params['file_path'] = csv_file
-            gen_params['target_column'] = target_col
-        else:
-            return None, None, None, None
+    gen_params.update(kwargs)
 
     try:
         return dataset.generate(**gen_params)
@@ -136,11 +86,8 @@ def generate_data(dataset_name, n_features=None, n_drift_features=None, csv_file
 
 
 X, y, drift_point, feature_names = generate_data(
-    dataset_key, 
-    n_features=n_features, 
-    n_drift_features=n_drift_features,
-    csv_file=csv_file,
-    target_col=target_col
+    dataset_key,
+    **dataset_params
 )
 
 if X is None:
