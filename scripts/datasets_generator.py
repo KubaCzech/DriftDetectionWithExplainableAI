@@ -119,7 +119,8 @@ if __name__ == "__main__":
     generator.plot_streams(size=10000, kwargs={})
 
 # TODO:
-# 1. Implement HyperplaneDriftDatasetGenerator, RBFDatasetGenerator, and DBDatasetGenerator classes. 2. Add unit tests for each generator class.
+# 1. Implement HyperplaneDriftDatasetGenerator, RBFDatasetGenerator, and DBDatasetGenerator classes.
+# 2. Add unit tests for each generator class.
 # 3. Enhance plotting functions with more customization options.
 # 4. Optimize data generation for larger datasets.
 # 5. Add documentation and usage examples for each class and method.
