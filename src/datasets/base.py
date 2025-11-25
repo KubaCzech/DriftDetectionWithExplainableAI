@@ -62,3 +62,27 @@ class BaseDataset(ABC):
             }
         """
         return []
+
+    def get_available_settings(self) -> dict[str, dict]:
+        """
+        Return available named settings for this dataset.
+
+        Returns
+        -------
+        dict[str, dict]
+            A dictionary mapping setting names to their parameter values.
+            Example:
+            {
+                "Default": {
+                    "n_features": 2,
+                    "noise_percentage": 0.05,
+                    ...
+                },
+                "High Noise": {
+                    "n_features": 2,
+                    "noise_percentage": 0.3,
+                    ...
+                }
+            }
+        """
+        return {}

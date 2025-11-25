@@ -48,15 +48,79 @@ with st.sidebar:
 
     selected_dataset = DATASETS[dataset_key]
 
-    # 2. Render Dataset Settings
+    # 2. Settings Preset Selection
+    available_settings = selected_dataset.get_available_settings()
+    
+    # Initialize session state for selected setting if not exists
+    if 'selected_setting' not in st.session_state:
+        st.session_state.selected_setting = None
+    
+    # Initialize session state for parameters if not exists
+    if 'dataset_params' not in st.session_state:
+        st.session_state.dataset_params = {}
+    
+    # Track if we need to force update the widgets (when preset changes)
+    if 'force_update_widgets' not in st.session_state:
+        st.session_state.force_update_widgets = False
+    
+    # If there are available settings, show the dropdown
+    if available_settings:
+        setting_options = ["Not selected"] + list(available_settings.keys())
+        
+        # Initialize the selectbox session state if not exists
+        if 'setting_selectbox' not in st.session_state:
+            st.session_state.setting_selectbox = "Not selected"
+        
+        # Update selectbox value based on selected_setting
+        if st.session_state.selected_setting in available_settings:
+            st.session_state.setting_selectbox = st.session_state.selected_setting
+        elif st.session_state.selected_setting is None:
+            st.session_state.setting_selectbox = "Not selected"
+        
+        def on_setting_change():
+            """Callback when settings dropdown changes"""
+            selected = st.session_state.setting_selectbox
+            if selected == "Not selected":
+                st.session_state.selected_setting = None
+                st.session_state.dataset_params = {}
+            else:
+                st.session_state.selected_setting = selected
+                # Update the parameter values in session state
+                st.session_state.dataset_params = available_settings[selected].copy()
+                # Set flag to force update widgets
+                st.session_state.force_update_widgets = True
+        
+        st.selectbox(
+            "Select Preset Settings",
+            options=setting_options,
+            key='setting_selectbox',
+            on_change=on_setting_change,
+            help="Choose a preset configuration or customize parameters manually."
+        )
+
+    # 3. Render Dataset Settings
     if (selected_dataset.name != "custom_normal" and
             selected_dataset.name != "custom_3d_drift" and
             selected_dataset.name != "sea_drift"):
         st.subheader(f"{selected_dataset.display_name} Settings")
 
-    dataset_params = render_settings_from_schema(selected_dataset.get_settings_schema())
+    def on_param_change():
+        """Callback when any parameter changes - mark as custom"""
+        if available_settings:
+            st.session_state.selected_setting = None
+            st.session_state.dataset_params = {}
 
-    # 3. Toggle for Boxplots
+    dataset_params = render_settings_from_schema(
+        selected_dataset.get_settings_schema(),
+        on_change=on_param_change,
+        initial_values=st.session_state.dataset_params if st.session_state.dataset_params else None,
+        force_update=st.session_state.force_update_widgets
+    )
+    
+    # Reset the force update flag after rendering
+    st.session_state.force_update_widgets = False
+
+    # 4. Toggle for Boxplots
     show_boxplot = st.checkbox(
         "Show Importance Boxplots",
         value=True,
