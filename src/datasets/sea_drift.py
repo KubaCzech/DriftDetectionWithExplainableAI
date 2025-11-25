@@ -21,7 +21,7 @@ class SeaDriftDataset(BaseDataset):
         """
         Generate synthetic data stream using River's SEA generator.
         Drifts from variant 0 to variant 3 at the drift point.
-        The SEA generator has 3 features, but we only use the first 2.
+        The SEA generator has 3 features, and we use all of them.
         """
         stream_SEA = synth.ConceptDriftStream(
             stream=synth.SEA(seed=random_seed, variant=0),
@@ -30,4 +30,4 @@ class SeaDriftDataset(BaseDataset):
             width=400,  # Gradual drift
             seed=random_seed
         )
-        return generate_river_data(stream_SEA, n_samples_before, n_samples_after)
+        return generate_river_data(stream_SEA, n_samples_before, n_samples_after, n_features=3)
