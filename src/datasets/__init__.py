@@ -5,6 +5,7 @@ from .sea_drift import SeaDriftDataset
 from .hyperplane_drift import HyperplaneDriftDataset
 from .controlled_concept_drift import ControlledConceptDriftDataset
 from .csv_dataset import CSVDataset
+from .random_rbf_drift import RandomRBFDriftDataset
 
 DATASETS = {
     d.name: d for d in [
@@ -13,6 +14,7 @@ DATASETS = {
         SeaDriftDataset(),
         HyperplaneDriftDataset(),
         ControlledConceptDriftDataset(),
+        RandomRBFDriftDataset(),
         CSVDataset()
     ]
 }
