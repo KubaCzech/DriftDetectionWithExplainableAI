@@ -138,7 +138,7 @@ def generate_data(dataset_name, **kwargs):
     dataset = DATASETS.get(dataset_name)
     if not dataset:
         st.error(f"Unknown dataset: {dataset_name}")
-        return None, None, None, None
+        return None, None, None
 
     gen_params = dataset.get_params()
     gen_params.update(kwargs)
@@ -147,13 +147,18 @@ def generate_data(dataset_name, **kwargs):
         return dataset.generate(**gen_params)
     except Exception as e:
         st.error(f"Error generating data: {e}")
-        return None, None, None, None
+        return None, None, None
 
 
-X, y, drift_point, feature_names = generate_data(
+X, y, drift_point = generate_data(
     dataset_key,
     **dataset_params
 )
+
+if X is not None:
+    feature_names = X.columns.tolist()
+else:
+    feature_names = []
 
 if X is None:
     st.warning("Please upload a CSV file or select a valid dataset to proceed.")

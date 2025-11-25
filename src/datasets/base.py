@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
+import pandas as pd
 
 
 class BaseDataset(ABC):
@@ -18,14 +19,17 @@ class BaseDataset(ABC):
         pass
 
     @abstractmethod
-    def generate(self, **kwargs) -> tuple[np.ndarray, np.ndarray, int, list[str]]:
+    def generate(self, **kwargs) -> tuple[pd.DataFrame, pd.Series, int]:
         """
         Generate the dataset.
 
         Returns
         -------
         tuple
-            (X, y, drift_point, feature_names)
+            (X, y, drift_point)
+            X: pd.DataFrame with named features
+            y: pd.Series with target values
+            drift_point: int
         """
         pass
 

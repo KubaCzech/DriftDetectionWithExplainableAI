@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from .base import BaseDataset
 
 
@@ -97,6 +98,10 @@ class ControlledConceptDriftDataset(BaseDataset):
         y_after = (scores_after > threshold_after).astype(int)
 
         # Combine data
-        y = np.concatenate([y_before, y_after])
+        # Combine data
+        y_array = np.concatenate([y_before, y_after])
+        
+        X_df = pd.DataFrame(X, columns=feature_names)
+        y_series = pd.Series(y_array, name='Y')
 
-        return X, y, drift_point, feature_names
+        return X_df, y_series, drift_point

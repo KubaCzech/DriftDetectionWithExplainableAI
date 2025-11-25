@@ -48,13 +48,11 @@ class CSVDataset(BaseDataset):
         if target_column not in df.columns:
             raise ValueError(f"Target column '{target_column}' not found in CSV")
 
-        y = df[target_column].values
-        X_df = df.drop(columns=[target_column])
-        X = X_df.values
-        feature_names = X_df.columns.tolist()
+        y = df[target_column]
+        X = df.drop(columns=[target_column])
 
         if drift_point is None:
             # Default to halfway if not specified
             drift_point = len(df) // 2
 
-        return X, y, drift_point, feature_names
+        return X, y, drift_point

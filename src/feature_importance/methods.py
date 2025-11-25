@@ -40,7 +40,10 @@ def calculate_feature_importance(
         - 'method': method used
     """
     if feature_names is None:
-        feature_names = [f"Feature_{i}" for i in range(X.shape[1])]
+        if hasattr(X, 'columns'):
+            feature_names = X.columns.tolist()
+        else:
+            feature_names = [f"Feature_{i}" for i in range(X.shape[1])]
 
     if method == FeatureImportanceMethod.PFI:
         return _calculate_pfi(model, X, y, n_repeats, random_state)

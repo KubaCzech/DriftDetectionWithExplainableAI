@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from sklearn.decomposition import PCA
 
 
@@ -24,6 +25,12 @@ def visualize_data_stream(X, y, drift_point, feature_names):
     feature_names : list
         Names of features
     """
+    # Convert to numpy if pandas
+    if isinstance(X, pd.DataFrame):
+        X = X.values
+    if isinstance(y, pd.Series):
+        y = y.values
+
     n_features = X.shape[1]
     time_steps = np.arange(len(y))
     y_before = y[:drift_point]

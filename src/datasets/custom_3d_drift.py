@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from .base import BaseDataset
 
 
@@ -37,9 +38,13 @@ class Custom3DDriftDataset(BaseDataset):
         y_after = (scores_after > threshold_after).astype(int)
 
         # Combine data
+        # Combine data
         X = np.concatenate([X_before, X_after])
         y = np.concatenate([y_before, y_after])
         drift_point = n_samples_before
         feature_names = ['X1', 'X2', 'X3']
 
-        return X, y, drift_point, feature_names
+        X_df = pd.DataFrame(X, columns=feature_names)
+        y_series = pd.Series(y, name='Y')
+
+        return X_df, y_series, drift_point

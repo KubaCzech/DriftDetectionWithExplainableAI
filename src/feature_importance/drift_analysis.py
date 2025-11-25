@@ -8,7 +8,7 @@ from .visualization import (
 )
 
 
-def compute_data_drift_analysis(X, y, drift_point, feature_names,
+def compute_data_drift_analysis(X, y, drift_point, feature_names=None,
                                 importance_method="permutation"):
     """
     Compute data drift analysis by classifying time periods using only
@@ -41,6 +41,9 @@ def compute_data_drift_analysis(X, y, drift_point, feature_names,
     print("=" * 70)
 
     # Prepare features and labels
+    if feature_names is None and hasattr(X, 'columns'):
+        feature_names = X.columns.tolist()
+    
     X_features = X
     n_samples_before = drift_point
     n_samples_after = len(y) - drift_point
@@ -88,7 +91,7 @@ def compute_data_drift_analysis(X, y, drift_point, feature_names,
     }
 
 
-def analyze_data_drift(X, y, drift_point, feature_names,
+def analyze_data_drift(X, y, drift_point, feature_names=None,
                        importance_method="permutation",
                        show_importance_boxplot=True):
     """
@@ -122,7 +125,7 @@ def analyze_data_drift(X, y, drift_point, feature_names,
     return result
 
 
-def compute_concept_drift_analysis(X, y, drift_point, feature_names,
+def compute_concept_drift_analysis(X, y, drift_point, feature_names=None,
                                    importance_method="permutation"):
     """
     Compute concept drift analysis by classifying time periods using features
@@ -155,6 +158,9 @@ def compute_concept_drift_analysis(X, y, drift_point, feature_names,
     print("=" * 70)
 
     # Prepare features and labels
+    if feature_names is None and hasattr(X, 'columns'):
+        feature_names = X.columns.tolist()
+
     X_features_with_y = np.column_stack([X, y])
     n_samples_before = drift_point
     n_samples_after = len(y) - drift_point
@@ -204,7 +210,7 @@ def compute_concept_drift_analysis(X, y, drift_point, feature_names,
     }
 
 
-def analyze_concept_drift(X, y, drift_point, feature_names,
+def analyze_concept_drift(X, y, drift_point, feature_names=None,
                           importance_method="permutation",
                           show_importance_boxplot=True):
     """
@@ -240,7 +246,7 @@ def analyze_concept_drift(X, y, drift_point, feature_names,
     return result
 
 
-def compute_predictive_importance_shift(X, y, drift_point, feature_names,
+def compute_predictive_importance_shift(X, y, drift_point, feature_names=None,
                                         importance_method="permutation"):
     """
     Compute how predictive feature importance shifts before and after drift.
@@ -271,6 +277,9 @@ def compute_predictive_importance_shift(X, y, drift_point, feature_names,
     print("=" * 70)
 
     # Split data into before and after drift
+    if feature_names is None and hasattr(X, 'columns'):
+        feature_names = X.columns.tolist()
+
     X_features = X
     X_features_before = X_features[:drift_point]
     y_before = y[:drift_point]
@@ -336,7 +345,7 @@ def compute_predictive_importance_shift(X, y, drift_point, feature_names,
     }
 
 
-def analyze_predictive_importance_shift(X, y, drift_point, feature_names,
+def analyze_predictive_importance_shift(X, y, drift_point, feature_names=None,
                                         importance_method="permutation",
                                         show_importance_boxplot=True):
     """

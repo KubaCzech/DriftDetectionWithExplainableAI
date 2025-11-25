@@ -1,5 +1,6 @@
 import numpy as np
 import itertools
+import pandas as pd
 
 
 def generate_river_data(river_stream, n_samples_before, n_samples_after, n_features=2):
@@ -37,11 +38,8 @@ def generate_river_data(river_stream, n_samples_before, n_samples_after, n_featu
         print(f"Warning: Stream generation failed: {e}")
         return np.array([]), np.array([]), 0, []
 
-    X = np.array(X_all)
-    y = np.array(y_all)
+    X = pd.DataFrame(X_all, columns=[f'X{i+1}' for i in range(n_features)])
+    y = pd.Series(y_all, name='Y')
     drift_point = n_samples_before
 
-    # Generate feature names
-    feature_names = [f'X{i+1}' for i in range(n_features)]
-
-    return X, y, drift_point, feature_names
+    return X, y, drift_point

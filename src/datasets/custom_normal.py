@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from .base import BaseDataset
 
 
@@ -34,6 +35,7 @@ class CustomNormalDataset(BaseDataset):
         y_after = (scores_after > threshold_after).astype(int)
 
         # Combine data
+        # Combine data
         X1 = np.concatenate([X1_before, X1_after])
         X2 = np.concatenate([X2_before, X2_after])
         X = np.column_stack([X1, X2])
@@ -41,4 +43,7 @@ class CustomNormalDataset(BaseDataset):
         drift_point = n_samples_before
         feature_names = ['X1', 'X2']
 
-        return X, y, drift_point, feature_names
+        X_df = pd.DataFrame(X, columns=feature_names)
+        y_series = pd.Series(y, name='Y')
+
+        return X_df, y_series, drift_point
