@@ -32,14 +32,6 @@ def compute_data_drift_analysis(X, y, drift_point, feature_names=None,
     dict
         Dictionary containing analysis results
     """
-    print("\n" + "=" * 70)
-    print("STEP 1: DATA DRIFT DETECTION "
-          "(Classification using X features only)")
-    print(f"Feature Importance Method: {importance_method.upper()}")
-    print("Goal: Classify if data point is BEFORE (0) or AFTER (1) drift, "
-          "based on P(X).")
-    print("=" * 70)
-
     # Prepare features and labels
     if feature_names is None and hasattr(X, 'columns'):
         feature_names = X.columns.tolist()
@@ -60,10 +52,6 @@ def compute_data_drift_analysis(X, y, drift_point, feature_names=None,
     nn_model.fit(X_features, time_labels)
     nn_accuracy = nn_model.score(X_features, time_labels)
 
-    print("\nModel Accuracy (X features only):")
-    print(f"  Neural Network (MLP) Accuracy: {nn_accuracy:.4f}")
-    print("(Higher accuracy = stronger P(X) drift, Random guess = 0.50)")
-
     # Calculate Feature Importance
     fi_result = calculate_feature_importance(
         nn_model, X_features, time_labels,
@@ -73,14 +61,6 @@ def compute_data_drift_analysis(X, y, drift_point, feature_names=None,
 
     importance_mean = fi_result['importances_mean']
     importance_std = fi_result['importances_std']
-
-    print("\n" + "-" * 70)
-    print(f"{fi_result['method']} (Feature importance for detecting "
-          "time-period using X only)")
-    print("-" * 70)
-    print(f"\nNeural Network (MLP) {fi_result['method']}:")
-    for i, name in enumerate(feature_names):
-        print(f"  {name}: {importance_mean[i]:.4f} ± {importance_std[i]:.4f}")
 
     return {
         'model': nn_model,
@@ -149,14 +129,6 @@ def compute_concept_drift_analysis(X, y, drift_point, feature_names=None,
     dict
         Dictionary containing analysis results
     """
-    print("\n" + "=" * 70)
-    print("STEP 2: CONCEPT DRIFT DETECTION (Classification using X and Y "
-          "features)")
-    print(f"Feature Importance Method: {importance_method.upper()}")
-    print("Goal: Classify data point based on P(Period|X, Y). "
-          "Highly sensitive to P(Y|X) changes.")
-    print("=" * 70)
-
     # Prepare features and labels
     if feature_names is None and hasattr(X, 'columns'):
         feature_names = X.columns.tolist()
@@ -177,9 +149,6 @@ def compute_concept_drift_analysis(X, y, drift_point, feature_names=None,
     nn_model_xy.fit(X_features_with_y, time_labels)
     nn_accuracy_xy = nn_model_xy.score(X_features_with_y, time_labels)
 
-    print("\nModel Accuracy (X and Y features):")
-    print(f"  Neural Network (MLP) Accuracy: {nn_accuracy_xy:.4f}")
-
     # Calculate Feature Importance
     feature_names_with_y = feature_names + ['Y']
     fi_result = calculate_feature_importance(
@@ -190,15 +159,6 @@ def compute_concept_drift_analysis(X, y, drift_point, feature_names=None,
 
     importance_mean = fi_result['importances_mean']
     importance_std = fi_result['importances_std']
-
-    print("\n" + "-" * 70)
-    print(f"{fi_result['method']} (Feature importance for detecting "
-          "time-period using X and Y)")
-    print("-" * 70)
-    print(f"\nNeural Network (MLP) {fi_result['method']}:")
-    for i, name in enumerate(feature_names_with_y):
-        print(f"  {name}: {importance_mean[i]:.4f} ± {importance_std[i]:.4f}")
-    print("=" * 70)
 
     return {
         'model': nn_model_xy,
@@ -269,13 +229,6 @@ def compute_predictive_importance_shift(X, y, drift_point, feature_names=None,
     dict
         Dictionary containing analysis results
     """
-    print("\n" + "=" * 70)
-    print("STEP 3: PREDICTIVE POWER SHIFT (Classification)")
-    print(f"Feature Importance Method: {importance_method.upper()}")
-    print("Goal: Compare feature importance for predicting target 'y' "
-          "BEFORE vs AFTER drift.")
-    print("=" * 70)
-
     # Split data into before and after drift
     if feature_names is None and hasattr(X, 'columns'):
         feature_names = X.columns.tolist()
@@ -305,10 +258,6 @@ def compute_predictive_importance_shift(X, y, drift_point, feature_names=None,
     mlp_after.fit(X_features_after, y_after)
     acc_after = mlp_after.score(X_features_after, y_after)
 
-    print("\nModel Accuracy Scores (on training data):")
-    print(f"  NN Model (Before Drift) Accuracy: {acc_before:.4f}")
-    print(f"  NN Model (After Drift) Accuracy: {acc_after:.4f}")
-
     # Feature Importance for BEFORE drift
     fi_before = calculate_feature_importance(
         mlp_before, X_features_before, y_before,
@@ -322,18 +271,6 @@ def compute_predictive_importance_shift(X, y, drift_point, feature_names=None,
         method=importance_method,
         feature_names=feature_names
     )
-
-    print(f"\nPredictive {fi_before['method']}:")
-    print("Before Drift:")
-    for i, name in enumerate(feature_names):
-        print(f"  {name}: {fi_before['importances_mean'][i]:.4f} ± "
-              f"{fi_before['importances_std'][i]:.4f}")
-
-    print("\nAfter Drift:")
-    for i, name in enumerate(feature_names):
-        print(f"  {name}: {fi_after['importances_mean'][i]:.4f} ± "
-              f"{fi_after['importances_std'][i]:.4f}")
-    print("=" * 70)
 
     return {
         'model_before': mlp_before,
