@@ -12,6 +12,28 @@ class CustomNormalDataset(BaseDataset):
     def display_name(self) -> str:
         return "Custom Normal"
 
+    def get_settings_schema(self) -> list[dict]:
+        return [
+            {
+                "name": "n_samples_before",
+                "type": "int",
+                "label": "Number of Samples Before Drift",
+                "default": 1000,
+                "min_value": 100,
+                "step": 100,
+                "help": "Number of samples generated before the concept drift occurs."
+            },
+            {
+                "name": "n_samples_after",
+                "type": "int",
+                "label": "Number of Samples After Drift",
+                "default": 1000,
+                "min_value": 100,
+                "step": 100,
+                "help": "Number of samples generated after the concept drift occurs."
+            }
+        ]
+
     def generate(self, n_samples_before=1000, n_samples_after=1000, random_seed=42, **kwargs):
         """
         Generate synthetic data stream with concept drift (Original Function, 2D).

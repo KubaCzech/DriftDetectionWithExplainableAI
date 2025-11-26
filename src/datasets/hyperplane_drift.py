@@ -27,6 +27,24 @@ class HyperplaneDriftDataset(BaseDataset):
     def get_settings_schema(self) -> list[dict]:
         return [
             {
+                "name": "n_samples_before",
+                "type": "int",
+                "label": "Number of Samples Before Drift",
+                "default": 1000,
+                "min_value": 100,
+                "step": 100,
+                "help": "Number of samples generated before the concept drift occurs."
+            },
+            {
+                "name": "n_samples_after",
+                "type": "int",
+                "label": "Number of Samples After Drift",
+                "default": 1000,
+                "min_value": 100,
+                "step": 100,
+                "help": "Number of samples generated after the concept drift occurs."
+            },
+            {
                 "name": "n_features",
                 "type": "int",
                 "label": "Number of Features (n_features)",
