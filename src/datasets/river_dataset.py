@@ -1,9 +1,10 @@
 import numpy as np
+import itertools
 
 from enum import Enum
 from river import datasets
 from .base import BaseDataset
-from .utils import generate_river_data
+from .utils import generate_river_data, generate_river_data_with_selection
 
 
 class RiverDatasetType(Enum):
@@ -32,21 +33,63 @@ class RiverDataset(BaseDataset):
     def display_name(self) -> str:
         return f"{self.dataset_name} Drift"
 
+    def get_settings_schema(self) -> list[dict]:
+        return [
+            {
+                "name": "size_of_block",
+                "type": "int",
+                "label": "Size of Block",
+                "default": 2000,
+                "min_value": 100,
+                "step": 100,
+                "help": "Number of samples to extract from the dataset."
+            },
+            {
+                "name": "starting_point",
+                "type": "int",
+                "label": "Starting Point",
+                "default": -1,
+                "min_value": -1,
+                "step": 100,
+                "help": "Starting index in the stream. If -1, a random point is chosen."
+            }
+        ]
+
+    def get_available_settings(self) -> dict[str, dict]:
+        return {
+            "Default": {
+                "size_of_block": 2000,
+                "starting_point": -1
+            }
+        }
+
+    def get_params(self) -> dict:
+        return {
+            "size_of_block": 2000,
+            "starting_point": -1,
+            "random_seed": 42
+        }
+
     def generate(
         self,
         size_of_block=2000,
         starting_point=None,
         random_seed=42,
+        **kwargs
     ):
         # TODO: number of features
         size_of_dataset = self.dataset.n_samples
         np.random.seed(random_seed)
 
-        if starting_point is None:
+        if starting_point is None or starting_point == -1:
             starting_point = np.random.randint(0, size_of_dataset - size_of_block)
         else:
             starting_point = max(0, min(starting_point, size_of_dataset - size_of_block))
 
-        stream = self.dataset.skip(starting_point)
+        stream = itertools.islice(iter(self.dataset), starting_point, None)
 
-        return generate_river_data(stream, size_of_block, n_features=len(self.dataset.features))
+        if self.dataset_name == RiverDatasetType.ELECTRICITY.value:
+            feature_names = ['period', 'nswprice', 'nswdemand', 'vicprice', 'vicdemand', 'transfer']
+            return generate_river_data_with_selection(stream, size_of_block, feature_names)
+
+        return generate_river_data(stream, size_of_block)

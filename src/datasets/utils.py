@@ -40,3 +40,47 @@ def generate_river_data(river_stream, total_samples, n_features=2):
     y = pd.Series(y_all, name='Y')
     
     return X, y
+
+
+def generate_river_data_with_selection(river_stream, total_samples, feature_names):
+    """
+    Helper function to generate data from a river stream with selected features.
+
+    Parameters
+    ----------
+    river_stream : river stream object
+        The stream generator
+    total_samples : int
+        Total number of samples to generate
+    feature_names : list of str
+        List of feature names to extract
+
+    Returns
+    -------
+    tuple
+        (X, y)
+    """
+    X_all = []
+    y_all = []
+
+    try:
+        for x, y_val in itertools.islice(river_stream, total_samples):
+            # Extract the specified features by name
+            features = [x[name] for name in feature_names if name in x]
+            # Check if all features were found
+            if len(features) == len(feature_names):
+                X_all.append(features)
+                y_all.append(y_val)
+            else:
+                # Handle missing features if necessary, for now skip or warn
+                # Printing warning might be too verbose for large streams
+                pass
+
+    except (StopIteration, KeyError) as e:
+        print(f"Warning: Stream generation failed: {e}")
+        return pd.DataFrame(), pd.Series()
+
+    X = pd.DataFrame(X_all, columns=feature_names)
+    y = pd.Series(y_all, name='Y')
+    
+    return X, y
