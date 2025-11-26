@@ -186,6 +186,26 @@ if X is None:
     st.warning("Please upload a CSV file or select a valid dataset to proceed.")
     st.stop()
 
+# --- Feature Selection ---
+with st.sidebar:
+    st.markdown("---")
+    st.subheader("Feature Selection")
+    
+    selected_features = []
+    if feature_names:
+        st.write("Select features to include in the analysis:")
+        for feature in feature_names:
+            if st.checkbox(feature, value=True, key=f"feature_select_{feature}"):
+                selected_features.append(feature)
+        
+        if not selected_features:
+            st.warning("Please select at least one feature.")
+            st.stop()
+            
+        # Filter X and update feature_names
+        X = X[selected_features]
+        feature_names = selected_features
+
 # --- Plot Generation and Capturing (Modified Logic) ---
 
 
