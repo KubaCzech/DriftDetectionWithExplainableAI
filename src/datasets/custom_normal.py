@@ -62,10 +62,9 @@ class CustomNormalDataset(BaseDataset):
         X2 = np.concatenate([X2_before, X2_after])
         X = np.column_stack([X1, X2])
         y = np.concatenate([y_before, y_after])
-        drift_point = n_samples_before
         feature_names = ['X1', 'X2']
 
         X_df = pd.DataFrame(X, columns=feature_names)
         y_series = pd.Series(y, name='Y')
 
-        return X_df, y_series, drift_point
+        return X_df, y_series

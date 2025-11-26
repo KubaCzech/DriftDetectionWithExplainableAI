@@ -149,5 +149,4 @@ class HyperplaneDriftDataset(BaseDataset):
             width=drift_width,  # Gradual drift
             seed=random_seed
         )
-        return generate_river_data(stream_HP, n_samples_before,
-                                   n_samples_after, n_features)
+        return generate_river_data(stream_HP, n_samples_before + n_samples_after, n_features)

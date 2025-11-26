@@ -4,9 +4,9 @@ import pandas as pd
 from sklearn.decomposition import PCA
 
 
-def visualize_data_stream(X, y, drift_point, feature_names):
+def visualize_data_stream(X, y, window_before_start, window_after_start, window_length, feature_names):
     """
-    Visualize the data stream before and after concept drift for N features.
+    Visualize the data stream for two specific windows.
 
     Creates four separate figures:
     1. Feature distributions over time
@@ -20,8 +20,12 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         Feature matrix
     y : array-like (n_samples,)
         Binary class labels
-    drift_point : int
-        Index where drift occurs
+    window_before_start : int
+        Start index for the first window
+    window_after_start : int
+        Start index for the second window
+    window_length : int
+        Length of the windows
     feature_names : list
         Names of features
     """
@@ -30,11 +34,27 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         X = X.values
     if isinstance(y, pd.Series):
         y = y.values
+    
+    # Define windows
+    start_before = window_before_start
+    end_before = start_before + window_length
+    
+    start_after = window_after_start
+    end_after = start_after + window_length
+    
+    # Slice data for analysis
+    X_before = X[start_before:end_before]
+    y_before = y[start_before:end_before]
+    
+    X_after = X[start_after:end_after]
+    y_after = y[start_after:end_after]
 
     n_features = X.shape[1]
-    time_steps = np.arange(len(y))
-    y_before = y[:drift_point]
-    y_after = y[drift_point:]
+    
+    # Create time steps for plotting (relative to the window start or absolute?)
+    # Let's use absolute indices for x-axis to show where they are in the stream
+    time_steps_before = np.arange(start_before, end_before)
+    time_steps_after = np.arange(start_after, end_after)
 
     # Calculate class distributions
     class_dist_before = [np.mean(y_before == 0), np.mean(y_before == 1)]
@@ -43,22 +63,20 @@ def visualize_data_stream(X, y, drift_point, feature_names):
     print("=" * 70)
     print("TARGET VARIABLE (Y) DISTRIBUTION")
     print("=" * 70)
-    print(f"Before Drift: Class 0: {class_dist_before[0]:.2%}, "
+    print(f"Window 1 ({start_before}-{end_before}): Class 0: {class_dist_before[0]:.2%}, "
           f"Class 1: {class_dist_before[1]:.2%}")
-    print(f"After Drift:  Class 0: {class_dist_after[0]:.2%}, "
+    print(f"Window 2 ({start_after}-{end_after}):  Class 0: {class_dist_after[0]:.2%}, "
           f"Class 1: {class_dist_after[1]:.2%}")
     print("=" * 70)
 
     # Colors for the two classes
     class_colors = {0: '#FF6B6B', 1: '#4ECDC4'}
 
-    # Create masks for different periods and classes
-    mask_before = (time_steps < drift_point)
-    mask_after = (time_steps >= drift_point)
-    mask_before_c0 = mask_before & (y == 0)
-    mask_before_c1 = mask_before & (y == 1)
-    mask_after_c0 = mask_after & (y == 0)
-    mask_after_c1 = mask_after & (y == 1)
+    # Create masks for different periods and classes (local to the sliced data)
+    mask_before_c0 = (y_before == 0)
+    mask_before_c1 = (y_before == 1)
+    mask_after_c0 = (y_after == 0)
+    mask_after_c1 = (y_after == 1)
 
     # 🚀 --- Figure: Feature Distributions over Time --- 🚀
     fig1, axes1 = plt.subplots(n_features, 2,
@@ -73,29 +91,29 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         feat_name = feature_names[i]
         feat_data = X[:, i]
 
-        # Before Drift
-        ax_before.scatter(time_steps[mask_before_c0], feat_data[mask_before_c0],
+        # Before Drift (Window 1)
+        ax_before.scatter(time_steps_before[mask_before_c0], X_before[mask_before_c0, i],
                           alpha=0.5, s=20, label='Class 0',
                           color=class_colors[0])
-        ax_before.scatter(time_steps[mask_before_c1], feat_data[mask_before_c1],
+        ax_before.scatter(time_steps_before[mask_before_c1], X_before[mask_before_c1, i],
                           alpha=0.5, s=20, label='Class 1',
                           color=class_colors[1])
         ax_before.set_xlabel('Time')
         ax_before.set_ylabel(f'{feat_name} Value')
-        ax_before.set_title(f'{feat_name} - Before Drift')
+        ax_before.set_title(f'{feat_name} - Window 1')
         ax_before.legend()
         ax_before.grid(True, alpha=0.3)
 
-        # After Drift
-        ax_after.scatter(time_steps[mask_after_c0], feat_data[mask_after_c0],
+        # After Drift (Window 2)
+        ax_after.scatter(time_steps_after[mask_after_c0], X_after[mask_after_c0, i],
                          alpha=0.5, s=20, label='Class 0',
                          color=class_colors[0])
-        ax_after.scatter(time_steps[mask_after_c1], feat_data[mask_after_c1],
+        ax_after.scatter(time_steps_after[mask_after_c1], X_after[mask_after_c1, i],
                          alpha=0.5, s=20, label='Class 1',
                          color=class_colors[1])
         ax_after.set_xlabel('Time')
         ax_after.set_ylabel(f'{feat_name} Value')
-        ax_after.set_title(f'{feat_name} - After Drift')
+        ax_after.set_title(f'{feat_name} - Window 2')
         ax_after.legend()
         ax_after.grid(True, alpha=0.3)
 
@@ -123,31 +141,31 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         y_jitter_after_c0 = (np.random.normal(0, 0.02, np.sum(mask_after_c0)))
         y_jitter_after_c1 = (1 + np.random.normal(0, 0.02, np.sum(mask_after_c1)))
 
-        # Before Drift
-        ax_before.scatter(feat_data[mask_before_c0], y_jitter_before_c0,
+        # Before Drift (Window 1)
+        ax_before.scatter(X_before[mask_before_c0, i], y_jitter_before_c0,
                           alpha=0.5, s=20, label='Class 0',
                           color=class_colors[0])
-        ax_before.scatter(feat_data[mask_before_c1], y_jitter_before_c1,
+        ax_before.scatter(X_before[mask_before_c1, i], y_jitter_before_c1,
                           alpha=0.5, s=20, label='Class 1',
                           color=class_colors[1])
         ax_before.set_xlabel(feat_name)
         ax_before.set_ylabel('Target Class (with jitter)')
-        ax_before.set_title(f'{feat_name} vs Target - Before Drift')
+        ax_before.set_title(f'{feat_name} vs Target - Window 1')
         ax_before.set_yticks([0, 1])
         ax_before.set_yticklabels(['Class 0', 'Class 1'])
         ax_before.legend()
         ax_before.grid(True, alpha=0.3)
 
-        # After Drift
-        ax_after.scatter(feat_data[mask_after_c0], y_jitter_after_c0,
+        # After Drift (Window 2)
+        ax_after.scatter(X_after[mask_after_c0, i], y_jitter_after_c0,
                          alpha=0.5, s=20, label='Class 0',
                          color=class_colors[0])
-        ax_after.scatter(feat_data[mask_after_c1], y_jitter_after_c1,
+        ax_after.scatter(X_after[mask_after_c1, i], y_jitter_after_c1,
                          alpha=0.5, s=20, label='Class 1',
                          color=class_colors[1])
         ax_after.set_xlabel(feat_name)
         ax_after.set_ylabel('Target Class (with jitter)')
-        ax_after.set_title(f'{feat_name} vs Target - After Drift')
+        ax_after.set_title(f'{feat_name} vs Target - Window 2')
         ax_after.set_yticks([0, 1])
         ax_after.set_yticklabels(['Class 0', 'Class 1'])
         ax_after.legend()
@@ -163,21 +181,21 @@ def visualize_data_stream(X, y, drift_point, feature_names):
     fig3.suptitle('Class Distribution',
                   fontsize=16, fontweight='bold', y=1.0)
 
-    # Class distributions - Before
+    # Class distributions - Before (Window 1)
     ax_class_before.bar(['Class 0', 'Class 1'], class_dist_before,
                         color=[class_colors[0], class_colors[1]],
                         alpha=0.7, edgecolor='black')
     ax_class_before.set_ylabel('Proportion')
-    ax_class_before.set_title('Before Drift')
+    ax_class_before.set_title('Window 1')
     ax_class_before.set_ylim([0, 1])
     ax_class_before.grid(True, alpha=0.3, axis='y')
 
-    # Class distributions - After
+    # Class distributions - After (Window 2)
     ax_class_after.bar(['Class 0', 'Class 1'], class_dist_after,
                        color=[class_colors[0], class_colors[1]],
                        alpha=0.7, edgecolor='black')
     ax_class_after.set_ylabel('Proportion')
-    ax_class_after.set_title('After Drift')
+    ax_class_after.set_title('Window 2')
     ax_class_after.set_ylim([0, 1])
     ax_class_after.grid(True, alpha=0.3, axis='y')
 
@@ -192,8 +210,6 @@ def visualize_data_stream(X, y, drift_point, feature_names):
 
     if n_features == 1:
         # 1D plot (Histogram)
-        X_before = X[mask_before]
-        X_after = X[mask_after]
         ax_fs_before.hist(X_before[y_before == 0], bins=30, alpha=0.5,
                           label='Class 0', color=class_colors[0])
         ax_fs_before.hist(X_before[y_before == 1], bins=30, alpha=0.5,
@@ -209,8 +225,6 @@ def visualize_data_stream(X, y, drift_point, feature_names):
 
     elif n_features == 2:
         # 2D plot
-        X_before = X[mask_before]
-        X_after = X[mask_after]
         ax_fs_before.scatter(X_before[y_before == 0, 0],
                              X_before[y_before == 0, 1],
                              alpha=0.5, s=20, label='Class 0',
@@ -235,11 +249,15 @@ def visualize_data_stream(X, y, drift_point, feature_names):
     else:
         # > 2D plot (Use PCA)
         pca = PCA(n_components=2, random_state=42)
-        X_2d = pca.fit_transform(X)
-        X_2d_before = X_2d[mask_before]
-        X_2d_after = X_2d[mask_after]
-        y_before_pca = y[mask_before]
-        y_after_pca = y[mask_after]
+        # Fit PCA on combined data to ensure same projection
+        X_combined = np.concatenate([X_before, X_after])
+        X_2d = pca.fit_transform(X_combined)
+        
+        X_2d_before = X_2d[:len(X_before)]
+        X_2d_after = X_2d[len(X_before):]
+        
+        y_before_pca = y_before
+        y_after_pca = y_after
 
         ax_fs_before.scatter(X_2d_before[y_before_pca == 0, 0],
                              X_2d_before[y_before_pca == 0, 1],
@@ -263,11 +281,11 @@ def visualize_data_stream(X, y, drift_point, feature_names):
         ax_fs_after.set_ylabel('Principal Component 2')
         fs_title_suffix = " (PCA)"
 
-    ax_fs_before.set_title('Before Drift')
+    ax_fs_before.set_title('Window 1')
     ax_fs_before.legend()
     ax_fs_before.grid(True, alpha=0.3)
 
-    ax_fs_after.set_title('After Drift')
+    ax_fs_after.set_title('Window 2')
     ax_fs_after.legend()
     ax_fs_after.grid(True, alpha=0.3)
 

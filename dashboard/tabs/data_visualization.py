@@ -1,7 +1,7 @@
 import streamlit as st
 
 
-def render_data_visualization_tab(X, y, drift_point, feature_names, all_figs):
+def render_data_visualization_tab(X, y, feature_names, all_figs):
     """
     Renders the Data Stream Visualization tab.
 
@@ -11,8 +11,6 @@ def render_data_visualization_tab(X, y, drift_point, feature_names, all_figs):
         Feature matrix
     y : array-like
         Target variable
-    drift_point : int
-        Drift point index
     feature_names : list
         List of feature names
     all_figs : list

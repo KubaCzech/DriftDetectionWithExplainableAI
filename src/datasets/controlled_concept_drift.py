@@ -122,4 +122,4 @@ class ControlledConceptDriftDataset(BaseDataset):
         X_df = pd.DataFrame(X, columns=feature_names)
         y_series = pd.Series(y_array, name='Y')
 
-        return X_df, y_series, drift_point
+        return X_df, y_series

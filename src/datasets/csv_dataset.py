@@ -51,8 +51,4 @@ class CSVDataset(BaseDataset):
         y = df[target_column]
         X = df.drop(columns=[target_column])
 
-        if drift_point is None:
-            # Default to halfway if not specified
-            drift_point = len(df) // 2
-
-        return X, y, drift_point
+        return X, y

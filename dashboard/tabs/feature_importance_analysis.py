@@ -15,7 +15,8 @@ from src.feature_importance import (
 )
 
 
-def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, show_boxplot):
+def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
+                                           window_before_start=0, window_after_start=0, window_length=1000):
     """
     Renders the Feature Importance Analysis tab.
 
@@ -25,12 +26,16 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
         Feature matrix
     y : array-like
         Target variable
-    drift_point : int
-        Drift point index
     feature_names : list
         List of feature names
     show_boxplot : bool
         Whether to show boxplots
+    window_before_start : int
+        Start index for window before drift
+    window_after_start : int
+        Start index for window after drift (relative to drift point)
+    window_length : int
+        Length of the analysis window
     """
     st.header("2. Drift Analysis Configuration & Results")
 
@@ -74,8 +79,11 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
             with st.spinner(f'Running Data Drift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
                 data_drift_result = compute_data_drift_analysis(
-                    X, y, drift_point, feature_names,
-                    importance_method=importance_method
+                    X, y, feature_names,
+                    importance_method=importance_method,
+                    window_before_start=window_before_start,
+                    window_after_start=window_after_start,
+                    window_length=window_length
                 )
 
                 # Display the importance table
@@ -119,8 +127,11 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
             with st.spinner(f'Running Concept Drift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
                 concept_drift_result = compute_concept_drift_analysis(
-                    X, y, drift_point, feature_names,
-                    importance_method=importance_method
+                    X, y, feature_names,
+                    importance_method=importance_method,
+                    window_before_start=window_before_start,
+                    window_after_start=window_after_start,
+                    window_length=window_length
                 )
 
                 # Display the importance table
@@ -165,8 +176,11 @@ def render_feature_importance_analysis_tab(X, y, drift_point, feature_names, sho
             with st.spinner(f'Running Predictive Power Shift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
                 shift_result = compute_predictive_importance_shift(
-                    X, y, drift_point, feature_names,
-                    importance_method=importance_method
+                    X, y, feature_names,
+                    importance_method=importance_method,
+                    window_before_start=window_before_start,
+                    window_after_start=window_after_start,
+                    window_length=window_length
                 )
 
                 # Display the importance tables side by side

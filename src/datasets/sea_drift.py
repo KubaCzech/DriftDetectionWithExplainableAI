@@ -52,4 +52,4 @@ class SeaDriftDataset(BaseDataset):
             width=400,  # Gradual drift
             seed=random_seed
         )
-        return generate_river_data(stream_SEA, n_samples_before, n_samples_after, n_features=3)
+        return generate_river_data(stream_SEA, n_samples_before + n_samples_after, n_features=3)

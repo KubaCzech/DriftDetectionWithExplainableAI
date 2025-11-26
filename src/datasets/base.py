@@ -19,17 +19,16 @@ class BaseDataset(ABC):
         pass
 
     @abstractmethod
-    def generate(self, **kwargs) -> tuple[pd.DataFrame, pd.Series, int]:
+    def generate(self, **kwargs) -> tuple[pd.DataFrame, pd.Series]:
         """
         Generate the dataset.
 
         Returns
         -------
         tuple
-            (X, y, drift_point)
+            (X, y)
             X: pd.DataFrame with named features
             y: pd.Series with target values
-            drift_point: int
         """
         pass
 

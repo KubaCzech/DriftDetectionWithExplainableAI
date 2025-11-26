@@ -16,6 +16,7 @@ from dashboard.tabs import (  # noqa: E402
     render_feature_importance_analysis_tab
 )
 
+
 # --- App Configuration ---
 st.set_page_config(
     page_title="Concept Drift Analysis Dashboard",
@@ -128,6 +129,27 @@ with st.sidebar:
     )
 
     st.markdown("---")
+    st.subheader("Analysis Window Settings")
+    window_before_start = st.number_input(
+        "Window Before Start",
+        min_value=0,
+        value=0,
+        help="Starting index for the first analysis window (absolute index)."
+    )
+    window_after_start = st.number_input(
+        "Window After Start",
+        min_value=0,
+        value=1000,
+        help="Starting index for the second analysis window (absolute index)."
+    )
+    window_length = st.number_input(
+        "Window Length",
+        min_value=1,
+        value=1000,
+        help="Length of the analysis window."
+    )
+
+    st.markdown("---")
     st.info("Adjust the settings above to configure the data and analysis.")
 
 
@@ -138,7 +160,7 @@ def generate_data(dataset_name, **kwargs):
     dataset = DATASETS.get(dataset_name)
     if not dataset:
         st.error(f"Unknown dataset: {dataset_name}")
-        return None, None, None
+        return None, None
 
     gen_params = dataset.get_params()
     gen_params.update(kwargs)
@@ -147,10 +169,10 @@ def generate_data(dataset_name, **kwargs):
         return dataset.generate(**gen_params)
     except Exception as e:
         st.error(f"Error generating data: {e}")
-        return None, None, None
+        return None, None
 
 
-X, y, drift_point = generate_data(
+X, y = generate_data(
     dataset_key,
     **dataset_params
 )
@@ -168,13 +190,13 @@ if X is None:
 
 
 @st.cache_data(show_spinner="Generating data stream visualizations...")
-def generate_and_capture_plots(X, y, drift_point, feature_names):
+def generate_and_capture_plots(X, y, window_before_start, window_after_start, window_length, feature_names):
     """Generates all visualization plots and captures them."""
     # Redirect stdout to capture print statements
     stdout_capture = StringIO()
     with contextlib.redirect_stdout(stdout_capture):
         # This function call creates multiple figures and leaves them open
-        visualize_data_stream(X, y, drift_point, feature_names)
+        visualize_data_stream(X, y, window_before_start, window_after_start, window_length, feature_names)
 
     # Capture the figures and close them immediately
     all_figs = []
@@ -186,16 +208,17 @@ def generate_and_capture_plots(X, y, drift_point, feature_names):
     return all_figs, stdout_capture.getvalue()
 
 
-all_figs, info_log = generate_and_capture_plots(X, y, drift_point, feature_names)
+all_figs, info_log = generate_and_capture_plots(X, y, window_before_start, window_after_start, window_length, feature_names)
 
 # --- Tabs ---
 tab1, tab2 = st.tabs(["Dataset Selection and Visualization", "Feature Importance Analysis"])
 
 with tab1:
-    render_data_visualization_tab(X, y, drift_point, feature_names, all_figs)
+    render_data_visualization_tab(X, y, feature_names, all_figs)
 
 with tab2:
-    render_feature_importance_analysis_tab(X, y, drift_point, feature_names, show_boxplot)
+    render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
+                                           window_before_start, window_after_start, window_length)
 
 st.markdown("---")
 st.markdown("Developed as part of the xAI and Data Analysis Tools for Drift Detection project.")

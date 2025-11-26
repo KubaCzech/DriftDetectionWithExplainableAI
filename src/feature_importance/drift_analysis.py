@@ -8,8 +8,11 @@ from .visualization import (
 )
 
 
-def compute_data_drift_analysis(X, y, drift_point, feature_names=None,
-                                importance_method="permutation"):
+def compute_data_drift_analysis(X, y, feature_names=None,
+                                importance_method="permutation",
+                                window_before_start=0,
+                                window_after_start=0,
+                                window_length=1000):
     """
     Compute data drift analysis by classifying time periods using only
     features (X).
@@ -20,12 +23,16 @@ def compute_data_drift_analysis(X, y, drift_point, feature_names=None,
         Feature matrix
     y : array-like (n_samples,)
         Binary class labels (not used in this analysis)
-    drift_point : int
-        Index where drift occurs
     feature_names : list
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
+    window_before_start : int
+        Start index for window before drift
+    window_after_start : int
+        Start index for window after drift (relative to drift point)
+    window_length : int
+        Length of the analysis window
 
     Returns
     -------
@@ -36,9 +43,21 @@ def compute_data_drift_analysis(X, y, drift_point, feature_names=None,
     if feature_names is None and hasattr(X, 'columns'):
         feature_names = X.columns.tolist()
     
-    X_features = X
-    n_samples_before = drift_point
-    n_samples_after = len(y) - drift_point
+    # Define windows
+    start_before = window_before_start
+    end_before = start_before + window_length
+    
+    start_after = window_after_start
+    end_after = start_after + window_length
+    
+    # Slice data
+    X_before = X[start_before:end_before]
+    X_after = X[start_after:end_after]
+    
+    X_features = np.concatenate([X_before, X_after])
+    
+    n_samples_before = len(X_before)
+    n_samples_after = len(X_after)
     time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
 
     # Train Neural Network
@@ -105,8 +124,11 @@ def analyze_data_drift(X, y, drift_point, feature_names=None,
     return result
 
 
-def compute_concept_drift_analysis(X, y, drift_point, feature_names=None,
-                                   importance_method="permutation"):
+def compute_concept_drift_analysis(X, y, feature_names=None,
+                                   importance_method="permutation",
+                                   window_before_start=0,
+                                   window_after_start=0,
+                                   window_length=1000):
     """
     Compute concept drift analysis by classifying time periods using features
     and target (X, Y).
@@ -117,12 +139,16 @@ def compute_concept_drift_analysis(X, y, drift_point, feature_names=None,
         Feature matrix
     y : array-like (n_samples,)
         Binary class labels
-    drift_point : int
-        Index where drift occurs
     feature_names : list
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
+    window_before_start : int
+        Start index for window before drift
+    window_after_start : int
+        Start index for window after drift (relative to drift point)
+    window_length : int
+        Length of the analysis window
 
     Returns
     -------
@@ -133,9 +159,27 @@ def compute_concept_drift_analysis(X, y, drift_point, feature_names=None,
     if feature_names is None and hasattr(X, 'columns'):
         feature_names = X.columns.tolist()
 
-    X_features_with_y = np.column_stack([X, y])
-    n_samples_before = drift_point
-    n_samples_after = len(y) - drift_point
+    # Define windows
+    start_before = window_before_start
+    end_before = start_before + window_length
+    
+    start_after = window_after_start
+    end_after = start_after + window_length
+    
+    # Slice data
+    X_before = X[start_before:end_before]
+    y_before = y[start_before:end_before]
+    
+    X_after = X[start_after:end_after]
+    y_after = y[start_after:end_after]
+    
+    X_combined = np.concatenate([X_before, X_after])
+    y_combined = np.concatenate([y_before, y_after])
+
+    X_features_with_y = np.column_stack([X_combined, y_combined])
+    
+    n_samples_before = len(X_before)
+    n_samples_after = len(X_after)
     time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
 
     # Train Neural Network
@@ -206,8 +250,11 @@ def analyze_concept_drift(X, y, drift_point, feature_names=None,
     return result
 
 
-def compute_predictive_importance_shift(X, y, drift_point, feature_names=None,
-                                        importance_method="permutation"):
+def compute_predictive_importance_shift(X, y, feature_names=None,
+                                        importance_method="permutation",
+                                        window_before_start=0,
+                                        window_after_start=0,
+                                        window_length=1000):
     """
     Compute how predictive feature importance shifts before and after drift.
 
@@ -217,12 +264,16 @@ def compute_predictive_importance_shift(X, y, drift_point, feature_names=None,
         Feature matrix
     y : array-like (n_samples,)
         Binary class labels
-    drift_point : int
-        Index where drift occurs
     feature_names : list
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
+    window_before_start : int
+        Start index for window before drift
+    window_after_start : int
+        Start index for window after drift (relative to drift point)
+    window_length : int
+        Length of the analysis window
 
     Returns
     -------
@@ -233,11 +284,18 @@ def compute_predictive_importance_shift(X, y, drift_point, feature_names=None,
     if feature_names is None and hasattr(X, 'columns'):
         feature_names = X.columns.tolist()
 
-    X_features = X
-    X_features_before = X_features[:drift_point]
-    y_before = y[:drift_point]
-    X_features_after = X_features[drift_point:]
-    y_after = y[drift_point:]
+    # Define windows
+    start_before = window_before_start
+    end_before = start_before + window_length
+    
+    start_after = window_after_start
+    end_after = start_after + window_length
+
+    X_features_before = X[start_before:end_before]
+    y_before = y[start_before:end_before]
+    
+    X_features_after = X[start_after:end_after]
+    y_after = y[start_after:end_after]
 
     # Configuration for the Neural Network Classifiers
     mlp_config = {

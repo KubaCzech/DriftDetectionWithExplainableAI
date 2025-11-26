@@ -3,7 +3,7 @@ import itertools
 import pandas as pd
 
 
-def generate_river_data(river_stream, n_samples_before, n_samples_after, n_features=2):
+def generate_river_data(river_stream, total_samples, n_features=2):
     # TODO: return feature names
     """
     Helper function to generate data from a river stream.
@@ -12,21 +12,18 @@ def generate_river_data(river_stream, n_samples_before, n_samples_after, n_featu
     ----------
     river_stream : river stream object
         The stream generator
-    n_samples_before : int
-        Samples before drift point
-    n_samples_after : int
-        Samples after drift point
+    total_samples : int
+        Total number of samples to generate
     n_features : int, default=2
         Number of features to extract
 
     Returns
     -------
     tuple
-        (X, y, drift_point, feature_names)
+        (X, y)
     """
     X_all = []
     y_all = []
-    total_samples = n_samples_before + n_samples_after
 
     try:
         for x, y_val in itertools.islice(river_stream, total_samples):
@@ -37,14 +34,12 @@ def generate_river_data(river_stream, n_samples_before, n_samples_after, n_featu
 
     except (StopIteration, KeyError) as e:
         print(f"Warning: Stream generation failed: {e}")
-        return np.array([]), np.array([]), 0, []
+        return np.array([]), np.array([])
 
     X = pd.DataFrame(X_all, columns=[f'X{i+1}' for i in range(n_features)])
     y = pd.Series(y_all, name='Y')
-    drift_point = n_samples_before
-
-    # return X, y, drift_point, X.columns.tolist()
-    return X, y, drift_point
+    
+    return X, y
 
 
 def generate_data_from_dataset_stream(stream, size_of_block):

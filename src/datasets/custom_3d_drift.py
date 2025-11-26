@@ -63,10 +63,9 @@ class Custom3DDriftDataset(BaseDataset):
         # Combine data
         X = np.concatenate([X_before, X_after])
         y = np.concatenate([y_before, y_after])
-        drift_point = n_samples_before
         feature_names = ['X1', 'X2', 'X3']
 
         X_df = pd.DataFrame(X, columns=feature_names)
         y_series = pd.Series(y, name='Y')
 
-        return X_df, y_series, drift_point
+        return X_df, y_series
