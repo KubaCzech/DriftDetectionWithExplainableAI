@@ -3,7 +3,7 @@ import numpy as np
 from enum import Enum
 from river import datasets
 from .base import BaseDataset
-from .utils import generate_data_from_dataset_stream
+from .utils import generate_river_data
 
 
 class RiverDatasetType(Enum):
@@ -49,4 +49,4 @@ class RiverDataset(BaseDataset):
 
         stream = self.dataset.skip(starting_point)
 
-        return generate_data_from_dataset_stream(stream, size_of_block, n_features=len(self.dataset.features))
+        return generate_river_data(stream, size_of_block, n_features=len(self.dataset.features))
