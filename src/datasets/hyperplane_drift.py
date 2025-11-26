@@ -102,17 +102,7 @@ class HyperplaneDriftDataset(BaseDataset):
             }
         ]
 
-    def get_available_settings(self) -> dict[str, dict]:
-        return {
-            "Default": {
-                "n_features": 2,
-                "n_drift_features": 2,
-                "noise_percentage": 0.05,
-                "drift_noise_percentage": 0.1,
-                "mag_change": 0.2,
-                "drift_width": 400
-            }
-        }
+
 
     # TODO: Seems that the parameter mag_change has no effect on the data stream.
     # Remove it, or fix it.

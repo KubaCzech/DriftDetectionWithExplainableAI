@@ -27,7 +27,7 @@ class RiverDataset(BaseDataset):
 
     @property
     def name(self) -> str:
-        return f"{self.dataset_name.lower}_drift"
+        return f"{self.dataset_name.lower()}_drift"
 
     @property
     def display_name(self) -> str:
@@ -55,13 +55,7 @@ class RiverDataset(BaseDataset):
             }
         ]
 
-    def get_available_settings(self) -> dict[str, dict]:
-        return {
-            "Default": {
-                "size_of_block": 2000,
-                "starting_point": -1
-            }
-        }
+
 
     def get_params(self) -> dict:
         return {
@@ -89,7 +83,7 @@ class RiverDataset(BaseDataset):
         stream = itertools.islice(iter(self.dataset), starting_point, None)
 
         if self.dataset_name == RiverDatasetType.ELECTRICITY.value:
-            feature_names = ['period', 'nswprice', 'nswdemand', 'vicprice', 'vicdemand', 'transfer']
+            feature_names = ['nswprice', 'nswdemand', 'vicprice', 'vicdemand', 'transfer']
             return generate_river_data_with_selection(stream, size_of_block, feature_names)
 
         return generate_river_data(stream, size_of_block)

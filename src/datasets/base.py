@@ -74,18 +74,17 @@ class BaseDataset(ABC):
         -------
         dict[str, dict]
             A dictionary mapping setting names to their parameter values.
-            Example:
-            {
-                "Default": {
-                    "n_features": 2,
-                    "noise_percentage": 0.05,
-                    ...
-                },
-                "High Noise": {
-                    "n_features": 2,
-                    "noise_percentage": 0.3,
-                    ...
-                }
-            }
         """
-        return {}
+        import json
+        import os
+
+        settings_path = os.path.join(os.path.dirname(__file__), 'settings.json')
+        
+        try:
+            with open(settings_path, 'r') as f:
+                all_settings = json.load(f)
+            return all_settings.get(self.name, {})
+        except FileNotFoundError:
+            return {}
+        except json.JSONDecodeError:
+            return {}

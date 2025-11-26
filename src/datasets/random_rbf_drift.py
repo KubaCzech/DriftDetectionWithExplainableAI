@@ -100,25 +100,7 @@ class RandomRBFDriftDataset(BaseDataset):
             }
         ]
 
-    def get_available_settings(self) -> dict[str, dict]:
-        return {
-            "Default": {
-                "n_features": 10,
-                "n_classes": 2,
-                "n_centroids": 50,
-                "change_speed": 0.0,
-                "n_drift_centroids": 50,
-                "drift_width": 400
-            },
-            "Fast Drift": {
-                "n_features": 10,
-                "n_classes": 2,
-                "n_centroids": 50,
-                "change_speed": 0.87,
-                "n_drift_centroids": 50,
-                "drift_width": 400
-            }
-        }
+
 
     def generate(self, n_samples_before=1000, n_samples_after=1000,
                  n_features=10, n_classes=2, n_centroids=50,
