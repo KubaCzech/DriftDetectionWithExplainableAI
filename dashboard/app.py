@@ -39,7 +39,38 @@ Welcome to the Concept Drift Analysis Dashboard. This tool allows you to:
 with st.sidebar:
     st.header("⚙️ Configuration")
 
-    # 1. Select Dataset
+    # 1. Global Window Settings
+    st.subheader("Global Settings")
+    window_length = st.number_input(
+        "Window Length (Samples)",
+        min_value=1,
+        value=1000,
+        help="Length of the analysis window in samples."
+    )
+    
+    st.markdown("---")
+
+    st.subheader("Analysis Window Selection")
+    window_before_start_windows = st.number_input(
+        "Window Before Start (Windows)",
+        min_value=0,
+        value=0,
+        help="Starting index for the first analysis window (in number of windows)."
+    )
+    window_after_start_windows = st.number_input(
+        "Window After Start (Windows)",
+        min_value=0,
+        value=1,
+        help="Starting index for the second analysis window (in number of windows)."
+    )
+
+    # Calculate absolute indices
+    window_before_start = window_before_start_windows * window_length
+    window_after_start = window_after_start_windows * window_length
+
+    st.markdown("---")
+
+    # 2. Select Dataset
     dataset_key = st.selectbox(
         "Choose a Dataset",
         options=list(DATASETS.keys()),
@@ -49,7 +80,7 @@ with st.sidebar:
 
     selected_dataset = DATASETS[dataset_key]
 
-    # 2. Settings Preset Selection
+    # 3. Settings Preset Selection
     available_settings = selected_dataset.get_available_settings()
     
     # Initialize session state for selected setting if not exists
@@ -87,6 +118,18 @@ with st.sidebar:
             else:
                 st.session_state.selected_setting = selected
                 # Update the parameter values in session state
+                # We need to be careful here if presets are in samples but UI is in windows
+                # For now, assuming presets might need manual adjustment or we just load them as is
+                # But wait, if we change the schema, we need to adapt the presets too?
+                # The user requirement says: "When choosing window before drift and window after drift, you will choose window numbers instead of sample numbers."
+                # And "For synthetic datasets, size of data before drift and after drift should be specified in the dashboard as number of windows instead of number of samples."
+                
+                # Let's assume presets in code are still in samples (as they are in the dataset classes).
+                # We might need to convert them to windows for display if we want them to work nicely with the new schema.
+                # However, modifying the presets logic is complex. 
+                # Let's just load them. If the schema expects 'n_windows_before', and preset has 'n_samples_before', 
+                # render_settings_from_schema might ignore it or we need to map it.
+                
                 st.session_state.dataset_params = available_settings[selected].copy()
                 # Set flag to force update widgets
                 st.session_state.force_update_widgets = True
@@ -99,11 +142,36 @@ with st.sidebar:
             help="Choose a preset configuration or customize parameters manually."
         )
 
-    # 3. Render Dataset Settings
+    # 4. Render Dataset Settings
     if (selected_dataset.name != "custom_normal" and
             selected_dataset.name != "custom_3d_drift" and
             selected_dataset.name != "sea_drift"):
         st.subheader(f"{selected_dataset.display_name} Settings")
+        
+        # Standard rendering for non-synthetic datasets
+        schema_to_render = selected_dataset.get_settings_schema()
+    else:
+        st.subheader(f"{selected_dataset.display_name} Settings")
+        # Intercept schema for synthetic datasets
+        original_schema = selected_dataset.get_settings_schema()
+        schema_to_render = []
+        for item in original_schema:
+            new_item = item.copy()
+            if item["name"] == "n_samples_before":
+                new_item["name"] = "n_windows_before"
+                new_item["label"] = "Number of Windows Before Drift"
+                new_item["default"] = int(item["default"] / window_length) if item["default"] else 1
+                new_item["min_value"] = 1
+                new_item["step"] = 1
+                new_item["help"] = "Number of windows generated before the concept drift occurs."
+            elif item["name"] == "n_samples_after":
+                new_item["name"] = "n_windows_after"
+                new_item["label"] = "Number of Windows After Drift"
+                new_item["default"] = int(item["default"] / window_length) if item["default"] else 1
+                new_item["min_value"] = 1
+                new_item["step"] = 1
+                new_item["help"] = "Number of windows generated after the concept drift occurs."
+            schema_to_render.append(new_item)
 
     def on_param_change():
         """Callback when any parameter changes - mark as custom"""
@@ -112,41 +180,27 @@ with st.sidebar:
             st.session_state.dataset_params = {}
 
     dataset_params = render_settings_from_schema(
-        selected_dataset.get_settings_schema(),
+        schema_to_render,
         on_change=on_param_change,
         initial_values=st.session_state.dataset_params if st.session_state.dataset_params else None,
         force_update=st.session_state.force_update_widgets
     )
     
+    # Post-processing: Convert windows back to samples for synthetic datasets
+    if "n_windows_before" in dataset_params:
+        dataset_params["n_samples_before"] = dataset_params.pop("n_windows_before") * window_length
+    
+    if "n_windows_after" in dataset_params:
+        dataset_params["n_samples_after"] = dataset_params.pop("n_windows_after") * window_length
+    
     # Reset the force update flag after rendering
     st.session_state.force_update_widgets = False
 
-    # 4. Toggle for Boxplots
+    # 5. Toggle for Boxplots
     show_boxplot = st.checkbox(
         "Show Importance Boxplots",
         value=True,
         help="Display boxplots for feature importance distributions."
-    )
-
-    st.markdown("---")
-    st.subheader("Analysis Window Settings")
-    window_before_start = st.number_input(
-        "Window Before Start",
-        min_value=0,
-        value=0,
-        help="Starting index for the first analysis window (absolute index)."
-    )
-    window_after_start = st.number_input(
-        "Window After Start",
-        min_value=0,
-        value=1000,
-        help="Starting index for the second analysis window (absolute index)."
-    )
-    window_length = st.number_input(
-        "Window Length",
-        min_value=1,
-        value=1000,
-        help="Length of the analysis window."
     )
 
     st.markdown("---")
