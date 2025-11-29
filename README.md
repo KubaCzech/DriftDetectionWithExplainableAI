@@ -22,7 +22,7 @@ Make sure you have Python 3.8+ and pip installed.
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/your_username/DriftDetectionWithExplainableAI.git
+   git clone https://github.com/KubaCzech/DriftDetectionWithExplainableAI.git
    ```
 2. Install Python packages
    ```sh
@@ -35,6 +35,22 @@ The primary explorations and experiments are conducted in Jupyter Notebooks.
 
 -   `notebooks/data_drift.ipynb`: Contains initial data generation, drift visualization, and implementation of various drift detection methods.
 -   `src/`: Contains source code for specific functionalities, such as feature importance analysis.
+
+## Dashboard
+
+We provide an interactive dashboard to visualize data streams, generate synthetic drift scenarios, and analyze drift using various drift explanation methods.
+
+To run the dashboard:
+
+```sh
+streamlit run dashboard/app.py
+```
+
+The dashboard allows you to:
+1.  **Generate Data**: Create synthetic datasets with known concept drift (e.g., Hyperplane, Sea, Controlled).
+2.  **Visualize**: View the data stream and drift points.
+3.  **Analyze**: Apply different drift explanation methods to detect and explain data drift, concept drift, and predictive power shift.
+
 
 ## License
 

@@ -60,7 +60,7 @@ def results_to_png(np_matrix, prob_matrix, grid_size, n_classes,
         dataset_name, classifier_name, real_points=None,
         max_value_hsv=None,
         suffix=None):
-    global output_dir
+
 
     if suffix is not None:
         suffix = f"_{suffix}"

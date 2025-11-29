@@ -9,3 +9,4 @@ umap-learn
 flake8
 lime
 shap
+streamlit
