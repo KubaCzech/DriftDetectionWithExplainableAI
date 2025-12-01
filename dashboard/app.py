@@ -9,6 +9,7 @@ import contextlib
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.datasets import DATASETS  # noqa: E402
+from src.models import MODELS  # noqa: E402
 from src.feature_importance import visualize_data_stream  # noqa: E402
 from dashboard.components.settings import render_settings_from_schema  # noqa: E402
 from dashboard.tabs import (  # noqa: E402
@@ -206,6 +207,83 @@ with st.sidebar:
     st.markdown("---")
     st.info("Adjust the settings above to configure the data and analysis.")
 
+    # 6. Model Selection
+    st.markdown("---")
+    st.subheader("Model Configuration")
+
+    model_key = st.selectbox(
+        "Choose a Model",
+        options=list(MODELS.keys()),
+        format_func=lambda x: MODELS[x]().display_name,
+        help="Select the machine learning model to use for drift detection."
+    )
+
+    selected_model_class = MODELS[model_key]
+    # Instantiate temporarily to get schema/settings
+    temp_model = selected_model_class()
+
+    # 7. Model Settings
+    model_available_settings = temp_model.get_available_settings()
+
+    # Initialize session state for selected model setting if not exists
+    if 'selected_model_setting' not in st.session_state:
+        st.session_state.selected_model_setting = None
+
+    # Initialize session state for model parameters if not exists
+    if 'model_params' not in st.session_state:
+        st.session_state.model_params = {}
+
+    # Track if we need to force update the model widgets
+    if 'force_update_model_widgets' not in st.session_state:
+        st.session_state.force_update_model_widgets = False
+
+    if model_available_settings:
+        model_setting_options = ["Not selected"] + list(model_available_settings.keys())
+
+        if 'model_setting_selectbox' not in st.session_state:
+            st.session_state.model_setting_selectbox = "Not selected"
+
+        if st.session_state.selected_model_setting in model_available_settings:
+            st.session_state.model_setting_selectbox = st.session_state.selected_model_setting
+        elif st.session_state.selected_model_setting is None:
+            st.session_state.model_setting_selectbox = "Not selected"
+
+        def on_model_setting_change():
+            selected = st.session_state.model_setting_selectbox
+            if selected == "Not selected":
+                st.session_state.selected_model_setting = None
+                st.session_state.model_params = {}
+            else:
+                st.session_state.selected_model_setting = selected
+                st.session_state.model_params = model_available_settings[selected].copy()
+                st.session_state.force_update_model_widgets = True
+
+        st.selectbox(
+            "Select Model Preset",
+            options=model_setting_options,
+            key='model_setting_selectbox',
+            on_change=on_model_setting_change,
+            help="Choose a preset configuration for the model."
+        )
+
+    st.subheader(f"{temp_model.display_name} Settings")
+    model_schema = temp_model.get_settings_schema()
+
+    def on_model_param_change():
+        if model_available_settings:
+            st.session_state.selected_model_setting = None
+            st.session_state.model_params = {}
+
+    model_params = render_settings_from_schema(
+        model_schema,
+        on_change=on_model_param_change,
+        initial_values=st.session_state.model_params if st.session_state.model_params else None,
+        force_update=st.session_state.force_update_model_widgets,
+        key_prefix="model_"
+    )
+    
+    st.session_state.force_update_model_widgets = False
+
 
 # --- Data Generation ---
 @st.cache_data
@@ -292,7 +370,9 @@ with tab1:
 
 with tab2:
     render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
-                                           window_before_start, window_after_start, window_length)
+                                           window_before_start, window_after_start, window_length,
+                                           model_class=selected_model_class,
+                                           model_params=model_params)
 
 st.markdown("---")
 st.markdown("Developed as part of the xAI and Data Analysis Tools for Drift Detection project.")

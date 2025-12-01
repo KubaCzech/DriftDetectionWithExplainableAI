@@ -16,7 +16,8 @@ from src.feature_importance import (
 
 
 def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
-                                           window_before_start=0, window_after_start=0, window_length=1000):
+                                           window_before_start=0, window_after_start=0, window_length=1000,
+                                           model_class=None, model_params=None):
     """
     Renders the Feature Importance Analysis tab.
 
@@ -83,7 +84,9 @@ def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
                     importance_method=importance_method,
                     window_before_start=window_before_start,
                     window_after_start=window_after_start,
-                    window_length=window_length
+                    window_length=window_length,
+                    model_class=model_class,
+                    model_params=model_params
                 )
 
                 # Display the importance table
@@ -131,7 +134,9 @@ def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
                     importance_method=importance_method,
                     window_before_start=window_before_start,
                     window_after_start=window_after_start,
-                    window_length=window_length
+                    window_length=window_length,
+                    model_class=model_class,
+                    model_params=model_params
                 )
 
                 # Display the importance table
@@ -180,7 +185,9 @@ def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
                     importance_method=importance_method,
                     window_before_start=window_before_start,
                     window_after_start=window_after_start,
-                    window_length=window_length
+                    window_length=window_length,
+                    model_class=model_class,
+                    model_params=model_params
                 )
 
                 # Display the importance tables side by side
