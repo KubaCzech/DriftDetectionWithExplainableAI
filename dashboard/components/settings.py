@@ -1,7 +1,7 @@
 import streamlit as st
 
 
-def render_settings_from_schema(schema: list[dict], on_change=None, initial_values=None, force_update=False) -> dict:
+def render_settings_from_schema(schema: list[dict], on_change=None, initial_values=None, force_update=False, key_prefix="") -> dict:
     """
     Render Streamlit widgets based on a settings schema.
 
@@ -15,6 +15,8 @@ def render_settings_from_schema(schema: list[dict], on_change=None, initial_valu
         Dictionary of initial values to use instead of defaults.
     force_update : bool, optional
         If True, force update widget values even if they already exist in session state.
+    key_prefix : str, optional
+        Prefix to add to widget keys to avoid collisions.
 
     Returns
     -------
@@ -31,7 +33,7 @@ def render_settings_from_schema(schema: list[dict], on_change=None, initial_valu
         label = setting["label"]
         help_text = setting.get("help", "")
         default = setting.get("default")
-        key = f"param_{name}"
+        key = f"{key_prefix}param_{name}"
         
         # Use initial value if provided, otherwise use default
         value = initial_values.get(name, default) if initial_values else default
@@ -85,5 +87,51 @@ def render_settings_from_schema(schema: list[dict], on_change=None, initial_valu
                 key=key,
                 on_change=on_change
             )
+        elif setting["type"] == "list_of_int":
+            # Ensure value is a list
+            current_list = value if isinstance(value, list) else list(value) if isinstance(value, tuple) else []
+            if not current_list and default:
+                 current_list = default if isinstance(default, list) else list(default)
+
+            # 1. Input for list length
+            len_key = f"{key}_len"
+            # We need to handle the case where the length in session state might differ if we just re-rendered
+            # But st.number_input handles its own state via key.
+            
+            st.markdown(f"**{label} Configuration**")
+            num_items = st.number_input(
+                f"Number of Layers",
+                min_value=1,
+                max_value=20,
+                value=len(current_list) if len(current_list) > 0 else 1,
+                step=1,
+                key=len_key,
+                on_change=on_change,
+                help=f"Number of layers for {label}"
+            )
+            
+            # Adjust list size locally to render correct number of inputs
+            # The actual values will be picked up from the item widgets
+            if len(current_list) < num_items:
+                # Append default value (e.g. 10) for new layers
+                current_list.extend([10] * (num_items - len(current_list)))
+            elif len(current_list) > num_items:
+                current_list = current_list[:num_items]
+            
+            new_list = []
+            for i in range(num_items):
+                item_key = f"{key}_item_{i}"
+                item_val = int(current_list[i])
+                new_val = st.number_input(
+                    f"Layer {i+1} Size",
+                    min_value=1,
+                    value=item_val,
+                    step=1,
+                    key=item_key,
+                    on_change=on_change
+                )
+                new_list.append(new_val)
+            
+            params[name] = new_list
 
     return params

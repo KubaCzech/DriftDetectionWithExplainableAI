@@ -9,6 +9,7 @@ import contextlib
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.datasets import DATASETS  # noqa: E402
+from src.models import MODELS  # noqa: E402
 from src.feature_importance import visualize_data_stream  # noqa: E402
 from dashboard.components.settings import render_settings_from_schema  # noqa: E402
 from dashboard.tabs import (  # noqa: E402
@@ -69,6 +70,8 @@ with st.sidebar:
     window_after_start = window_after_start_windows * window_length
 
     st.markdown("---")
+
+    st.subheader("Dataset Selection")
 
     # 2. Select Dataset
     dataset_key = st.selectbox(
@@ -142,69 +145,170 @@ with st.sidebar:
             help="Choose a preset configuration or customize parameters manually."
         )
 
-    # 4. Render Dataset Settings
-    if (selected_dataset.name != "custom_normal" and
-            selected_dataset.name != "custom_3d_drift" and
-            selected_dataset.name != "sea_drift"):
-        st.subheader(f"{selected_dataset.display_name} Settings")
+    # 4. Dataset Settings Modal
+    @st.dialog("Dataset Settings")
+    def open_dataset_settings_modal():
+        st.write(f"Configure advanced settings for **{selected_dataset.display_name}**.")
         
-        # Standard rendering for non-synthetic datasets
-        schema_to_render = selected_dataset.get_settings_schema()
-    else:
-        st.subheader(f"{selected_dataset.display_name} Settings")
-        # Intercept schema for synthetic datasets
-        original_schema = selected_dataset.get_settings_schema()
-        schema_to_render = []
-        for item in original_schema:
-            new_item = item.copy()
-            if item["name"] == "n_samples_before":
-                new_item["name"] = "n_windows_before"
-                new_item["label"] = "Number of Windows Before Drift"
-                new_item["default"] = int(item["default"] / window_length) if item["default"] else 1
-                new_item["min_value"] = 1
-                new_item["step"] = 1
-                new_item["help"] = "Number of windows generated before the concept drift occurs."
-            elif item["name"] == "n_samples_after":
-                new_item["name"] = "n_windows_after"
-                new_item["label"] = "Number of Windows After Drift"
-                new_item["default"] = int(item["default"] / window_length) if item["default"] else 1
-                new_item["min_value"] = 1
-                new_item["step"] = 1
-                new_item["help"] = "Number of windows generated after the concept drift occurs."
-            schema_to_render.append(new_item)
+        # --- Dataset Settings ---
+        if (selected_dataset.name != "custom_normal" and
+                selected_dataset.name != "custom_3d_drift" and
+                selected_dataset.name != "sea_drift"):
+            schema_to_render = selected_dataset.get_settings_schema()
+        else:
+            original_schema = selected_dataset.get_settings_schema()
+            schema_to_render = []
+            for item in original_schema:
+                new_item = item.copy()
+                if item["name"] == "n_samples_before":
+                    new_item["name"] = "n_windows_before"
+                    new_item["label"] = "Number of Windows Before Drift"
+                    new_item["default"] = int(item["default"] / window_length) if item["default"] else 1
+                    new_item["min_value"] = 1
+                    new_item["step"] = 1
+                    new_item["help"] = "Number of windows generated before the concept drift occurs."
+                elif item["name"] == "n_samples_after":
+                    new_item["name"] = "n_windows_after"
+                    new_item["label"] = "Number of Windows After Drift"
+                    new_item["default"] = int(item["default"] / window_length) if item["default"] else 1
+                    new_item["min_value"] = 1
+                    new_item["step"] = 1
+                    new_item["help"] = "Number of windows generated after the concept drift occurs."
+                schema_to_render.append(new_item)
 
-    def on_param_change():
-        """Callback when any parameter changes - mark as custom"""
-        if available_settings:
-            st.session_state.selected_setting = None
-            st.session_state.dataset_params = {}
+        # Render dataset settings with temporary key prefix
+        initial_dataset_params = st.session_state.dataset_params.copy() if st.session_state.dataset_params else {}
+        if "n_samples_before" in initial_dataset_params and "n_windows_before" not in initial_dataset_params:
+             initial_dataset_params["n_windows_before"] = int(initial_dataset_params["n_samples_before"] / window_length)
+        if "n_samples_after" in initial_dataset_params and "n_windows_after" not in initial_dataset_params:
+             initial_dataset_params["n_windows_after"] = int(initial_dataset_params["n_samples_after"] / window_length)
 
-    dataset_params = render_settings_from_schema(
-        schema_to_render,
-        on_change=on_param_change,
-        initial_values=st.session_state.dataset_params if st.session_state.dataset_params else None,
-        force_update=st.session_state.force_update_widgets
+        temp_dataset_params = render_settings_from_schema(
+            schema_to_render,
+            initial_values=initial_dataset_params,
+            key_prefix="temp_dataset_",
+            force_update=st.session_state.force_update_widgets
+        )
+
+        # Reset force update flag
+        if st.session_state.force_update_widgets:
+            st.session_state.force_update_widgets = False
+
+        st.markdown("---")
+        
+        if st.button("Apply Dataset Changes"):
+            # Process dataset params (convert windows back to samples)
+            final_dataset_params = temp_dataset_params.copy()
+            if "n_windows_before" in final_dataset_params:
+                final_dataset_params["n_samples_before"] = final_dataset_params.pop("n_windows_before") * window_length
+            if "n_windows_after" in final_dataset_params:
+                final_dataset_params["n_samples_after"] = final_dataset_params.pop("n_windows_after") * window_length
+            
+            # Update session state
+            st.session_state.dataset_params = final_dataset_params
+            st.rerun()
+
+    if st.button("Configure Dataset Settings"):
+        open_dataset_settings_modal()
+
+    # 5. Model Selection
+    st.subheader("Model Configuration")
+
+    model_key = st.selectbox(
+        "Choose a Model",
+        options=list(MODELS.keys()),
+        format_func=lambda x: MODELS[x]().display_name,
+        help="Select the machine learning model to use for drift detection."
     )
-    
-    # Post-processing: Convert windows back to samples for synthetic datasets
-    if "n_windows_before" in dataset_params:
-        dataset_params["n_samples_before"] = dataset_params.pop("n_windows_before") * window_length
-    
-    if "n_windows_after" in dataset_params:
-        dataset_params["n_samples_after"] = dataset_params.pop("n_windows_after") * window_length
-    
-    # Reset the force update flag after rendering
-    st.session_state.force_update_widgets = False
 
-    # 5. Toggle for Boxplots
+    selected_model_class = MODELS[model_key]
+    # Instantiate temporarily to get schema/settings
+    temp_model = selected_model_class()
+
+    # 6. Model Preset Selection
+    model_available_settings = temp_model.get_available_settings()
+
+    # Initialize session state for selected model setting if not exists
+    if 'selected_model_setting' not in st.session_state:
+        st.session_state.selected_model_setting = None
+
+    # Initialize session state for model parameters if not exists
+    if 'model_params' not in st.session_state:
+        st.session_state.model_params = {}
+
+    # Track if we need to force update the model widgets
+    if 'force_update_model_widgets' not in st.session_state:
+        st.session_state.force_update_model_widgets = False
+
+    if model_available_settings:
+        model_setting_options = ["Not selected"] + list(model_available_settings.keys())
+
+        if 'model_setting_selectbox' not in st.session_state:
+            st.session_state.model_setting_selectbox = "Not selected"
+
+        if st.session_state.selected_model_setting in model_available_settings:
+            st.session_state.model_setting_selectbox = st.session_state.selected_model_setting
+        elif st.session_state.selected_model_setting is None:
+            st.session_state.model_setting_selectbox = "Not selected"
+
+        def on_model_setting_change():
+            selected = st.session_state.model_setting_selectbox
+            if selected == "Not selected":
+                st.session_state.selected_model_setting = None
+                st.session_state.model_params = {}
+            else:
+                st.session_state.selected_model_setting = selected
+                st.session_state.model_params = model_available_settings[selected].copy()
+                st.session_state.force_update_model_widgets = True
+
+        st.selectbox(
+            "Select Model Preset",
+            options=model_setting_options,
+            key='model_setting_selectbox',
+            on_change=on_model_setting_change,
+            help="Choose a preset configuration for the model."
+        )
+
+
+
+    # 7. Model Settings Modal
+    @st.dialog("Model Settings")
+    def open_model_settings_modal():
+        st.write(f"Configure advanced settings for **{temp_model.display_name}**.")
+
+        # --- Model Settings ---
+        model_schema = temp_model.get_settings_schema()
+        
+        temp_model_params = render_settings_from_schema(
+            model_schema,
+            initial_values=st.session_state.model_params if st.session_state.model_params else None,
+            key_prefix="temp_model_",
+            force_update=st.session_state.force_update_model_widgets
+        )
+
+        if st.session_state.force_update_model_widgets:
+            st.session_state.force_update_model_widgets = False
+        
+        if st.button("Apply Model Changes"):
+            # Update session state
+            st.session_state.model_params = temp_model_params
+            st.rerun()
+
+    if st.button("Configure Model Settings"):
+        open_model_settings_modal()
+
+    st.markdown("---")
+
+    # 8. Toggle for Boxplots
     show_boxplot = st.checkbox(
         "Show Importance Boxplots",
         value=True,
         help="Display boxplots for feature importance distributions."
     )
 
-    st.markdown("---")
-    st.info("Adjust the settings above to configure the data and analysis.")
+    # Ensure dataset_params and model_params are populated for the main app execution
+    dataset_params = st.session_state.dataset_params
+    model_params = st.session_state.model_params
 
 
 # --- Data Generation ---
@@ -292,7 +396,9 @@ with tab1:
 
 with tab2:
     render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
-                                           window_before_start, window_after_start, window_length)
+                                           window_before_start, window_after_start, window_length,
+                                           model_class=selected_model_class,
+                                           model_params=model_params)
 
 st.markdown("---")
 st.markdown("Developed as part of the xAI and Data Analysis Tools for Drift Detection project.")
