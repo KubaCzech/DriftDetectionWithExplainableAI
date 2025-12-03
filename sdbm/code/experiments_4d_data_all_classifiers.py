@@ -115,7 +115,7 @@ if __name__ == "__main__":
     classifiers = [
         linear_model.LogisticRegression(max_iter=500),
         SVC(kernel="rbf", probability=True),
-        RandomForestClassifier(n_estimators=200),
+        RandomForestClassifier(n_estimators=10),
         MLPClassifier(hidden_layer_sizes=(200,) * 3, max_iter=300),
     ]
 
@@ -141,10 +141,13 @@ if __name__ == "__main__":
             normalized *= (grid_size - 1)
             normalized = normalized.astype(int)
 
-            img_grid_ssnp[normalized[:, 0], normalized[:, 1]] = y_train
-            prob_grid_ssnp[normalized[:, 0], normalized[:, 1]] = 1.0
+            real_points_flipped = normalized.copy()
+            real_points_flipped[:, 0] = (grid_size - 1) - real_points_flipped[:, 0]
+ 
 
-            normalized[:, 0] = (grid_size - 1) - normalized[:, 0]
+            img_grid_ssnp[real_points_flipped[:, 0], real_points_flipped[:, 1]] = y_train
+            prob_grid_ssnp[real_points_flipped[:, 0], real_points_flipped[:, 1]] = 1.0
+
             
 
             results_to_png(
@@ -152,7 +155,7 @@ if __name__ == "__main__":
                 prob_matrix=prob_grid_ssnp,
                 grid_size=grid_size,
                 n_classes=n_classes,
-                real_points=normalized,
+                real_points=real_points_flipped,
                 max_value_hsv=0.8,
                 dataset_name=dataset_name,
                 classifier_name=clf_name,
@@ -214,6 +217,8 @@ if __name__ == "__main__":
             print(f"[INFO] Test Accuracy: {acc:.4f}")
             endtime = time() - start
             print(f"[INFO] Training completed in {endtime:.2f}s")
+            print(f"[INFO] Saving model to {name}...")
+            pickle.dump(clf, open(os.path.join(output_dir, name), "wb"))
             # pickle.dump(clf, open(os.path.join(output_dir, name), "wb"))
             # with open(os.path.join(output_dir, f"{dataset_name}_{clf_name}.txt"), "w") as f:
             #     f.write(f"Accuracy: {acc}\nTraining time: {endtime:.2f}s\n")
@@ -319,6 +324,9 @@ if __name__ == "__main__":
         pbar.close()
         img_grid = np.flipud(img_grid)
         prob_grid = np.flipud(prob_grid)
+
+        
+        
 
         np.save(out_file, img_grid)
         np.save(os.path.join(output_dir, f"{out_name}_prob.npy"), prob_grid)
