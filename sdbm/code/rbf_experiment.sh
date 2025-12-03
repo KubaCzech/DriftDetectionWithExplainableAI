@@ -17,6 +17,8 @@ conda run -n bachelors python experiments_4d_data_all_classifiers.py pre
 echo "--- (5/5) Re-running 'post' (SECOND RUN - Generates DBMs w/ points)... ---"
 conda run -n bachelors python experiments_4d_data_all_classifiers.py post
 
+conda run -n bachelors python disagreement.py
+
 echo "--- Activating 'streamlit_env' and launching dashboard... ---"
 echo "Warnings will be ignored."
 

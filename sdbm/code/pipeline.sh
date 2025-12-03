@@ -14,8 +14,12 @@ conda run -n bachelors python experiments_4d_data_all_classifiers.py post
 echo "--- (4/5) Activating 'streamlit_env' and launching dashboard... ---"
 echo "Warnings will be ignored."
 
+echo "--- (5/5) Activating 'streamlit_env' and launching dashboard... ---"
+conda run -n bachelors python disagreement.py
+
+
 # We use 'bash -c' to ensure the environment variable is set 
 # for the streamlit command within the conda-run session.
 conda run -n streamlit_env bash -c "PYTHONWARNINGS=ignore streamlit run dashboard.py"
 
-echo "--- (5/5) Pipeline finished. Streamlit is running. ---"
+echo "--- Pipeline finished. Streamlit is running. ---"
