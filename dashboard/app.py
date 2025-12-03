@@ -14,7 +14,10 @@ from src.feature_importance import visualize_data_stream  # noqa: E402
 from dashboard.components.settings import render_settings_from_schema  # noqa: E402
 from dashboard.tabs import (  # noqa: E402
     render_data_visualization_tab,
-    render_feature_importance_analysis_tab
+    render_feature_importance_analysis_tab,
+    render_drift_detection_tab,
+    render_decision_boundary_tab,
+    render_recurring_race_p_tab
 )
 
 
@@ -389,16 +392,31 @@ def generate_and_capture_plots(X, y, window_before_start, window_after_start, wi
 all_figs, info_log = generate_and_capture_plots(X, y, window_before_start, window_after_start, window_length, feature_names)
 
 # --- Tabs ---
-tab1, tab2 = st.tabs(["Dataset Selection and Visualization", "Feature Importance Analysis"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Dataset Selection and Visualization",
+    "Drift Detection",
+    "Decision Boundary",
+    "Feature Importance Analysis",
+    "Recurring RACE-P"
+])
 
 with tab1:
     render_data_visualization_tab(X, y, feature_names, all_figs)
 
 with tab2:
+    render_drift_detection_tab()
+
+with tab3:
+    render_decision_boundary_tab()
+
+with tab4:
     render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
                                            window_before_start, window_after_start, window_length,
                                            model_class=selected_model_class,
                                            model_params=model_params)
+
+with tab5:
+    render_recurring_race_p_tab()
 
 st.markdown("---")
 st.markdown("Developed as part of the xAI and Data Analysis Tools for Drift Detection project.")
