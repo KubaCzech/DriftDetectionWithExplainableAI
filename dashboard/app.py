@@ -12,6 +12,7 @@ from src.datasets import DATASETS  # noqa: E402
 from src.models import MODELS  # noqa: E402
 from src.feature_importance import visualize_data_stream  # noqa: E402
 from dashboard.components.settings import render_settings_from_schema  # noqa: E402
+from dashboard.utils import get_dataset_settings_schema  # noqa: E402
 from dashboard.tabs import (  # noqa: E402
     render_data_visualization_tab,
     render_feature_importance_analysis_tab,
@@ -51,7 +52,6 @@ with st.sidebar:
         value=1000,
         help="Length of the analysis window in samples."
     )
-    
     st.markdown("---")
 
     st.subheader("Analysis Window Selection")
@@ -88,33 +88,27 @@ with st.sidebar:
 
     # 3. Settings Preset Selection
     available_settings = selected_dataset.get_available_settings()
-    
     # Initialize session state for selected setting if not exists
     if 'selected_setting' not in st.session_state:
         st.session_state.selected_setting = None
-    
     # Initialize session state for parameters if not exists
     if 'dataset_params' not in st.session_state:
         st.session_state.dataset_params = {}
-    
     # Track if we need to force update the widgets (when preset changes)
     if 'force_update_widgets' not in st.session_state:
         st.session_state.force_update_widgets = False
-    
     # If there are available settings, show the dropdown
     if available_settings:
         setting_options = ["Not selected"] + list(available_settings.keys())
-        
         # Initialize the selectbox session state if not exists
         if 'setting_selectbox' not in st.session_state:
             st.session_state.setting_selectbox = "Not selected"
-        
         # Update selectbox value based on selected_setting
         if st.session_state.selected_setting in available_settings:
             st.session_state.setting_selectbox = st.session_state.selected_setting
         elif st.session_state.selected_setting is None:
             st.session_state.setting_selectbox = "Not selected"
-        
+
         def on_setting_change():
             """Callback when settings dropdown changes"""
             selected = st.session_state.setting_selectbox
@@ -127,19 +121,18 @@ with st.sidebar:
                 # We need to be careful here if presets are in samples but UI is in windows
                 # For now, assuming presets might need manual adjustment or we just load them as is
                 # But wait, if we change the schema, we need to adapt the presets too?
-                # The user requirement says: "When choosing window before drift and window after drift, you will choose window numbers instead of sample numbers."
-                # And "For synthetic datasets, size of data before drift and after drift should be specified in the dashboard as number of windows instead of number of samples."
-                
+                # The user requirement says: "When choosing window before drift and window after drift,
+                # you will choose window numbers instead of sample numbers."
+                # And "For synthetic datasets, size of data before drift and after drift should be specified
+                # in the dashboard as number of windows instead of number of samples."
                 # Let's assume presets in code are still in samples (as they are in the dataset classes).
                 # We might need to convert them to windows for display if we want them to work nicely with the new schema.
-                # However, modifying the presets logic is complex. 
-                # Let's just load them. If the schema expects 'n_windows_before', and preset has 'n_samples_before', 
+                # However, modifying the presets logic is complex.
+                # Let's just load them. If the schema expects 'n_windows_before', and preset has 'n_samples_before',
                 # render_settings_from_schema might ignore it or we need to map it.
-                
                 st.session_state.dataset_params = available_settings[selected].copy()
                 # Set flag to force update widgets
                 st.session_state.force_update_widgets = True
-        
         st.selectbox(
             "Select Preset Settings",
             options=setting_options,
@@ -152,39 +145,16 @@ with st.sidebar:
     @st.dialog("Dataset Settings")
     def open_dataset_settings_modal():
         st.write(f"Configure advanced settings for **{selected_dataset.display_name}**.")
-        
+
         # --- Dataset Settings ---
-        if (selected_dataset.name != "custom_normal" and
-                selected_dataset.name != "custom_3d_drift" and
-                selected_dataset.name != "sea_drift"):
-            schema_to_render = selected_dataset.get_settings_schema()
-        else:
-            original_schema = selected_dataset.get_settings_schema()
-            schema_to_render = []
-            for item in original_schema:
-                new_item = item.copy()
-                if item["name"] == "n_samples_before":
-                    new_item["name"] = "n_windows_before"
-                    new_item["label"] = "Number of Windows Before Drift"
-                    new_item["default"] = int(item["default"] / window_length) if item["default"] else 1
-                    new_item["min_value"] = 1
-                    new_item["step"] = 1
-                    new_item["help"] = "Number of windows generated before the concept drift occurs."
-                elif item["name"] == "n_samples_after":
-                    new_item["name"] = "n_windows_after"
-                    new_item["label"] = "Number of Windows After Drift"
-                    new_item["default"] = int(item["default"] / window_length) if item["default"] else 1
-                    new_item["min_value"] = 1
-                    new_item["step"] = 1
-                    new_item["help"] = "Number of windows generated after the concept drift occurs."
-                schema_to_render.append(new_item)
+        schema_to_render = get_dataset_settings_schema(selected_dataset, window_length)
 
         # Render dataset settings with temporary key prefix
         initial_dataset_params = st.session_state.dataset_params.copy() if st.session_state.dataset_params else {}
         if "n_samples_before" in initial_dataset_params and "n_windows_before" not in initial_dataset_params:
-             initial_dataset_params["n_windows_before"] = int(initial_dataset_params["n_samples_before"] / window_length)
+            initial_dataset_params["n_windows_before"] = int(initial_dataset_params["n_samples_before"] / window_length)
         if "n_samples_after" in initial_dataset_params and "n_windows_after" not in initial_dataset_params:
-             initial_dataset_params["n_windows_after"] = int(initial_dataset_params["n_samples_after"] / window_length)
+            initial_dataset_params["n_windows_after"] = int(initial_dataset_params["n_samples_after"] / window_length)
 
         temp_dataset_params = render_settings_from_schema(
             schema_to_render,
@@ -198,7 +168,7 @@ with st.sidebar:
             st.session_state.force_update_widgets = False
 
         st.markdown("---")
-        
+
         if st.button("Apply Dataset Changes"):
             # Process dataset params (convert windows back to samples)
             final_dataset_params = temp_dataset_params.copy()
@@ -206,7 +176,7 @@ with st.sidebar:
                 final_dataset_params["n_samples_before"] = final_dataset_params.pop("n_windows_before") * window_length
             if "n_windows_after" in final_dataset_params:
                 final_dataset_params["n_samples_after"] = final_dataset_params.pop("n_windows_after") * window_length
-            
+
             # Update session state
             st.session_state.dataset_params = final_dataset_params
             st.rerun()
@@ -272,8 +242,6 @@ with st.sidebar:
             help="Choose a preset configuration for the model."
         )
 
-
-
     # 7. Model Settings Modal
     @st.dialog("Model Settings")
     def open_model_settings_modal():
@@ -281,7 +249,7 @@ with st.sidebar:
 
         # --- Model Settings ---
         model_schema = temp_model.get_settings_schema()
-        
+
         temp_model_params = render_settings_from_schema(
             model_schema,
             initial_values=st.session_state.model_params if st.session_state.model_params else None,
@@ -291,7 +259,7 @@ with st.sidebar:
 
         if st.session_state.force_update_model_widgets:
             st.session_state.force_update_model_widgets = False
-        
+
         if st.button("Apply Model Changes"):
             # Update session state
             st.session_state.model_params = temp_model_params
@@ -351,18 +319,17 @@ if X is None:
 with st.sidebar:
     st.markdown("---")
     st.subheader("Feature Selection")
-    
+
     selected_features = []
     if feature_names:
         st.write("Select features to include in the analysis:")
         for feature in feature_names:
             if st.checkbox(feature, value=True, key=f"feature_select_{feature}"):
                 selected_features.append(feature)
-        
         if not selected_features:
             st.warning("Please select at least one feature.")
             st.stop()
-            
+
         # Filter X and update feature_names
         X = X[selected_features]
         feature_names = selected_features
@@ -389,7 +356,9 @@ def generate_and_capture_plots(X, y, window_before_start, window_after_start, wi
     return all_figs, stdout_capture.getvalue()
 
 
-all_figs, info_log = generate_and_capture_plots(X, y, window_before_start, window_after_start, window_length, feature_names)
+all_figs, info_log = generate_and_capture_plots(
+    X, y, window_before_start, window_after_start, window_length, feature_names
+)
 
 # --- Tabs ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
