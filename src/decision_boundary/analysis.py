@@ -1,5 +1,7 @@
 import numpy as np
 
+import random
+import tensorflow as tf
 from src.decision_boundary.ssnp import SSNP
 
 
@@ -44,6 +46,12 @@ def compute_decision_boundary_analysis(X, y,
     dict
         Dictionary containing results for 'pre' and 'post' windows, plus the SSNP model.
     """
+    # 0. Enforce Determinism
+    SEED = 42
+    np.random.seed(SEED)
+    random.seed(SEED)
+    tf.random.set_seed(SEED)
+
     # 1. Prepare Data
     # Convert to numpy if pandas
     if hasattr(X, "values"):
@@ -84,6 +92,10 @@ def compute_decision_boundary_analysis(X, y,
 
     if model_params is None:
         model_params = {}
+
+    # Force random_state for classifier determinism
+    # Note: This assumes the model accepts random_state, which sklearn models and our wrappers do.
+    model_params['random_state'] = SEED
 
     # Helper to train and predict grid
     def process_window(X_train, y_train, X_2d_train):
