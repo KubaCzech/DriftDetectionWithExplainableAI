@@ -15,24 +15,31 @@ class SeaDriftDataset(BaseDataset):
     def get_settings_schema(self) -> list[dict]:
         return [
             {
-                "name": "n_samples_before",
+                "name": "n_windows_before",
                 "type": "int",
-                "label": "Number of Samples Before Drift",
-                "default": 1000,
-                "min_value": 100,
-                "step": 100,
-                "help": "Number of samples generated before the concept drift occurs."
+                "label": "Number of Windows Before Drift",
+                "default": 1,
+                "min_value": 0,
+                "step": 1,
+                "help": "Number of windows generated before the concept drift occurs."
             },
             {
-                "name": "n_samples_after",
+                "name": "n_windows_after",
                 "type": "int",
-                "label": "Number of Samples After Drift",
-                "default": 1000,
-                "min_value": 100,
-                "step": 100,
-                "help": "Number of samples generated after the concept drift occurs."
+                "label": "Number of Windows After Drift",
+                "default": 1,
+                "min_value": 0,
+                "step": 1,
+                "help": "Number of windows generated after the concept drift occurs."
             }
         ]
+
+    def get_params(self) -> dict:
+        return {
+            "n_windows_before": 1,
+            "n_windows_after": 1,
+            "random_seed": 42
+        }
 
 
 

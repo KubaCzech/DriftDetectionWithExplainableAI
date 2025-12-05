@@ -53,8 +53,8 @@ def visualize_data_stream(X, y, window_before_start, window_after_start, window_
     
     # Create time steps for plotting (relative to the window start or absolute?)
     # Let's use absolute indices for x-axis to show where they are in the stream
-    time_steps_before = np.arange(start_before, end_before)
-    time_steps_after = np.arange(start_after, end_after)
+    time_steps_before = np.arange(start_before, start_before + len(X_before))
+    time_steps_after = np.arange(start_after, start_after + len(X_after))
 
     # Calculate class distributions
     class_dist_before = [np.mean(y_before == 0), np.mean(y_before == 1)]

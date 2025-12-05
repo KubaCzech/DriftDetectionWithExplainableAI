@@ -150,11 +150,8 @@ with st.sidebar:
         schema_to_render = get_dataset_settings_schema(selected_dataset, window_length)
 
         # Render dataset settings with temporary key prefix
+        # No need for manual conversion as schema is now in windows for synthetic datasets
         initial_dataset_params = st.session_state.dataset_params.copy() if st.session_state.dataset_params else {}
-        if "n_samples_before" in initial_dataset_params and "n_windows_before" not in initial_dataset_params:
-            initial_dataset_params["n_windows_before"] = int(initial_dataset_params["n_samples_before"] / window_length)
-        if "n_samples_after" in initial_dataset_params and "n_windows_after" not in initial_dataset_params:
-            initial_dataset_params["n_windows_after"] = int(initial_dataset_params["n_samples_after"] / window_length)
 
         temp_dataset_params = render_settings_from_schema(
             schema_to_render,
@@ -170,15 +167,8 @@ with st.sidebar:
         st.markdown("---")
 
         if st.button("Apply Dataset Changes"):
-            # Process dataset params (convert windows back to samples)
-            final_dataset_params = temp_dataset_params.copy()
-            if "n_windows_before" in final_dataset_params:
-                final_dataset_params["n_samples_before"] = final_dataset_params.pop("n_windows_before") * window_length
-            if "n_windows_after" in final_dataset_params:
-                final_dataset_params["n_samples_after"] = final_dataset_params.pop("n_windows_after") * window_length
-
-            # Update session state
-            st.session_state.dataset_params = final_dataset_params
+            # Update session state directly
+            st.session_state.dataset_params = temp_dataset_params.copy()
             st.rerun()
 
     if st.button("Configure Dataset Settings"):
@@ -284,7 +274,7 @@ with st.sidebar:
 
 # --- Data Generation ---
 @st.cache_data
-def generate_data(dataset_name, **kwargs):
+def generate_data(dataset_name, window_length_val, **kwargs):
     """Cached function to generate data."""
     dataset = DATASETS.get(dataset_name)
     if not dataset:
@@ -293,6 +283,12 @@ def generate_data(dataset_name, **kwargs):
 
     gen_params = dataset.get_params()
     gen_params.update(kwargs)
+
+    # Convert window-based parameters to samples if present
+    if "n_windows_before" in gen_params:
+        gen_params["n_samples_before"] = gen_params.pop("n_windows_before") * window_length_val
+    if "n_windows_after" in gen_params:
+        gen_params["n_samples_after"] = gen_params.pop("n_windows_after") * window_length_val
 
     try:
         return dataset.generate(**gen_params)
@@ -303,6 +299,7 @@ def generate_data(dataset_name, **kwargs):
 
 X, y = generate_data(
     dataset_key,
+    window_length,
     **dataset_params
 )
 
