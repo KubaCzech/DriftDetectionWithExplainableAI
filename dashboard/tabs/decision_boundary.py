@@ -1,7 +1,9 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import traceback
 from src.decision_boundary.analysis import compute_decision_boundary_analysis
 from src.decision_boundary.visualization import visualize_decision_boundary
+
 
 def render_decision_boundary_tab(X, y,
                                  window_before_start=0,
@@ -32,7 +34,7 @@ def render_decision_boundary_tab(X, y,
     st.header("3. Decision Boundary Analysis")
     st.markdown("""
     This tab visualizes the decision boundary of a classifier trained on the pre-drift and post-drift data.
-    It uses **SSNP (Semi-Supervised Neural Projection)** to project the high-dimensional data into 2D while 
+    It uses **SSNP (Semi-Supervised Neural Projection)** to project the high-dimensional data into 2D while
     preserving the separation between classes.
     """)
 
@@ -41,10 +43,10 @@ def render_decision_boundary_tab(X, y,
         col1, col2 = st.columns(2)
         with col1:
             ssnp_epochs = st.number_input("SSNP Epochs", min_value=1, max_value=200, value=10, step=5,
-                                         help="Number of epochs for training the SSNP projector.")
+                                          help="Number of epochs for training the SSNP projector.")
         with col2:
             grid_size = st.number_input("Grid Resolution", min_value=50, max_value=500, value=200, step=50,
-                                       help="Resolution of the grid for visualizing probabilities.")
+                                        help="Resolution of the grid for visualizing probabilities.")
 
     # Initialize session state for results if not exists
     if 'decision_boundary_results' not in st.session_state:
@@ -66,11 +68,10 @@ def render_decision_boundary_tab(X, y,
                 )
                 # Store results in session state
                 st.session_state.decision_boundary_results = results
-                
+
             except Exception as e:
                 st.error(f"An error occurred during analysis: {e}")
                 # Optional: print stack trace for debugging
-                import traceback
                 st.text(traceback.format_exc())
                 st.session_state.decision_boundary_results = None
 
@@ -78,7 +79,7 @@ def render_decision_boundary_tab(X, y,
     if st.session_state.decision_boundary_results is not None:
         try:
             st.markdown("### Decision Boundaries (Pre vs Post)")
-            
+
             # Create and display plot
             fig = visualize_decision_boundary(st.session_state.decision_boundary_results)
             st.pyplot(fig)
