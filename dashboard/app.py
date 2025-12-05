@@ -376,7 +376,12 @@ with tab2:
     render_drift_detection_tab()
 
 with tab3:
-    render_decision_boundary_tab()
+    render_decision_boundary_tab(X, y,
+                                 window_before_start=window_before_start,
+                                 window_after_start=window_after_start,
+                                 window_length=window_length,
+                                 model_class=selected_model_class,
+                                 model_params=model_params)
 
 with tab4:
     render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
