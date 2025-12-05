@@ -1,7 +1,7 @@
 import numpy as np
-
 import random
 import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
 from src.decision_boundary.ssnp import SSNP
 
 
@@ -75,6 +75,11 @@ def compute_decision_boundary_analysis(X, y,
 
     X_post = X[start_after:end_after]
     y_post = y[start_after:end_after]
+
+    # Normalize Data (Fit on Pre, Transform both)
+    scaler = MinMaxScaler()
+    X_pre = scaler.fit_transform(X_pre)
+    X_post = scaler.transform(X_post)
 
     # 2. Train SSNP on Pre-Drift Data
     # SSNP is used to find a 2D projection that preserves class structure.
