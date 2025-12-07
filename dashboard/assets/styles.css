@@ -1,45 +1,78 @@
-/* Target the container of the radio buttons */
+:root {
+    --primary-color: #ff4b4b;
+    --background-color: #ffffff;
+    --secondary-background-color: #f0f2f6;
+    --text-color: #31333F;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background-color: #0e1117;
+        --secondary-background-color: #262730;
+        --text-color: #fafafa;
+    }
+}
+
 div[role="radiogroup"] {
     flex-direction: row;
     width: 100%;
-    gap: 5px; /* Space between tabs */
+    gap: 5px;
 }
 
-/* Style the labels (the "tabs") */
 div[role="radiogroup"] label {
-    flex: 1; /* Equal width */
-    background-color: #f0f2f6; /* Default gray background */
-    padding: 10px;
-    border-radius: 5px 5px 0 0; /* Rounded top corners */
-    margin-right: 0 !important; /* Remove default margins */
-    text-align: center;
-    border: 1px solid #e6e9ef;
-    border-bottom: 2px solid #ccc; /* Bottom border for unselected */
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: background-color 0.2s;
-    white-space: nowrap; /* Prevent text wrapping */
+    flex: 1 1 0px !important;
+    border: none !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
-/* Hover effect */
-div[role="radiogroup"] label:hover {
-    background-color: #e0e2e6;
-}
-
-/* Hide the radio circle (the input representation) */
-div[role="radiogroup"] label > div:first-child {
+/* Hide radio circle (and input) */
+div[role="radiogroup"] label>div:first-child,
+div[role="radiogroup"] label>input {
     display: none !important;
+    position: absolute !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 
-/* Selected state - using :has() if supported, or falling back to aria-checked on child */
-/* Note: Streamlit's radio selected state adds a class or attribute to the underlying input/div */
-/* Targetting the label that contains the checked element */
-div[role="radiogroup"] label:has(div[aria-checked="true"]),
-div[role="radiogroup"] label:has(input:checked) {
-    background-color: white !important;
-    border-bottom: 2px solid #ff4b4b !important; /* Active indicator color */
-    font-weight: bold;
-    color: #31333F;
+/* Base Tab Style (Apply to content div) */
+div[role="radiogroup"] label>div:not(:first-child) {
+    background-color: var(--secondary-background-color);
+    color: var(--text-color);
+    padding: 10px;
+    border-radius: 5px 5px 0 0;
+    text-align: center;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    border-bottom: 2px solid rgba(128, 128, 128, 0.2);
+    cursor: pointer;
+    transition: filter 0.2s;
+    font-weight: normal;
+
+    /* Control expansion */
+    width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+div[role="radiogroup"] label:hover>div:not(:first-child) {
+    filter: brightness(90%);
+}
+
+/* Selected Tab Style - Simplest robust selector: input checked + div */
+/* Note: Streamlit structure is input + div for the content */
+input[type="radio"]:checked+div {
+    background-color: var(--background-color) !important;
+    color: var(--primary-color) !important;
+    font-weight: bold !important;
+    border-top: 4px solid var(--primary-color) !important;
+    border-bottom: 2px solid var(--background-color) !important;
+    border-left: 1px solid rgba(128, 128, 128, 0.2) !important;
+    border-right: 1px solid rgba(128, 128, 128, 0.2) !important;
+    filter: none !important;
 }

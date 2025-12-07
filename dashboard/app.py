@@ -29,7 +29,9 @@ st.set_page_config(
 )
 
 # --- Main App ---
+
 st.title("📊 Concept Drift Analysis Dashboard")
+
 
 st.markdown("""
 Welcome to the Concept Drift Analysis Dashboard. This tool allows you to:
@@ -155,8 +157,6 @@ active_tab = st.radio(
     key="active_tab",
     label_visibility="collapsed"
 )
-
-st.markdown("---")
 
 if active_tab == tabs[0]:
     render_data_visualization_tab(X, y, feature_names, all_figs)
