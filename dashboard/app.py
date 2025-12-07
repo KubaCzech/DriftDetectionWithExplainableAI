@@ -357,22 +357,45 @@ all_figs, info_log = generate_and_capture_plots(
     X, y, window_before_start, window_after_start, window_length, feature_names
 )
 
-# --- Tabs ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# --- Tabs (Navigation) ---
+tabs = [
     "Dataset Selection and Visualization",
     "Drift Detection",
     "Decision Boundary",
     "Feature Importance Analysis",
     "Recurring RACE-P"
-])
+]
 
-with tab1:
+# Initialize session state for active tab if it doesn't exist
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = tabs[0]
+
+# Custom CSS to style radio buttons as tabs
+def load_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+css_file = os.path.join(os.path.dirname(__file__), "assets", "styles.css")
+load_css(css_file)
+
+# Use radio buttons for navigation to allow state persistence
+active_tab = st.radio(
+    "Select Analysis Module",
+    tabs,
+    horizontal=True,
+    key="active_tab",
+    label_visibility="collapsed"
+)
+
+st.markdown("---")
+
+if active_tab == tabs[0]:
     render_data_visualization_tab(X, y, feature_names, all_figs)
 
-with tab2:
+elif active_tab == tabs[1]:
     render_drift_detection_tab()
 
-with tab3:
+elif active_tab == tabs[2]:
     render_decision_boundary_tab(X, y,
                                  window_before_start=window_before_start,
                                  window_after_start=window_after_start,
@@ -380,13 +403,13 @@ with tab3:
                                  model_class=selected_model_class,
                                  model_params=model_params)
 
-with tab4:
+elif active_tab == tabs[3]:
     render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
                                            window_before_start, window_after_start, window_length,
                                            model_class=selected_model_class,
                                            model_params=model_params)
 
-with tab5:
+elif active_tab == tabs[4]:
     render_recurring_race_p_tab()
 
 st.markdown("---")
