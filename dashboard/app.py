@@ -9,7 +9,7 @@ import contextlib
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.datasets import DATASETS  # noqa: E402
-from src.feature_importance import visualize_data_stream  # noqa: E402
+from src.plotting import visualize_data_stream  # noqa: E402
 from dashboard.components.tabs import (  # noqa: E402
     render_data_visualization_tab,
     render_feature_importance_analysis_tab,
@@ -110,15 +110,10 @@ def generate_and_capture_plots(X, y, window_before_start, window_after_start, wi
     # Redirect stdout to capture print statements
     stdout_capture = StringIO()
     with contextlib.redirect_stdout(stdout_capture):
-        # This function call creates multiple figures and leaves them open
-        visualize_data_stream(X, y, window_before_start, window_after_start, window_length, feature_names)
-
-    # Capture the figures and close them immediately
-    all_figs = []
-    for fig_id in plt.get_fignums():
-        fig = plt.figure(fig_id)
-        all_figs.append(fig)
-        plt.close(fig)  # Close the figure to free up memory
+        # This function returns a list of figures
+        all_figs = visualize_data_stream(
+            X, y, window_before_start, window_after_start, window_length, feature_names
+        )
 
     return all_figs, stdout_capture.getvalue()
 
