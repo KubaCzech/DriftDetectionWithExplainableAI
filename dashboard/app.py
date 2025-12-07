@@ -15,7 +15,8 @@ from dashboard.components.tabs import (  # noqa: E402
     render_feature_importance_analysis_tab,
     render_drift_detection_tab,
     render_decision_boundary_tab,
-    render_recurring_race_p_tab
+    render_recurring_race_p_tab,
+    render_clustering_analysis_tab
 )
 from dashboard.components.sidebar import render_configuration_sidebar, render_feature_selection_sidebar  # noqa: E402
 
@@ -132,6 +133,7 @@ tabs = [
     "Drift Detection",
     "Decision Boundary",
     "Feature Importance Analysis",
+    "Clustering Analysis",
     "Recurring RACE-P"
 ]
 
@@ -179,6 +181,12 @@ elif active_tab == tabs[3]:
                                            model_params=model_params)
 
 elif active_tab == tabs[4]:
+    render_clustering_analysis_tab(X, y,
+                                   window_before_start=window_before_start,
+                                   window_after_start=window_after_start,
+                                   window_length=window_length)
+
+elif active_tab == tabs[5]:
     render_recurring_race_p_tab()
 
 st.markdown("---")
