@@ -1,3 +1,5 @@
+import pandas as pd
+
 from enum import Enum
 
 
@@ -105,10 +107,50 @@ class DescriptiveStatisticsDriftDetector:
         else:
             raise ValueError("Unsupported statistics type")
 
+    def calculate_stats_before_after(self, data_old, data_new, label_col='label'):
+        def compute_stats(df):
+            features = [c for c in df.columns if c != label_col]
+            grouped = df.groupby(label_col)
+
+            records = []
+
+            for label, group in grouped:
+                stats = {("label", "id"): label}
+
+                for f in features:
+                    stats[(f, "min")] = group[f].min()
+                    stats[(f, "median")] = group[f].median()
+                    stats[(f, "mean")] = group[f].mean()
+                    stats[(f, "std")] = group[f].std()
+                    stats[(f, "max")] = group[f].max()
+
+                records.append(stats)
+
+            stats_df = pd.DataFrame(records)
+            stats_df.set_index(("label", "id"), inplace=True)
+            return stats_df
+
+        # statystyki osobno dla old i new
+        stats_old = compute_stats(data_old)
+        stats_new = compute_stats(data_new)
+
+        stats_old.columns = pd.MultiIndex.from_tuples([("old", f, s) for (f, s) in stats_old.columns])
+        stats_new.columns = pd.MultiIndex.from_tuples([("new", f, s) for (f, s) in stats_new.columns])
+
+        # połączenie tabel
+        combined = pd.concat([stats_old, stats_new], axis=1)
+
+        # uporządkowanie
+        combined = combined.sort_index(axis=1, level=[0, 1, 2])
+
+        return combined
+
     def detect(self, old_data, new_data, stat_type, features=None, thr=0.2):
         if features is not None:
             old_data = old_data[features]
             new_data = new_data[features]
+
+        self.stats = self.calculate_stats_before_after(old_data, new_data)
 
         if type(stat_type) is list:
             drifts = []
