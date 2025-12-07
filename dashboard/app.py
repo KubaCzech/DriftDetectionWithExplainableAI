@@ -8,7 +8,8 @@ import contextlib
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.datasets import DATASETS  # noqa: E402
+from src.datasets import DATASETS, reload_datasets, DatasetRegistry  # noqa: E402
+import pandas as pd
 from src.models import MODELS  # noqa: E402
 from src.feature_importance import visualize_data_stream  # noqa: E402
 from dashboard.components.settings import render_settings_from_schema  # noqa: E402
@@ -77,14 +78,100 @@ with st.sidebar:
     st.subheader("Dataset Selection")
 
     # 2. Select Dataset
+    # Define Import Option
+    IMPORT_OPTION = "➕ Import dataset..."
+    
+    # 2. Select Dataset
+    dataset_options = list(DATASETS.keys()) + [IMPORT_OPTION]
+    
+    # Check if we should select a specific dataset (e.g. after import)
+    index = 0
+    if 'selected_dataset_key' in st.session_state and st.session_state.selected_dataset_key in dataset_options:
+         index = dataset_options.index(st.session_state.selected_dataset_key)
+         
     dataset_key = st.selectbox(
         "Choose a Dataset",
-        options=list(DATASETS.keys()),
-        format_func=lambda x: DATASETS[x].display_name,
-        help="Select the synthetic dataset to analyze."
+        options=dataset_options,
+        index=index,
+        format_func=lambda x: x if x == IMPORT_OPTION else DATASETS[x].display_name,
+        help="Select the synthetic dataset to analyze or import a new one."
     )
 
+    if dataset_key == IMPORT_OPTION:
+        @st.dialog("Import Dataset")
+        def open_import_dataset_modal():
+            st.write("Upload a CSV file to import a new dataset.")
+            uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+            
+            if uploaded_file is not None:
+                try:
+                    # Read header only
+                    uploaded_file.seek(0)
+                    df_preview = pd.read_csv(uploaded_file, nrows=0)
+                    columns = df_preview.columns.tolist()
+                except Exception as e:
+                    st.error(f"Error reading CSV: {e}")
+                    return
+
+                dataset_name = st.text_input("Dataset Name", value=uploaded_file.name.replace(".csv", ""))
+                
+                # Default target is the last column
+                default_target_idx = len(columns) - 1 if columns else 0
+                
+                target_col = st.selectbox(
+                    "Target Variable", 
+                    options=columns, 
+                    index=default_target_idx,
+                    help="Select the column containing the target variable."
+                )
+                
+                # Default features are all except target
+                available_features = [c for c in columns if c != target_col]
+                features = st.multiselect(
+                    "Features to Include", 
+                    options=available_features, 
+                    default=available_features,
+                    help="Select the features to be used for the dataset."
+                )
+                
+                if st.button("Import Dataset"):
+                    if not dataset_name:
+                        st.error("Please provide a dataset name.")
+                        return
+                    if not features:
+                        st.error("Please select at least one feature.")
+                        return
+                        
+                    # Save
+                    registry = DatasetRegistry()
+                    registry.save_dataset(dataset_name, uploaded_file, target_col, features)
+                    
+                    # Reload datasets
+                    reload_datasets()
+                    
+                    # Update session state to select the new dataset
+                    st.session_state.selected_dataset_key = dataset_name
+                    st.success(f"Dataset '{dataset_name}' imported successfully!")
+                    st.rerun()
+
+        open_import_dataset_modal()
+        # Stop execution so the rest of the app doesn't try to render with "Import dataset..." key
+        st.stop()
+    else:
+        st.session_state.selected_dataset_key = dataset_key
+
     selected_dataset = DATASETS[dataset_key]
+    
+    # Add delete option for imported datasets
+    # Check if it's an imported dataset by checking registry
+    registry = DatasetRegistry()
+    if registry.get_dataset_info(dataset_key):
+        if st.sidebar.button("🗑️ Delete Dataset", help="Permanently remove this imported dataset."):
+            registry.delete_dataset(dataset_key)
+            reload_datasets()
+            st.session_state.selected_dataset_key = list(DATASETS.keys())[0] # specific fallback or let it reset
+            st.rerun()
+
 
     # 3. Settings Preset Selection
     available_settings = selected_dataset.get_available_settings()
