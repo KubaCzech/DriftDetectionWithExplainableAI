@@ -66,8 +66,8 @@ def render_clustering_analysis_tab(X, y, window_before_start, window_after_start
     data_old = (X_old, y_old)
     data_new = (X_new, y_new)
 
-    # Initialize Detector
-    detector = ClusterBasedDriftDetector(data_old, data_new)
+    # Initialize Detector with random_state for determinism
+    detector = ClusterBasedDriftDetector(data_old, data_new, random_state=42)
 
     with st.spinner("Running cluster-based drift detection..."):
         try:

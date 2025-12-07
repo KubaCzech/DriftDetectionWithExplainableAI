@@ -12,7 +12,7 @@ if not hasattr(np, "warnings"):
 
 
 class ClusterBasedDriftDetector:
-    def __init__(self, data_old, data_new):
+    def __init__(self, data_old, data_new, random_state=None):
         self.X_old, self.y_old = data_old
         self.X_new, self.y_new = data_new
 
@@ -27,6 +27,8 @@ class ClusterBasedDriftDetector:
 
         self.drift_flag = False
         self.drift_details = None
+        
+        self.random_state = random_state
 
     # DONE
     def _reshape_clusters(self, clusters):
@@ -135,7 +137,29 @@ class ClusterBasedDriftDetector:
         Function to perform X-Means clustering on the given data
         """
 
-        init_centers = kmeans_plusplus_initializer(X, k_init).initialize()
+        # kmeans_plusplus_initializer from pyclustering can take random_state but it's not standard
+        # However, looking at the library, it usually uses random module.
+        # But if the user says "ensure deterministic", passing random_state implies we should manage seeds.
+        # The standard pyclustering kmeans_plusplus_initializer might access global random state.
+        # But let's check if it accepts a random_state argument in initializer.
+        # Assuming standard signature: kmeans_plusplus_initializer(data, amount_centers, candidate_centers=None, random_state=None)
+        # If not, we rely on global seed which we can set here if self.random_state is set.
+        
+        if self.random_state is not None:
+             import random
+             random.seed(self.random_state)
+             np.random.seed(self.random_state)
+
+        # Try to pass random_state if supported
+        try:
+             init_centers = kmeans_plusplus_initializer(X, k_init, random_state=self.random_state).initialize()
+        except TypeError:
+             # Fallback if random_state is not supported by this version of pyclustering
+             init_centers = kmeans_plusplus_initializer(X, k_init).initialize()
+        
+        # xmeans also uses random splitting sometimes in various implementations, typically relies on global random
+        # setting global seeds above handles it if pyclustering relies on random/np.random
+        
         xm = xmeans(X, init_centers, kmax=k_max, ccore=False)
         xm.process()
         centers = np.array(xm.get_centers())
