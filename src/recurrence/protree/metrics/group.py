@@ -95,8 +95,8 @@ def vector_voting_frequency(prototypes: TPrototypes, explainer: IExplainer, x: T
     return votes
 
 
-def vector_in_distribution(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch, y: TTarget) -> dict[
-    str | bool | int, float]:
+def vector_in_distribution(prototypes: TPrototypes, explainer: IExplainer,
+                           x: TDataBatch, y: TTarget) -> dict[str | bool | int, float]:
     from protree.metrics.individual import individual_in_distribution
 
     in_distribution = {cls: [] for cls in prototypes}
@@ -106,8 +106,8 @@ def vector_in_distribution(prototypes: TPrototypes, explainer: IExplainer, x: TD
     return in_distribution
 
 
-def vector_out_distribution(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch, y: TTarget) -> dict[
-    str | bool | int, float]:
+def vector_out_distribution(prototypes: TPrototypes, explainer: IExplainer,
+                            x: TDataBatch, y: TTarget) -> dict[str | bool | int, float]:
     from protree.metrics.individual import individual_out_distribution
 
     out_distribution = {cls.item() if isinstance(cls, np.ndarray) else cls: [] for cls in prototypes}

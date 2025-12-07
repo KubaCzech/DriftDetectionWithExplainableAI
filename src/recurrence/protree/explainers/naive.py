@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans as SKKMeans
 
-from protree import TDataBatch, TTarget, TModel
+from protree import TDataBatch, TTarget, TModel, TPrototypes
 from protree.explainers.tree_distance import IExplainer, ModelAdapterBuilder
 from protree.explainers.utils import _type_to_np_dtype
 from protree.meta import RANDOM_SEED

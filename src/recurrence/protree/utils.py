@@ -19,12 +19,12 @@ def pprint_dict(dict_: dict, indent_level: int = 0) -> None:
 def parse_int_float_str(value) -> int | float | str:
     try:
         return int(value)
-    except:
+    except ValueError:
         pass
 
     try:
         return float(value)
-    except:
+    except ValueError:
         pass
 
     return value
