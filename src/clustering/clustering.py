@@ -2,10 +2,9 @@ import numpy as np
 import pandas as pd
 import warnings
 
-from scipy.spatial.distance import jensenshannon, cdist
+from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 
-from river.datasets import synth
 from pyclustering.cluster.xmeans import xmeans, kmeans_plusplus_initializer  # type: ignore
 
 if not hasattr(np, "warnings"):
@@ -330,27 +329,3 @@ class ClusterBasedDriftDetector:
                     change = (new_value - old_value) / denom
                     details[cluster][feature][stat] = change
         return details
-
-
-def transform_dict_to_list(stream, n_samples=1000):
-    X, y = [], []
-    for x, label in stream.take(n_samples):
-        X.append(list(x.values()))
-        y.append(label)
-    return X, y
-
-
-if __name__ == "__main__":
-    stream_Hyperplane = synth.Hyperplane(n_features=2, noise_percentage=0.0, mag_change=0.1, seed=42)
-    n = 1000
-
-    X, y = transform_dict_to_list(stream_Hyperplane, n)
-
-    data_before = np.array(X[: n // 2]), np.array(y[: n // 2])
-    data_after = np.array(X[n // 2 :]), np.array(y[n // 2 :])
-
-    CBDD = ClusterBasedDriftDetector(data_before, data_after)
-    drift, details = CBDD.detect()
-
-    print("Drift detected:", drift)
-    print("Drift details:", details)

@@ -11,3 +11,4 @@ lime
 shap
 streamlit
 tensorflow
+pyclustering
