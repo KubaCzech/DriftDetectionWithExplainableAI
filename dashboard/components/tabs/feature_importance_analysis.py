@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from io import StringIO
-import contextlib
 
 from src.feature_importance import (
     FeatureImportanceMethod,
@@ -31,8 +29,10 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
         Target variable for 'after' window
     feature_names : list
         List of feature names
-    show_boxplot : bool
-        Whether to show boxplots
+    model_class : class (optional)
+        The model class to use for drift detection
+    model_params : dict (optional)
+        Parameters for the model
     """
     st.header("2. Drift Analysis Configuration & Results")
 
@@ -89,7 +89,6 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
             """)
             with st.spinner(f'Running Data Drift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
-                # Compute the analysis results
                 data_drift_result = analyzer.compute_data_drift(
                     importance_method=importance_method,
                     model_class=model_class,
@@ -113,16 +112,12 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                 )
 
                 # Display visualizations
-                stdout_capture = StringIO()
-                with contextlib.redirect_stdout(stdout_capture):
-                    visualize_data_drift_analysis(
-                        data_drift_result, feature_names,
-                        plot_type=selected_plot_type
-                    )
-                figs = [plt.figure(i) for i in plt.get_fignums()]
-                for fig in figs:
-                    st.pyplot(fig)
-                    plt.close(fig)
+                fig = visualize_data_drift_analysis(
+                    data_drift_result, feature_names,
+                    plot_type=selected_plot_type
+                )
+                st.pyplot(fig)
+                plt.close(fig)
 
     elif selected_analysis == "concept_drift":
         # --- Analysis: Concept Drift ---
@@ -135,7 +130,6 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
             and the target has changed (i.e., concept drift).
             """)
             with st.spinner(f'Running Concept Drift analysis with {importance_method.upper()}...'):
-                # Compute the analysis results
                 # Compute the analysis results
                 concept_drift_result = analyzer.compute_concept_drift(
                     importance_method=importance_method,
@@ -161,16 +155,12 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                 )
 
                 # Display visualizations
-                stdout_capture = StringIO()
-                with contextlib.redirect_stdout(stdout_capture):
-                    visualize_concept_drift_analysis(
-                        concept_drift_result, feature_names_with_y,
-                        plot_type=selected_plot_type
-                    )
-                figs = [plt.figure(i) for i in plt.get_fignums()]
-                for fig in figs:
-                    st.pyplot(fig)
-                    plt.close(fig)
+                fig = visualize_concept_drift_analysis(
+                    concept_drift_result, feature_names_with_y,
+                    plot_type=selected_plot_type
+                )
+                st.pyplot(fig)
+                plt.close(fig)
 
     elif selected_analysis == "predictive_shift":
         # --- Analysis: Predictive Power Shift ---
@@ -183,7 +173,6 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
             A significant shift in feature importance between the two models indicates concept drift.
             """)
             with st.spinner(f'Running Predictive Power Shift analysis with {importance_method.upper()}...'):
-                # Compute the analysis results
                 # Compute the analysis results
                 shift_result = analyzer.compute_predictive_importance_shift(
                     importance_method=importance_method,
@@ -228,15 +217,11 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                     )
 
                 # Display visualizations
-                stdout_capture = StringIO()
-                with contextlib.redirect_stdout(stdout_capture):
-                    visualize_predictive_importance_shift(
-                        shift_result, feature_names,
-                        plot_type=selected_plot_type
-                    )
-                figs = [plt.figure(i) for i in plt.get_fignums()]
-                for fig in figs:
-                    st.pyplot(fig)
-                    plt.close(fig)
+                fig = visualize_predictive_importance_shift(
+                    shift_result, feature_names,
+                    plot_type=selected_plot_type
+                )
+                st.pyplot(fig)
+                plt.close(fig)
 
     st.success("✅ Analysis complete!")

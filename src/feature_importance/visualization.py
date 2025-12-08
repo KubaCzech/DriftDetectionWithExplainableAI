@@ -66,8 +66,8 @@ def visualize_data_drift_analysis(analysis_result, feature_names,
                     transform=ax.transAxes)
             ax.set_axis_off()
 
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()
+    return fig
 
 
 def visualize_concept_drift_analysis(analysis_result, feature_names,
@@ -133,8 +133,8 @@ def visualize_concept_drift_analysis(analysis_result, feature_names,
                     transform=ax.transAxes)
             ax.set_axis_off()
 
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()
+    return fig
 
 
 def visualize_predictive_importance_shift(analysis_result, feature_names,
@@ -233,5 +233,5 @@ def visualize_predictive_importance_shift(analysis_result, feature_names,
                     transform=ax.transAxes)
             ax.set_axis_off()
 
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()
+    return fig

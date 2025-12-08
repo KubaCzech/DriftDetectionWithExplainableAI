@@ -78,7 +78,7 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
                         disabled=True
                     )
                 },
-                use_container_width=True,
+                width=True,
                 hide_index=True
             )
 
