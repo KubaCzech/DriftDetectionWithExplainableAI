@@ -1,9 +1,20 @@
 from src.descriptive_statistics.descriptive_statistics import DescriptiveStatisticsDriftDetector
+from src.plotting import visualize_data_stream
 import pandas as pd
 import streamlit as st
 
 
-def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after, feature_names, all_figs):
+@st.cache_data(show_spinner="Generating data stream visualizations...")
+def generate_plots(X, y, window_before_start, window_after_start, window_length, feature_names):
+    """Generates all visualization plots."""
+    return visualize_data_stream(
+        X, y, window_before_start, window_after_start, window_length, feature_names
+    )
+
+
+def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
+                                  feature_names, window_before_start, window_after_start, window_length):
+
     """
     Renders the Data Stream Visualization tab.
 
@@ -28,6 +39,9 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after, fe
     """
     st.header("1. Data Stream Visualization")
     st.markdown("This section visualizes the generated data before and after the drift point.")
+
+    # Generate plots
+    all_figs = generate_plots(X, y, window_before_start, window_after_start, window_length, feature_names)
 
     # --- Descriptive Statistics ---
     with st.expander("Descriptive Statistics (Before vs After)", expanded=True):

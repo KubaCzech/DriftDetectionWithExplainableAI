@@ -1,14 +1,11 @@
 import streamlit as st
 import sys
 import os
-from io import StringIO
-import contextlib
 
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.datasets import DATASETS  # noqa: E402
-from src.plotting import visualize_data_stream  # noqa: E402
 from dashboard.components.tabs import (  # noqa: E402
     render_data_visualization_tab,
     render_feature_importance_analysis_tab,
@@ -99,26 +96,6 @@ selected_features = render_feature_selection_sidebar(X)
 X = X[selected_features]
 feature_names = selected_features
 
-# --- Plot Generation and Capturing (Modified Logic) ---
-
-
-@st.cache_data(show_spinner="Generating data stream visualizations...")
-def generate_and_capture_plots(X, y, window_before_start, window_after_start, window_length, feature_names):
-    """Generates all visualization plots and captures them."""
-    # Redirect stdout to capture print statements
-    stdout_capture = StringIO()
-    with contextlib.redirect_stdout(stdout_capture):
-        # This function returns a list of figures
-        all_figs = visualize_data_stream(
-            X, y, window_before_start, window_after_start, window_length, feature_names
-        )
-
-    return all_figs, stdout_capture.getvalue()
-
-
-all_figs, info_log = generate_and_capture_plots(
-    X, y, window_before_start, window_after_start, window_length, feature_names
-)
 
 # --- Tabs (Navigation) ---
 tabs = [
@@ -174,7 +151,8 @@ y_after = y.iloc[start_after:end_after] if hasattr(y, "iloc") else y[start_after
 
 
 if active_tab == tabs[0]:
-    render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after, feature_names, all_figs)
+    render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after, feature_names,
+                                  window_before_start, window_after_start, window_length)
 
 elif active_tab == tabs[1]:
     render_drift_detection_tab(X_before, y_before, X_after, y_after)
