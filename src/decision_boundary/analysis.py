@@ -5,10 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 from src.decision_boundary.ssnp import SSNP
 
 
-def compute_decision_boundary_analysis(X, y,
-                                       start_index_pre=0,
-                                       start_index_post=0,
-                                       window_length=1000,
+def compute_decision_boundary_analysis(X_before, y_before, X_after, y_after,
                                        model_class=None,
                                        model_params=None,
                                        grid_size=300,
@@ -20,16 +17,16 @@ def compute_decision_boundary_analysis(X, y,
 
     Parameters
     ----------
-    X : array-like
-        Feature matrix
-    y : array-like
-        Labels
-    start_index_pre : int
-        Start index for the pre-drift window
-    start_index_post : int
-        Start index for the post-drift window
-    window_length : int
-        Length of each window
+    Parameters
+    ----------
+    X_before : array-like
+        Feature matrix for pre-drift window
+    y_before : array-like
+        Labels for pre-drift window
+    X_after : array-like
+        Feature matrix for post-drift window
+    y_after : array-like
+        Labels for post-drift window
     model_class : class
         Classifier class (default: MLPModel -> MLPClassifier)
     model_params : dict
@@ -54,41 +51,28 @@ def compute_decision_boundary_analysis(X, y,
 
     # 1. Prepare Data
     # Convert to numpy if pandas
-    if hasattr(X, "values"):
-        X = X.values
-    if hasattr(y, "values"):
-        y = y.values
-
-    start_before = start_index_pre
-    end_before = start_before + window_length
-
-    start_after = start_index_post
-    end_after = start_after + window_length
-
-    # Ensure indices are valid
-    if end_before > X.shape[0] or end_after > X.shape[0]:
-        # Simple bounds check
-        pass
-
-    X_pre = X[start_before:end_before]
-    y_pre = y[start_before:end_before]
-
-    X_post = X[start_after:end_after]
-    y_post = y[start_after:end_after]
+    if hasattr(X_before, "values"):
+        X_before = X_before.values
+    if hasattr(y_before, "values"):
+        y_before = y_before.values
+    if hasattr(X_after, "values"):
+        X_after = X_after.values
+    if hasattr(y_after, "values"):
+        y_after = y_after.values
 
     # Normalize Data (Fit on Pre, Transform both)
     scaler = MinMaxScaler()
-    X_pre = scaler.fit_transform(X_pre)
-    X_post = scaler.transform(X_post)
+    X_before = scaler.fit_transform(X_before)
+    X_after = scaler.transform(X_after)
 
     # 2. Train SSNP on Pre-Drift Data
     # SSNP is used to find a 2D projection that preserves class structure.
     ssnp = SSNP(epochs=ssnp_epochs, patience=ssnp_patience, verbose=0)
-    ssnp.fit(X_pre, y_pre)
+    ssnp.fit(X_before, y_before)
 
     # Project points to 2D
-    X_pre_2d = ssnp.transform(X_pre)
-    X_post_2d = ssnp.transform(X_post)
+    X_before_2d = ssnp.transform(X_before)
+    X_after_2d = ssnp.transform(X_after)
 
     # 3. Setup Classifier
     if model_class is None:
@@ -165,11 +149,11 @@ def compute_decision_boundary_analysis(X, y,
         }
 
     # 4. Process Pre and Post
-    result_pre = process_window(X_pre, y_pre, X_pre_2d)
+    result_pre = process_window(X_before, y_before, X_before_2d)
 
     # For Post, we use the SAME SSNP projector (already trained on Pre),
     # but we train a NEW classifier on the Post data.
-    result_post = process_window(X_post, y_post, X_post_2d)
+    result_post = process_window(X_after, y_after, X_after_2d)
 
     return {
         'pre': result_pre,

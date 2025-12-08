@@ -56,11 +56,20 @@ def render_decision_boundary_tab(X, y,
         with st.spinner("Running Analysis (Training SSNP and Classifiers)..."):
             try:
                 # Note: window_after_start from app.py is the absolute start index of the second window
+                # Prepare data slices
+                # Prepare data slices
+                start_before = window_before_start
+                end_before = start_before + window_length
+                start_after = window_after_start
+                end_after = start_after + window_length
+
+                X_before = X.iloc[start_before:end_before] if hasattr(X, "iloc") else X[start_before:end_before]
+                y_before = y.iloc[start_before:end_before] if hasattr(y, "iloc") else y[start_before:end_before]
+                X_after = X.iloc[start_after:end_after] if hasattr(X, "iloc") else X[start_after:end_after]
+                y_after = y.iloc[start_after:end_after] if hasattr(y, "iloc") else y[start_after:end_after]
+
                 results = compute_decision_boundary_analysis(
-                    X, y,
-                    start_index_pre=window_before_start,
-                    start_index_post=window_after_start,
-                    window_length=window_length,
+                    X_before, y_before, X_after, y_after,
                     model_class=model_class,
                     model_params=model_params,
                     ssnp_epochs=ssnp_epochs,
