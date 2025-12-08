@@ -14,7 +14,7 @@ from src.feature_importance import (
 
 
 def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
-                                           feature_names, show_boxplot,
+                                           feature_names,
                                            model_class=None, model_params=None):
     """
     Renders the Feature Importance Analysis tab.
@@ -61,6 +61,17 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
 
     st.markdown(f"Running **{analysis_choice}** analysis with **{importance_method.upper()}** method.")
 
+    # Plot Type Selector
+    plot_type_display = st.radio(
+        "Select Plot Type",
+        options=["Bar Chart", "Box Plot"],
+        index=0,
+        horizontal=True,
+        help="Choose visualization type."
+    )
+    plot_type_map = {"Bar Chart": "bar", "Box Plot": "box"}
+    selected_plot_type = plot_type_map[plot_type_display]
+
     # Initialize DriftAnalyzer
     analyzer = FeatureImportanceDriftAnalyzer(X_before, y_before, X_after, y_after, feature_names=feature_names)
 
@@ -106,7 +117,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                 with contextlib.redirect_stdout(stdout_capture):
                     visualize_data_drift_analysis(
                         data_drift_result, feature_names,
-                        show_boxplot=show_boxplot
+                        plot_type=selected_plot_type
                     )
                 figs = [plt.figure(i) for i in plt.get_fignums()]
                 for fig in figs:
@@ -154,7 +165,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                 with contextlib.redirect_stdout(stdout_capture):
                     visualize_concept_drift_analysis(
                         concept_drift_result, feature_names_with_y,
-                        show_boxplot=show_boxplot
+                        plot_type=selected_plot_type
                     )
                 figs = [plt.figure(i) for i in plt.get_fignums()]
                 for fig in figs:
@@ -221,7 +232,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                 with contextlib.redirect_stdout(stdout_capture):
                     visualize_predictive_importance_shift(
                         shift_result, feature_names,
-                        show_boxplot=show_boxplot
+                        plot_type=selected_plot_type
                     )
                 figs = [plt.figure(i) for i in plt.get_fignums()]
                 for fig in figs:

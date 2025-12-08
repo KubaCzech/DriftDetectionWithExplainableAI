@@ -1,7 +1,6 @@
 import streamlit as st
 import sys
 import os
-import matplotlib.pyplot as plt
 from io import StringIO
 import contextlib
 
@@ -51,7 +50,6 @@ dataset_key = sidebar_config["dataset_key"]
 dataset_params = sidebar_config["dataset_params"]
 selected_model_class = sidebar_config["selected_model_class"]
 model_params = sidebar_config["model_params"]
-show_boxplot = sidebar_config["show_boxplot"]
 
 
 # --- Data Generation ---
@@ -188,7 +186,7 @@ elif active_tab == tabs[2]:
 
 elif active_tab == tabs[3]:
     render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
-                                           feature_names, show_boxplot,
+                                           feature_names,
                                            model_class=selected_model_class,
                                            model_params=model_params)
 

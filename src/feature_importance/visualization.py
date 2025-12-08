@@ -2,9 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-
 def visualize_data_drift_analysis(analysis_result, feature_names,
-                                  show_boxplot=True):
+                                  plot_type='bar'):
     """
     Visualize the results of data drift analysis.
 
@@ -14,40 +13,33 @@ def visualize_data_drift_analysis(analysis_result, feature_names,
         Result dictionary from compute_data_drift_analysis
     feature_names : list
         Names of features
-    show_boxplot : bool, default=True
-        Whether to display the boxplot of importance score distributions.
+    plot_type : str, default='bar'
+        Type of plot to show: 'bar' or 'box'.
     """
     fi_result = analysis_result['importance_result']
     importance_mean = analysis_result['importance_mean']
     importance_std = analysis_result['importance_std']
     n_features = len(feature_names)
 
-    # Determine the number of subplots
-    n_plots = 2 if show_boxplot else 1
-    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     fig.suptitle(f'Feature Importance for Data Drift (X-only Classification) '
                  f'- {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
 
-    # Ensure axes is an array even for 1 plot
-    if n_plots == 1:
-        axes = [axes]
+    if plot_type == 'bar':
+        # Bar plot
+        x_pos = np.arange(n_features)
+        ax.bar(x_pos, importance_mean, yerr=importance_std,
+               color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
+        ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
+        ax.set_title('Feature Importance for Detecting Time-Period '
+                     '(Data Drift)')
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(feature_names)
+        ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 1: Bar plot
-    ax = axes[0]
-    x_pos = np.arange(n_features)
-    ax.bar(x_pos, importance_mean, yerr=importance_std,
-           color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
-    ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
-    ax.set_title('Feature Importance for Detecting Time-Period '
-                 '(Data Drift)')
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(feature_names)
-    ax.grid(True, alpha=0.3, axis='y')
-
-    # Plot 2: Box plot (Conditional)
-    if show_boxplot:
-        ax = axes[1]
+    elif plot_type == 'box':
+        # Box plot
         importances = fi_result['importances']
 
         # Handle cases where importances might not be (n_features, n_samples)
@@ -79,7 +71,7 @@ def visualize_data_drift_analysis(analysis_result, feature_names,
 
 
 def visualize_concept_drift_analysis(analysis_result, feature_names,
-                                     show_boxplot=True):
+                                     plot_type='bar'):
     """
     Visualize the results of concept drift analysis.
 
@@ -89,40 +81,33 @@ def visualize_concept_drift_analysis(analysis_result, feature_names,
         Result dictionary from compute_concept_drift_analysis
     feature_names : list
         Names of features (e.g., ['X1', 'X2', 'Y'])
-    show_boxplot : bool, default=True
-        Whether to display the boxplot of importance score distributions.
+    plot_type : str, default='bar'
+        Type of plot to show: 'bar' or 'box'.
     """
     fi_result = analysis_result['importance_result']
     importance_mean = analysis_result['importance_mean']
     importance_std = analysis_result['importance_std']
     n_features = len(feature_names)
 
-    # Determine the number of subplots
-    n_plots = 2 if show_boxplot else 1
-    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     fig.suptitle(f'Feature Importance for Concept Drift (X+Y Classification) '
                  f'- {fi_result["method"]}',
                  fontsize=14, fontweight='bold')
 
-    # Ensure axes is an array even for 1 plot
-    if n_plots == 1:
-        axes = [axes]
+    if plot_type == 'bar':
+        # Bar plot
+        x_pos = np.arange(n_features)
+        ax.bar(x_pos, importance_mean, yerr=importance_std,
+               color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
+        ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
+        ax.set_title(f'{fi_result["method"]} for Detecting '
+                     'Time-Period (Concept Drift)')
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(feature_names)
+        ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 1: Bar plot
-    ax = axes[0]
-    x_pos = np.arange(n_features)
-    ax.bar(x_pos, importance_mean, yerr=importance_std,
-           color='#e74c3c', alpha=0.8, edgecolor='black', capsize=5)
-    ax.set_ylabel(f'Importance Score ({fi_result["method"]})')
-    ax.set_title(f'{fi_result["method"]} for Detecting '
-                 'Time-Period (Concept Drift)')
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(feature_names)
-    ax.grid(True, alpha=0.3, axis='y')
-
-    # Plot 2: Box plot (Conditional)
-    if show_boxplot:
-        ax = axes[1]
+    elif plot_type == 'box':
+        # Box plot
         importances = fi_result['importances']
 
         # Handle cases where importances might not be (n_features, n_samples)
@@ -153,7 +138,7 @@ def visualize_concept_drift_analysis(analysis_result, feature_names,
 
 
 def visualize_predictive_importance_shift(analysis_result, feature_names,
-                                          show_boxplot=True):
+                                          plot_type='bar'):
     """
     Visualize the results of predictive importance shift analysis.
 
@@ -163,47 +148,39 @@ def visualize_predictive_importance_shift(analysis_result, feature_names,
         Result dictionary from compute_predictive_importance_shift
     feature_names : list
         Names of features
-    show_boxplot : bool, default=True
-        Whether to display the boxplot of importance score distributions.
+    plot_type : str, default='bar'
+        Type of plot to show: 'bar' or 'box'.
     """
     fi_before = analysis_result['fi_before']
     fi_after = analysis_result['fi_after']
     n_features = len(feature_names)
 
-    # Determine the number of subplots
-    n_plots = 2 if show_boxplot else 1
-    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     fig.suptitle(f'Predictive Feature Importance (NN Before vs After Drift) '
                  f'- {fi_before["method"]}',
                  fontsize=14, fontweight='bold')
 
-    # Ensure axes is an array even for 1 plot
-    if n_plots == 1:
-        axes = [axes]
+    if plot_type == 'bar':
+        # Bar comparison
+        x_pos = np.arange(n_features)
+        width = 0.35
+        ax.bar(x_pos - width/2, fi_before['importances_mean'], width,
+               yerr=fi_before['importances_std'],
+               label='NN (Trained BEFORE Drift)',
+               color='#1abc9c', alpha=0.8, edgecolor='black', capsize=5)
+        ax.bar(x_pos + width/2, fi_after['importances_mean'], width,
+               yerr=fi_after['importances_std'],
+               label='NN (Trained AFTER Drift)',
+               color='#f39c12', alpha=0.8, edgecolor='black', capsize=5)
+        ax.set_ylabel(f'Importance Score ({fi_before["method"]})')
+        ax.set_title('Feature Importance for Predicting Target Class')
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(feature_names)
+        ax.legend()
+        ax.grid(True, alpha=0.3, axis='y')
 
-    # Plot 1: Bar comparison
-    ax = axes[0]
-    x_pos = np.arange(n_features)
-    width = 0.35
-    ax.bar(x_pos - width/2, fi_before['importances_mean'], width,
-           yerr=fi_before['importances_std'],
-           label='NN (Trained BEFORE Drift)',
-           color='#1abc9c', alpha=0.8, edgecolor='black', capsize=5)
-    ax.bar(x_pos + width/2, fi_after['importances_mean'], width,
-           yerr=fi_after['importances_std'],
-           label='NN (Trained AFTER Drift)',
-           color='#f39c12', alpha=0.8, edgecolor='black', capsize=5)
-    ax.set_ylabel(f'Importance Score ({fi_before["method"]})')
-    ax.set_title('Feature Importance for Predicting Target Class')
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(feature_names)
-    ax.legend()
-    ax.grid(True, alpha=0.3, axis='y')
-
-    # Plot 2: Side-by-side box plots (Conditional)
-    if show_boxplot:
-        ax = axes[1]
-
+    elif plot_type == 'box':
+        # Side-by-side box plots
         # Handle cases where importances might not be (n_features, n_samples)
         importances_before = fi_before['importances']
         if (

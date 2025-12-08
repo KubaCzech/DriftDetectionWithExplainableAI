@@ -300,15 +300,6 @@ def render_configuration_sidebar():  # noqa: C901
         if st.button("Configure Model Settings"):
             open_model_settings_modal()
 
-        st.markdown("---")
-
-        # 8. Toggle for Boxplots
-        show_boxplot = st.checkbox(
-            "Show Importance Boxplots",
-            value=True,
-            help="Display boxplots for feature importance distributions."
-        )
-
         # Ensure dataset_params and model_params are populated for the main app execution
         dataset_params = st.session_state.dataset_params
         model_params = st.session_state.model_params
@@ -320,8 +311,7 @@ def render_configuration_sidebar():  # noqa: C901
         "dataset_key": dataset_key,
         "dataset_params": dataset_params,
         "selected_model_class": selected_model_class,
-        "model_params": model_params,
-        "show_boxplot": show_boxplot
+        "model_params": model_params
     }
 
 
