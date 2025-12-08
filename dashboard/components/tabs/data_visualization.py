@@ -1,16 +1,26 @@
+from src.descriptive_statistics.descriptive_statistics import DescriptiveStatisticsDriftDetector
+import pandas as pd
 import streamlit as st
 
 
-def render_data_visualization_tab(X, y, feature_names, all_figs):
+def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after, feature_names, all_figs):
     """
     Renders the Data Stream Visualization tab.
 
     Parameters
     ----------
     X : array-like
-        Feature matrix
+        Feature matrix (full)
     y : array-like
-        Target variable
+        Target variable (full)
+    X_before : array-like
+        Feature matrix for 'before' window
+    y_before : array-like
+        Target variable for 'before' window
+    X_after : array-like
+        Feature matrix for 'after' window
+    y_after : array-like
+        Target variable for 'after' window
     feature_names : list
         List of feature names
     all_figs : list
@@ -18,6 +28,64 @@ def render_data_visualization_tab(X, y, feature_names, all_figs):
     """
     st.header("1. Data Stream Visualization")
     st.markdown("This section visualizes the generated data before and after the drift point.")
+
+    # --- Descriptive Statistics ---
+    with st.expander("Descriptive Statistics (Before vs After)", expanded=True):
+        st.markdown("Comparing statistical properties of the data before and after the drift.")
+
+        # Prepare data for detector
+        # We need to construct dataframes with a 'label' column to denote 'old' vs 'enw'
+        # mimicking the structure expected by DescriptiveStatisticsDriftDetector code if needed,
+        # OR just stick to what calculate_stats_before_after expects.
+        # Looking at calculate_stats_before_after(self, data_old, data_new, label_col='label'):
+        # It expects dataframes. Let's recreate them.
+
+        df_before = pd.DataFrame(X_before, columns=feature_names)
+        df_before['label'] = 0  # Dummy label, required by the internal groupby but value doesn't matter for single group
+
+        df_after = pd.DataFrame(X_after, columns=feature_names)
+        df_after['label'] = 0
+
+        detector = DescriptiveStatisticsDriftDetector()
+
+        # Calculate stats
+        # The detector expects dataframes where columns excluding label_col are features
+        stats_combined = detector.calculate_stats_before_after(df_before, df_after, label_col='label')
+
+        # The result 'stats_combined' has MultiIndex columns: (Period, Feature, Stat)
+        # Structure: ('old', 'f1', 'mean'), ('new', 'f1', 'mean')...
+        # We want to reorganize this for better display.
+        # Desired: Index = Feature, Columns = MultiIndex (Stat, Period) or (Period, Stat)
+
+        # Current columns: Level 0: old/new, Level 1: Feature, Level 2: Stat
+        # We want rows to be Features.
+        # Let's pivot/stack.
+
+        # Transpose so rows are (Period, Feature, Stat)
+        stats_T = stats_combined.T
+
+        # Reset index to make manipulating levels easier
+        stats_T.index.names = ['Period', 'Feature', 'Stat']
+        stats_tidy = stats_T.reset_index()
+
+        # We want separate columns for 'old' (Before) and 'new' (After)
+        # Pivot: Index=[Feature, Stat], Columns=Period, Values=0
+        stats_pivot = stats_tidy.pivot(index=['Feature', 'Stat'], columns='Period', values=0)
+
+        # Rename columns
+        stats_pivot = stats_pivot.rename(columns={'old': 'Before', 'new': 'After'})
+
+        # Reorder columns
+        stats_pivot = stats_pivot[['Before', 'After']]
+
+        # Optional: Unstack 'Stat' to make it columns level if we want wide table
+        # Index=Feature, Columns= (Before/After, Stat)
+        # Let's keep it long format (Feature, Stat) -> Before, After for now, easier to compare numbers side by side.
+        st.dataframe(
+            stats_pivot.style.format("{:.4f}"),
+            width="stretch",
+            width="content"
+        )
 
     # Define plot names and their assumed index based on creation
     # order in visualize_data_stream

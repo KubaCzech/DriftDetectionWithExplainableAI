@@ -174,7 +174,7 @@ y_after = y.iloc[start_after:end_after] if hasattr(y, "iloc") else y[start_after
 
 
 if active_tab == tabs[0]:
-    render_data_visualization_tab(X, y, feature_names, all_figs)
+    render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after, feature_names, all_figs)
 
 elif active_tab == tabs[1]:
     render_drift_detection_tab(X_before, y_before, X_after, y_after)
