@@ -95,29 +95,35 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                     model_params=model_params
                 )
 
-                # Display the importance table
-                st.markdown("#### Feature Importance Summary")
-                importance_df = pd.DataFrame({
-                    'Feature': feature_names,
-                    'Mean Importance': data_drift_result['importance_mean'],
-                    'Std Deviation': data_drift_result['importance_std']
-                })
-                importance_df = importance_df.sort_values('Mean Importance', ascending=False)
-                st.dataframe(
-                    importance_df.style.format({
-                        'Mean Importance': '{:.4f}',
-                        'Std Deviation': '{:.4f}'
-                    }),
-                    width="stretch"
-                )
+                # Create columns for side-by-side layout
+                col_viz, col_table = st.columns([3, 2])
 
-                # Display visualizations
-                fig = visualize_data_drift_analysis(
-                    data_drift_result, feature_names,
-                    plot_type=selected_plot_type
-                )
-                st.pyplot(fig)
-                plt.close(fig)
+                with col_viz:
+                    # Display visualizations
+                    st.markdown("#### Drift Visualization")
+                    fig = visualize_data_drift_analysis(
+                        data_drift_result, feature_names,
+                        plot_type=selected_plot_type
+                    )
+                    st.pyplot(fig)
+                    plt.close(fig)
+
+                with col_table:
+                    # Display the importance table
+                    st.markdown("#### Feature Importance Summary")
+                    importance_df = pd.DataFrame({
+                        'Feature': feature_names,
+                        'Mean Importance': data_drift_result['importance_mean'],
+                        'Std Deviation': data_drift_result['importance_std']
+                    })
+                    importance_df = importance_df.sort_values('Mean Importance', ascending=False)
+                    st.dataframe(
+                        importance_df.style.format({
+                            'Mean Importance': '{:.4f}',
+                            'Std Deviation': '{:.4f}'
+                        }),
+                        width="stretch"
+                    )
 
     elif selected_analysis == "concept_drift":
         # --- Analysis: Concept Drift ---
@@ -137,30 +143,36 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                     model_params=model_params
                 )
 
-                # Display the importance table
-                st.markdown("#### Feature Importance Summary")
-                feature_names_with_y = concept_drift_result['feature_names_with_y']
-                importance_df = pd.DataFrame({
-                    'Feature': feature_names_with_y,
-                    'Mean Importance': concept_drift_result['importance_mean'],
-                    'Std Deviation': concept_drift_result['importance_std']
-                })
-                importance_df = importance_df.sort_values('Mean Importance', ascending=False)
-                st.dataframe(
-                    importance_df.style.format({
-                        'Mean Importance': '{:.4f}',
-                        'Std Deviation': '{:.4f}'
-                    }),
-                    width="stretch"
-                )
+                # Create columns for side-by-side layout
+                col_viz, col_table = st.columns([3, 2])
 
-                # Display visualizations
-                fig = visualize_concept_drift_analysis(
-                    concept_drift_result, feature_names_with_y,
-                    plot_type=selected_plot_type
-                )
-                st.pyplot(fig)
-                plt.close(fig)
+                with col_viz:
+                    # Display visualizations
+                    st.markdown("#### Drift Visualization")
+                    fig = visualize_concept_drift_analysis(
+                        concept_drift_result, concept_drift_result['feature_names_with_y'],
+                        plot_type=selected_plot_type
+                    )
+                    st.pyplot(fig)
+                    plt.close(fig)
+
+                with col_table:
+                    # Display the importance table
+                    st.markdown("#### Feature Importance Summary")
+                    feature_names_with_y = concept_drift_result['feature_names_with_y']
+                    importance_df = pd.DataFrame({
+                        'Feature': feature_names_with_y,
+                        'Mean Importance': concept_drift_result['importance_mean'],
+                        'Std Deviation': concept_drift_result['importance_std']
+                    })
+                    importance_df = importance_df.sort_values('Mean Importance', ascending=False)
+                    st.dataframe(
+                        importance_df.style.format({
+                            'Mean Importance': '{:.4f}',
+                            'Std Deviation': '{:.4f}'
+                        }),
+                        width="stretch"
+                    )
 
     elif selected_analysis == "predictive_shift":
         # --- Analysis: Predictive Power Shift ---
@@ -180,11 +192,23 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                     model_params=model_params
                 )
 
-                # Display the importance tables side by side
-                st.markdown("#### Feature Importance Summary")
-                col1, col2 = st.columns(2)
+                # Create columns for side-by-side layout
+                col_viz, col_table = st.columns([3, 2])
 
-                with col1:
+                with col_viz:
+                    # Display visualizations
+                    st.markdown("#### Drift Visualization")
+                    fig = visualize_predictive_importance_shift(
+                        shift_result, feature_names,
+                        plot_type=selected_plot_type
+                    )
+                    st.pyplot(fig)
+                    plt.close(fig)
+
+                with col_table:
+                    # Display the importance tables stacked
+                    st.markdown("#### Feature Importance Summary")
+
                     st.markdown("**Before Drift**")
                     importance_before_df = pd.DataFrame({
                         'Feature': feature_names,
@@ -197,10 +221,10 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                             'Mean Importance': '{:.4f}',
                             'Std Deviation': '{:.4f}'
                         }),
-                        width="stretch"
+                        width="stretch",
+                        height=200  # Fixed height to avoid overtaking the column
                     )
 
-                with col2:
                     st.markdown("**After Drift**")
                     importance_after_df = pd.DataFrame({
                         'Feature': feature_names,
@@ -213,15 +237,8 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                             'Mean Importance': '{:.4f}',
                             'Std Deviation': '{:.4f}'
                         }),
-                        width="stretch"
+                        width="stretch",
+                        height=200  # Fixed height
                     )
-
-                # Display visualizations
-                fig = visualize_predictive_importance_shift(
-                    shift_result, feature_names,
-                    plot_type=selected_plot_type
-                )
-                st.pyplot(fig)
-                plt.close(fig)
 
     st.success("✅ Analysis complete!")
