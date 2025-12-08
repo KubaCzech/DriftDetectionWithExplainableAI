@@ -2,11 +2,9 @@ import numpy as np
 from .methods import calculate_feature_importance
 
 
-def compute_data_drift_analysis(X, y, feature_names=None,
+def compute_data_drift_analysis(X_before, y_before, X_after, y_after,
+                                feature_names=None,
                                 importance_method="permutation",
-                                window_before_start=0,
-                                window_after_start=0,
-                                window_length=1000,
                                 model_class=None,
                                 model_params=None):
     """
@@ -15,20 +13,18 @@ def compute_data_drift_analysis(X, y, feature_names=None,
 
     Parameters
     ----------
-    X : array-like (n_samples, n_features)
-        Feature matrix
-    y : array-like (n_samples,)
-        Binary class labels (not used in this analysis)
+    X_before : array-like (n_samples, n_features)
+        Feature matrix for 'before' window
+    y_before : array-like (n_samples,)
+        Labels for 'before' window
+    X_after : array-like (n_samples, n_features)
+        Feature matrix for 'after' window
+    y_after : array-like (n_samples,)
+        Labels for 'after' window
     feature_names : list
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
-    window_before_start : int
-        Start index for window before drift
-    window_after_start : int
-        Start index for window after drift (relative to drift point)
-    window_length : int
-        Length of the analysis window
 
     Returns
     -------
@@ -36,19 +32,8 @@ def compute_data_drift_analysis(X, y, feature_names=None,
         Dictionary containing analysis results
     """
     # Prepare features and labels
-    if feature_names is None and hasattr(X, 'columns'):
-        feature_names = X.columns.tolist()
-    
-    # Define windows
-    start_before = window_before_start
-    end_before = start_before + window_length
-    
-    start_after = window_after_start
-    end_after = start_after + window_length
-    
-    # Slice data
-    X_before = X[start_before:end_before]
-    X_after = X[start_after:end_after]
+    if feature_names is None and hasattr(X_before, 'columns'):
+        feature_names = X_before.columns.tolist()
     
     X_features = np.concatenate([X_before, X_after])
     
@@ -56,7 +41,6 @@ def compute_data_drift_analysis(X, y, feature_names=None,
     n_samples_after = len(X_after)
     time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
 
-    # Train Neural Network
     # Train Model
     if model_class is None:
         from src.models.mlp import MLPModel
@@ -88,11 +72,9 @@ def compute_data_drift_analysis(X, y, feature_names=None,
     }
 
 
-def compute_concept_drift_analysis(X, y, feature_names=None,
+def compute_concept_drift_analysis(X_before, y_before, X_after, y_after,
+                                   feature_names=None,
                                    importance_method="permutation",
-                                   window_before_start=0,
-                                   window_after_start=0,
-                                   window_length=1000,
                                    model_class=None,
                                    model_params=None):
     """
@@ -101,20 +83,18 @@ def compute_concept_drift_analysis(X, y, feature_names=None,
 
     Parameters
     ----------
-    X : array-like (n_samples, n_features)
-        Feature matrix
-    y : array-like (n_samples,)
-        Binary class labels
+    X_before : array-like (n_samples, n_features)
+        Feature matrix for 'before' window
+    y_before : array-like (n_samples,)
+        Labels for 'before' window
+    X_after : array-like (n_samples, n_features)
+        Feature matrix for 'after' window
+    y_after : array-like (n_samples,)
+        Labels for 'after' window
     feature_names : list
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
-    window_before_start : int
-        Start index for window before drift
-    window_after_start : int
-        Start index for window after drift (relative to drift point)
-    window_length : int
-        Length of the analysis window
 
     Returns
     -------
@@ -122,22 +102,8 @@ def compute_concept_drift_analysis(X, y, feature_names=None,
         Dictionary containing analysis results
     """
     # Prepare features and labels
-    if feature_names is None and hasattr(X, 'columns'):
-        feature_names = X.columns.tolist()
-
-    # Define windows
-    start_before = window_before_start
-    end_before = start_before + window_length
-    
-    start_after = window_after_start
-    end_after = start_after + window_length
-    
-    # Slice data
-    X_before = X[start_before:end_before]
-    y_before = y[start_before:end_before]
-    
-    X_after = X[start_after:end_after]
-    y_after = y[start_after:end_after]
+    if feature_names is None and hasattr(X_before, 'columns'):
+        feature_names = X_before.columns.tolist()
     
     X_combined = np.concatenate([X_before, X_after])
     y_combined = np.concatenate([y_before, y_after])
@@ -148,7 +114,6 @@ def compute_concept_drift_analysis(X, y, feature_names=None,
     n_samples_after = len(X_after)
     time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
 
-    # Train Neural Network
     # Train Model
     if model_class is None:
         from src.models.mlp import MLPModel
@@ -182,11 +147,9 @@ def compute_concept_drift_analysis(X, y, feature_names=None,
     }
 
 
-def compute_predictive_importance_shift(X, y, feature_names=None,
+def compute_predictive_importance_shift(X_before, y_before, X_after, y_after,
+                                        feature_names=None,
                                         importance_method="permutation",
-                                        window_before_start=0,
-                                        window_after_start=0,
-                                        window_length=1000,
                                         model_class=None,
                                         model_params=None):
     """
@@ -194,20 +157,18 @@ def compute_predictive_importance_shift(X, y, feature_names=None,
 
     Parameters
     ----------
-    X : array-like (n_samples, n_features)
-        Feature matrix
-    y : array-like (n_samples,)
-        Binary class labels
+    X_before : array-like (n_samples, n_features)
+        Feature matrix for 'before' window
+    y_before : array-like (n_samples,)
+        Labels for 'before' window
+    X_after : array-like (n_samples, n_features)
+        Feature matrix for 'after' window
+    y_after : array-like (n_samples,)
+        Labels for 'after' window
     feature_names : list
         Names of features
     importance_method : str, default="permutation"
         Method for feature importance: "permutation", "shap", or "lime"
-    window_before_start : int
-        Start index for window before drift
-    window_after_start : int
-        Start index for window after drift (relative to drift point)
-    window_length : int
-        Length of the analysis window
 
     Returns
     -------
@@ -215,21 +176,11 @@ def compute_predictive_importance_shift(X, y, feature_names=None,
         Dictionary containing analysis results
     """
     # Split data into before and after drift
-    if feature_names is None and hasattr(X, 'columns'):
-        feature_names = X.columns.tolist()
+    if feature_names is None and hasattr(X_before, 'columns'):
+        feature_names = X_before.columns.tolist()
 
-    # Define windows
-    start_before = window_before_start
-    end_before = start_before + window_length
-    
-    start_after = window_after_start
-    end_after = start_after + window_length
-
-    X_features_before = X[start_before:end_before]
-    y_before = y[start_before:end_before]
-    
-    X_features_after = X[start_after:end_after]
-    y_after = y[start_after:end_after]
+    X_features_before = X_before
+    X_features_after = X_after
 
     # Train Models
     if model_class is None:
