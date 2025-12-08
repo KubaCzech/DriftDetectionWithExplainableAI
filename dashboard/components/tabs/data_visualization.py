@@ -97,8 +97,7 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
         # Let's keep it long format (Feature, Stat) -> Before, After for now, easier to compare numbers side by side.
         st.dataframe(
             stats_pivot.style.format("{:.4f}"),
-            width="stretch",
-            width="content"
+            width="stretch"
         )
 
     # Define plot names and their assumed index based on creation
