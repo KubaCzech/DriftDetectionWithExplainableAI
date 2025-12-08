@@ -6,9 +6,7 @@ import contextlib
 
 from src.feature_importance import (
     FeatureImportanceMethod,
-    compute_data_drift_analysis,
-    compute_concept_drift_analysis,
-    compute_predictive_importance_shift,
+    FeatureImportanceDriftAnalyzer,
     visualize_data_drift_analysis,
     visualize_concept_drift_analysis,
     visualize_predictive_importance_shift,
@@ -63,6 +61,9 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
 
     st.markdown(f"Running **{analysis_choice}** analysis with **{importance_method.upper()}** method.")
 
+    # Initialize DriftAnalyzer
+    analyzer = FeatureImportanceDriftAnalyzer(X_before, y_before, X_after, y_after, feature_names=feature_names)
+
     # --- Conditional Analysis Display ---
 
     if selected_analysis == "data_drift":
@@ -77,9 +78,8 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
             """)
             with st.spinner(f'Running Data Drift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
-                data_drift_result = compute_data_drift_analysis(
-                    X_before, y_before, X_after, y_after,
-                    feature_names=feature_names,
+                # Compute the analysis results
+                data_drift_result = analyzer.compute_data_drift(
                     importance_method=importance_method,
                     model_class=model_class,
                     model_params=model_params
@@ -125,9 +125,8 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
             """)
             with st.spinner(f'Running Concept Drift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
-                concept_drift_result = compute_concept_drift_analysis(
-                    X_before, y_before, X_after, y_after,
-                    feature_names=feature_names,
+                # Compute the analysis results
+                concept_drift_result = analyzer.compute_concept_drift(
                     importance_method=importance_method,
                     model_class=model_class,
                     model_params=model_params
@@ -174,9 +173,8 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
             """)
             with st.spinner(f'Running Predictive Power Shift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
-                shift_result = compute_predictive_importance_shift(
-                    X_before, y_before, X_after, y_after,
-                    feature_names=feature_names,
+                # Compute the analysis results
+                shift_result = analyzer.compute_predictive_importance_shift(
                     importance_method=importance_method,
                     model_class=model_class,
                     model_params=model_params

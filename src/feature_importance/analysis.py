@@ -2,223 +2,261 @@ import numpy as np
 from .methods import calculate_feature_importance
 
 
-def compute_data_drift_analysis(X_before, y_before, X_after, y_after,
-                                feature_names=None,
-                                importance_method="permutation",
-                                model_class=None,
-                                model_params=None):
+class FeatureImportanceDriftAnalyzer:
     """
-    Compute data drift analysis by classifying time periods using only
-    features (X).
+    Analyzer for detecting and explaining drift using feature importance methods.
 
-    Parameters
-    ----------
-    X_before : array-like (n_samples, n_features)
-        Feature matrix for 'before' window
-    y_before : array-like (n_samples,)
-        Labels for 'before' window
-    X_after : array-like (n_samples, n_features)
-        Feature matrix for 'after' window
-    y_after : array-like (n_samples,)
-        Labels for 'after' window
-    feature_names : list
-        Names of features
-    importance_method : str, default="permutation"
-        Method for feature importance: "permutation", "shap", or "lime"
-
-    Returns
-    -------
-    dict
-        Dictionary containing analysis results
+    This class provides methods to analyze data drift (changes in P(X)),
+    concept drift (changes in P(Y|X)), and predictive importance shifts.
+    It encapsulates the data splits (before/after drift) and feature names.
     """
-    # Prepare features and labels
-    if feature_names is None and hasattr(X_before, 'columns'):
-        feature_names = X_before.columns.tolist()
-    
-    X_features = np.concatenate([X_before, X_after])
-    
-    n_samples_before = len(X_before)
-    n_samples_after = len(X_after)
-    time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
+    def __init__(self, X_before, y_before, X_after, y_after, feature_names=None):
+        """
+        Initialize the analyzer with data splits.
 
-    # Train Model
-    if model_class is None:
-        from src.models.mlp import MLPModel
-        model_class = MLPModel
-    
-    if model_params is None:
-        model_params = {}
+        Parameters
+        ----------
+        X_before : array-like or pd.DataFrame
+            Features from the window before the drift.
+        y_before : array-like or pd.Series
+            Target values from the window before the drift.
+        X_after : array-like or pd.DataFrame
+            Features from the window after the drift.
+        y_after : array-like or pd.Series
+            Target values from the window after the drift.
+        feature_names : list, optional
+            List of feature names. If None and input is DataFrame, columns are used.
+        """
+        # Prepare features and labels
+        if feature_names is None and hasattr(X_before, 'columns'):
+            feature_names = X_before.columns.tolist()
+        
+        self.feature_names = feature_names
 
-    model = model_class(**model_params)
-    model.fit(X_features, time_labels)
-    nn_accuracy = model.score(X_features, time_labels)
+        # Convert to numpy if pandas
+        if hasattr(X_before, "values"):
+            X_before = X_before.values
+        if hasattr(y_before, "values"):
+            y_before = y_before.values
+        if hasattr(X_after, "values"):
+            X_after = X_after.values
+        if hasattr(y_after, "values"):
+            y_after = y_after.values
 
-    # Calculate Feature Importance
-    fi_result = calculate_feature_importance(
-        model, X_features, time_labels,
-        method=importance_method,
-        feature_names=feature_names
-    )
+        self.X_before = X_before
+        self.y_before = y_before
+        self.X_after = X_after
+        self.y_after = y_after
 
-    importance_mean = fi_result['importances_mean']
-    importance_std = fi_result['importances_std']
+    def compute_data_drift(self, importance_method="permutation", model_class=None, model_params=None):
+        """
+        Compute data drift analysis by classifying time periods using only features (X).
 
-    return {
-        'model': model,
-        'accuracy': nn_accuracy,
-        'importance_result': fi_result,
-        'importance_mean': importance_mean,
-        'importance_std': importance_std
-    }
+        This method trains a classifier to distinguish between the 'before' and 'after'
+        datasets based solely on the feature values. High accuracy indicates that the
+        feature distributions P(X) have changed (covariate shift). Feature importance
+        identifies which features contribute most to the drift.
 
+        Parameters
+        ----------
+        importance_method : str, default="permutation"
+            Method to calculate feature importance ("permutation", "shap", "lime").
+        model_class : class, optional
+            Class of the model to use for classification. Defaults to MLPModel.
+        model_params : dict, optional
+            Parameters to initialize the model.
 
-def compute_concept_drift_analysis(X_before, y_before, X_after, y_after,
-                                   feature_names=None,
-                                   importance_method="permutation",
-                                   model_class=None,
-                                   model_params=None):
-    """
-    Compute concept drift analysis by classifying time periods using features
-    and target (X, Y).
+        Returns
+        -------
+        dict
+            A dictionary containing:
+            - 'model': The trained classifier.
+            - 'accuracy': The accuracy of determining the time period (drift magnitude).
+            - 'importance_result': Full feature importance results.
+            - 'importance_mean': Mean importance scores for features.
+            - 'importance_std': Standard deviation of importance scores.
+        """
+        X_features = np.concatenate([self.X_before, self.X_after])
+        
+        n_samples_before = len(self.X_before)
+        n_samples_after = len(self.X_after)
+        time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
 
-    Parameters
-    ----------
-    X_before : array-like (n_samples, n_features)
-        Feature matrix for 'before' window
-    y_before : array-like (n_samples,)
-        Labels for 'before' window
-    X_after : array-like (n_samples, n_features)
-        Feature matrix for 'after' window
-    y_after : array-like (n_samples,)
-        Labels for 'after' window
-    feature_names : list
-        Names of features
-    importance_method : str, default="permutation"
-        Method for feature importance: "permutation", "shap", or "lime"
+        # Train Model
+        if model_class is None:
+            from src.models.mlp import MLPModel
+            model_class = MLPModel
+        
+        if model_params is None:
+            model_params = {}
 
-    Returns
-    -------
-    dict
-        Dictionary containing analysis results
-    """
-    # Prepare features and labels
-    if feature_names is None and hasattr(X_before, 'columns'):
-        feature_names = X_before.columns.tolist()
-    
-    X_combined = np.concatenate([X_before, X_after])
-    y_combined = np.concatenate([y_before, y_after])
+        model = model_class(**model_params)
+        model.fit(X_features, time_labels)
+        nn_accuracy = model.score(X_features, time_labels)
 
-    X_features_with_y = np.column_stack([X_combined, y_combined])
-    
-    n_samples_before = len(X_before)
-    n_samples_after = len(X_after)
-    time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
+        # Calculate Feature Importance
+        fi_result = calculate_feature_importance(
+            model, X_features, time_labels,
+            method=importance_method,
+            feature_names=self.feature_names
+        )
 
-    # Train Model
-    if model_class is None:
-        from src.models.mlp import MLPModel
-        model_class = MLPModel
-    
-    if model_params is None:
-        model_params = {}
+        importance_mean = fi_result['importances_mean']
+        importance_std = fi_result['importances_std']
 
-    model_xy = model_class(**model_params)
-    model_xy.fit(X_features_with_y, time_labels)
-    nn_accuracy_xy = model_xy.score(X_features_with_y, time_labels)
+        return {
+            'model': model,
+            'accuracy': nn_accuracy,
+            'importance_result': fi_result,
+            'importance_mean': importance_mean,
+            'importance_std': importance_std
+        }
 
-    # Calculate Feature Importance
-    feature_names_with_y = feature_names + ['Y']
-    fi_result = calculate_feature_importance(
-        model_xy, X_features_with_y, time_labels,
-        method=importance_method,
-        feature_names=feature_names_with_y
-    )
+    def compute_concept_drift(self, importance_method="permutation", model_class=None, model_params=None):
+        """
+        Compute concept drift analysis by classifying time periods using features and target (X, Y).
 
-    importance_mean = fi_result['importances_mean']
-    importance_std = fi_result['importances_std']
+        This method trains a classifier to distinguish between 'before' and 'after'
+        datasets using both features and the target variable as inputs. If the target 'Y'
+        is identified as an important feature for this classification, it indicates that
+        the relationship between X and Y has changed (concept drift), as 'Y' helps
+        distinguish the time periods conditioned on X.
 
-    return {
-        'model': model_xy,
-        'accuracy': nn_accuracy_xy,
-        'importance_result': fi_result,
-        'importance_mean': importance_mean,
-        'importance_std': importance_std,
-        'feature_names_with_y': feature_names_with_y
-    }
+        Parameters
+        ----------
+        importance_method : str, default="permutation"
+            Method to calculate feature importance ("permutation", "shap", "lime").
+        model_class : class, optional
+            Class of the model to use. Defaults to MLPModel.
+        model_params : dict, optional
+            Parameters for the model.
 
+        Returns
+        -------
+        dict
+            A dictionary containing:
+            - 'model': The trained classifier.
+            - 'accuracy': The accuracy of the classification.
+            - 'importance_result': Full feature importance results.
+            - 'importance_mean': Mean importance scores.
+            - 'importance_std': Standard deviation of importance scores.
+            - 'feature_names_with_y': List of feature names including 'Y'.
+        """
+        X_combined = np.concatenate([self.X_before, self.X_after])
+        y_combined = np.concatenate([self.y_before, self.y_after])
 
-def compute_predictive_importance_shift(X_before, y_before, X_after, y_after,
-                                        feature_names=None,
-                                        importance_method="permutation",
-                                        model_class=None,
-                                        model_params=None):
-    """
-    Compute how predictive feature importance shifts before and after drift.
+        X_features_with_y = np.column_stack([X_combined, y_combined])
+        
+        n_samples_before = len(self.X_before)
+        n_samples_after = len(self.X_after)
+        time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
 
-    Parameters
-    ----------
-    X_before : array-like (n_samples, n_features)
-        Feature matrix for 'before' window
-    y_before : array-like (n_samples,)
-        Labels for 'before' window
-    X_after : array-like (n_samples, n_features)
-        Feature matrix for 'after' window
-    y_after : array-like (n_samples,)
-        Labels for 'after' window
-    feature_names : list
-        Names of features
-    importance_method : str, default="permutation"
-        Method for feature importance: "permutation", "shap", or "lime"
+        # Train Model
+        if model_class is None:
+            from src.models.mlp import MLPModel
+            model_class = MLPModel
+        
+        if model_params is None:
+            model_params = {}
 
-    Returns
-    -------
-    dict
-        Dictionary containing analysis results
-    """
-    # Split data into before and after drift
-    if feature_names is None and hasattr(X_before, 'columns'):
-        feature_names = X_before.columns.tolist()
+        model_xy = model_class(**model_params)
+        model_xy.fit(X_features_with_y, time_labels)
+        nn_accuracy_xy = model_xy.score(X_features_with_y, time_labels)
 
-    X_features_before = X_before
-    X_features_after = X_after
+        # Calculate Feature Importance
+        feature_names_with_y = (self.feature_names + ['Y']) if self.feature_names else None
+        
+        if feature_names_with_y is None:
+             # Fallback if no feature names provided ever
+             feature_names_with_y = [f"Feature {i}" for i in range(X_features_with_y.shape[1])]
 
-    # Train Models
-    if model_class is None:
-        from src.models.mlp import MLPModel
-        model_class = MLPModel
-    
-    if model_params is None:
-        model_params = {}
+        fi_result = calculate_feature_importance(
+            model_xy, X_features_with_y, time_labels,
+            method=importance_method,
+            feature_names=feature_names_with_y
+        )
 
-    # Model trained BEFORE drift
-    model_before = model_class(**model_params)
-    model_before.fit(X_features_before, y_before)
-    acc_before = model_before.score(X_features_before, y_before)
+        importance_mean = fi_result['importances_mean']
+        importance_std = fi_result['importances_std']
 
-    # Model trained AFTER drift
-    model_after = model_class(**model_params)
-    model_after.fit(X_features_after, y_after)
-    acc_after = model_after.score(X_features_after, y_after)
+        return {
+            'model': model_xy,
+            'accuracy': nn_accuracy_xy,
+            'importance_result': fi_result,
+            'importance_mean': importance_mean,
+            'importance_std': importance_std,
+            'feature_names_with_y': feature_names_with_y
+        }
 
-    # Feature Importance for BEFORE drift
-    fi_before = calculate_feature_importance(
-        model_before, X_features_before, y_before,
-        method=importance_method,
-        feature_names=feature_names
-    )
+    def compute_predictive_importance_shift(self, importance_method="permutation", model_class=None, model_params=None):
+        """
+        Compute how predictive feature importance shifts before and after drift.
 
-    # Feature Importance for AFTER drift
-    fi_after = calculate_feature_importance(
-        model_after, X_features_after, y_after,
-        method=importance_method,
-        feature_names=feature_names
-    )
+        This method trains two separate models: one on 'before' data and one on
+        'after' data. It then calculates feature importance for both models to
+        predict the target variable 'Y'. Changes in feature importance rankings
+        or magnitudes indicate that the underlying predictive mechanism has shifted.
 
-    return {
-        'model_before': model_before,
-        'model_after': model_after,
-        'accuracy_before': acc_before,
-        'accuracy_after': acc_after,
-        'fi_before': fi_before,
-        'fi_after': fi_after
-    }
+        Parameters
+        ----------
+        importance_method : str, default="permutation"
+            Method to calculate feature importance.
+        model_class : class, optional
+            Class of the model to use. Defaults to MLPModel.
+        model_params : dict, optional
+            Parameters for the model.
+
+        Returns
+        -------
+        dict
+            A dictionary containing:
+            - 'model_before': Model trained on pre-drift data.
+            - 'model_after': Model trained on post-drift data.
+            - 'accuracy_before': Accuracy of the pre-drift model on pre-drift data.
+            - 'accuracy_after': Accuracy of the post-drift model on post-drift data.
+            - 'fi_before': Feature importance results for the pre-drift model.
+            - 'fi_after': Feature importance results for the post-drift model.
+        """
+        X_features_before = self.X_before
+        X_features_after = self.X_after
+
+        # Train Models
+        if model_class is None:
+            from src.models.mlp import MLPModel
+            model_class = MLPModel
+        
+        if model_params is None:
+            model_params = {}
+
+        # Model trained BEFORE drift
+        model_before = model_class(**model_params)
+        model_before.fit(X_features_before, self.y_before)
+        acc_before = model_before.score(X_features_before, self.y_before)
+
+        # Model trained AFTER drift
+        model_after = model_class(**model_params)
+        model_after.fit(X_features_after, self.y_after)
+        acc_after = model_after.score(X_features_after, self.y_after)
+
+        # Feature Importance for BEFORE drift
+        fi_before = calculate_feature_importance(
+            model_before, X_features_before, self.y_before,
+            method=importance_method,
+            feature_names=self.feature_names
+        )
+
+        # Feature Importance for AFTER drift
+        fi_after = calculate_feature_importance(
+            model_after, X_features_after, self.y_after,
+            method=importance_method,
+            feature_names=self.feature_names
+        )
+
+        return {
+            'model_before': model_before,
+            'model_after': model_after,
+            'accuracy_before': acc_before,
+            'accuracy_after': acc_after,
+            'fi_before': fi_before,
+            'fi_after': fi_after
+        }

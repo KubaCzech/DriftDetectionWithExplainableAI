@@ -1,7 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import traceback
-from src.decision_boundary.analysis import compute_decision_boundary_analysis
+from src.decision_boundary.analysis import DecisionBoundaryDriftAnalyzer
 from src.decision_boundary.visualization import visualize_decision_boundary
 
 
@@ -50,8 +50,8 @@ def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
     if st.button("Run Decision Boundary Analysis", key="run_decision_boundary_btn"):
         with st.spinner("Running Analysis (Training SSNP and Classifiers)..."):
             try:
-                results = compute_decision_boundary_analysis(
-                    X_before, y_before, X_after, y_after,
+                analyzer = DecisionBoundaryDriftAnalyzer(X_before, y_before, X_after, y_after)
+                results = analyzer.analyze(
                     model_class=model_class,
                     model_params=model_params,
                     ssnp_epochs=ssnp_epochs,
