@@ -28,44 +28,8 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
     **Before Drift** and **After Drift**.
     """)
 
-    # Data preparation
-    # Ensure X is numpy array for clustering
-    X_np = X.values if isinstance(X, pd.DataFrame) else X
-    
-    # Slice the data
-    start_before = window_before_start
-    end_before = start_before + window_length
-    
-    # window_after_start is typically relative to the drift point in the dashboard logic,
-    # but here we receive the absolute start index if it was passed correctly from app.py.
-    # Let's verify how it's passed in feature_importance_analysis.py which this is based on.
-    # In feature_importance_analysis.py:
-    # compute_data_drift_analysis uses slice_data(X, y, window_before_start, window_after_start, window_length)
-    # The app.py passes window_after_start directly from the sidebar config.
-    # So we can use it directly.
-    
-    start_after = window_after_start
-    end_after = start_after + window_length
-
-    # Check bounds
-    if end_before > len(X_np):
-        st.error(f"Window 'Before' goes out of bounds: starts at {start_before}, ends at {end_before}, data length {len(X_np)}")
-        return
-    if end_after > len(X_np):
-         st.error(f"Window 'After' goes out of bounds: starts at {start_after}, ends at {end_after}, data length {len(X_np)}")
-         return
-
-    X_old = X_np[start_before:end_before]
-    y_old = y[start_before:end_before]
-    
-    X_new = X_np[start_after:end_after]
-    y_new = y[start_after:end_after]
-
-    data_old = (X_old, y_old)
-    data_new = (X_new, y_new)
-
     # Initialize Detector with random_state for determinism
-    detector = ClusterBasedDriftDetector(data_old, data_new, random_state=42)
+    detector = ClusterBasedDriftDetector(X_before, y_before, X_after, y_after, random_state=42)
 
     with st.spinner("Running cluster-based drift detection..."):
         try:
@@ -126,31 +90,7 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
             labels_new = detector.cluster_labels_new
             
             if labels_old is not None and labels_new is not None:
-                # plot_drift_clustered creates a new figure. 
-                # We need to capture it to show in Streamlit.
-                # The function calls plt.show() which might not work well in Streamlit directly 
-                # if not handled. Ideally we modify it to return fig, but I should treat src as read-only if possible 
-                # or just use the side effect of it creating a figure.
-                # Since I can't easily change the src without specific permission or need, 
-                # I will use the standard matplotlib approach in streamlit.
-                
-                # Create a new figure to ensure we capture relevant plots
-                # plot_drift_clustered(X_before, X_after, labels_before, labels_after, color_map=color_map, show=True, in_subplot=False)
-                # It calls plt.figure() internally if not in_subplot.
-                
-                # We can use st.pyplot() directly after calling the function, 
-                # assuming it acts on the global pyplot state.
-                # To be safe and avoid "Global figure warning", let's manage the figure.
-                
-                # Actually, plot_drift_clustered calls plt.show() which might close the plot.
-                # However, in Streamlit, plt.show() often does nothing or warns.
-                # Let's try calling it and grabbing the figure.
-                
-                # A better way might be to pass show=False to plot_drift_clustered if possible.
-                # Looking at the code: def plot_drift_clustered(..., show=True, ...)
-                # Yes, I can pass show=False.
-                
-                plot_drift_clustered(X_old, X_new, labels_old, labels_new, color_map=color_map, show=False)
+                plot_drift_clustered(X_before, X_after, labels_old, labels_new, color_map=color_map, show=False)
                 fig = plt.gcf()
                 st.pyplot(fig)
                 plt.close(fig)

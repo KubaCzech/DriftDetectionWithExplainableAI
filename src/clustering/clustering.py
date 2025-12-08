@@ -12,9 +12,21 @@ if not hasattr(np, "warnings"):
 
 
 class ClusterBasedDriftDetector:
-    def __init__(self, data_old, data_new, random_state=None):
-        self.X_old, self.y_old = data_old
-        self.X_new, self.y_new = data_new
+    def __init__(self, X_before, y_before, X_after, y_after, random_state=None):
+        # Handle data conversion if pandas
+        if hasattr(X_before, "values"):
+            X_before = X_before.values
+        if hasattr(y_before, "values"):
+            y_before = y_before.values
+        if hasattr(X_after, "values"):
+            X_after = X_after.values
+        if hasattr(y_after, "values"):
+            y_after = y_after.values
+
+        self.X_old = X_before
+        self.y_old = y_before
+        self.X_new = X_after
+        self.y_new = y_after
 
         self.centers_old, self.centers_new = (None, None)
         self.cluster_labels_old, self.cluster_labels_new = (None, None)
