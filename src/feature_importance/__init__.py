@@ -5,7 +5,7 @@ from .visualization import (  # noqa: F401
     visualize_concept_drift_analysis,
     visualize_predictive_importance_shift
 )
-from .drift_analysis import (  # noqa: F401
+from .analysis import (  # noqa: F401
     compute_data_drift_analysis,
     compute_concept_drift_analysis,
     compute_predictive_importance_shift
