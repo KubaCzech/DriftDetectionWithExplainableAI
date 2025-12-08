@@ -155,34 +155,48 @@ active_tab = st.radio(
     label_visibility="collapsed"
 )
 
+# Prepare data slices for analysis tabs
+start_before = window_before_start
+end_before = start_before + window_length
+start_after = window_after_start
+end_after = start_after + window_length
+
+# Ensure indices are within bounds
+if end_before > len(X):
+    st.error(f"Window 'Before' goes out of bounds: starts at {start_before}, ends at {end_before}, data length {len(X)}")
+    st.stop()
+if end_after > len(X):
+    st.error(f"Window 'After' goes out of bounds: starts at {start_after}, ends at {end_after}, data length {len(X)}")
+    st.stop()
+
+X_before = X.iloc[start_before:end_before] if hasattr(X, "iloc") else X[start_before:end_before]
+y_before = y.iloc[start_before:end_before] if hasattr(y, "iloc") else y[start_before:end_before]
+X_after = X.iloc[start_after:end_after] if hasattr(X, "iloc") else X[start_after:end_after]
+y_after = y.iloc[start_after:end_after] if hasattr(y, "iloc") else y[start_after:end_after]
+
+
 if active_tab == tabs[0]:
     render_data_visualization_tab(X, y, feature_names, all_figs)
 
 elif active_tab == tabs[1]:
-    render_drift_detection_tab()
+    render_drift_detection_tab(X_before, y_before, X_after, y_after)
 
 elif active_tab == tabs[2]:
-    render_decision_boundary_tab(X, y,
-                                 window_before_start=window_before_start,
-                                 window_after_start=window_after_start,
-                                 window_length=window_length,
+    render_decision_boundary_tab(X_before, y_before, X_after, y_after,
                                  model_class=selected_model_class,
                                  model_params=model_params)
 
 elif active_tab == tabs[3]:
-    render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
-                                           window_before_start, window_after_start, window_length,
+    render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
+                                           feature_names, show_boxplot,
                                            model_class=selected_model_class,
                                            model_params=model_params)
 
 elif active_tab == tabs[4]:
-    render_clustering_analysis_tab(X, y,
-                                   window_before_start=window_before_start,
-                                   window_after_start=window_after_start,
-                                   window_length=window_length)
+    render_clustering_analysis_tab(X_before, y_before, X_after, y_after)
 
 elif active_tab == tabs[5]:
-    render_recurring_race_p_tab()
+    render_recurring_race_p_tab(X_before, y_before, X_after, y_after)
 
 st.markdown("---")
 st.markdown("Developed as part of the xAI and Data Analysis Tools for Drift Detection project.")

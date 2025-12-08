@@ -5,22 +5,20 @@ from src.clustering.clustering import ClusterBasedDriftDetector
 from src.clustering.visualization import plot_drift_clustered, color_map
 
 
-def render_clustering_analysis_tab(X, y, window_before_start, window_after_start, window_length):
+def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
     """
     Renders the Clustering Analysis tab.
 
     Parameters
     ----------
-    X : pandas.DataFrame
-        Feature matrix.
-    y : pandas.Series or array-like
-        Target variable.
-    window_before_start : int
-        Start index for the 'before' window.
-    window_after_start : int
-        Start index for the 'after' window.
-    window_length : int
-        Length of the windows.
+    X_before : array-like
+        Feature matrix for 'before' window
+    y_before : array-like
+        Target variable for 'before' window
+    X_after : array-like
+        Feature matrix for 'after' window
+    y_after : array-like
+        Target variable for 'after' window
     """
     st.header("Clustering Analysis (Cluster-Based Drift Detection)")
 

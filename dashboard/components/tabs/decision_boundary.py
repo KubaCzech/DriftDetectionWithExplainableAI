@@ -5,10 +5,7 @@ from src.decision_boundary.analysis import compute_decision_boundary_analysis
 from src.decision_boundary.visualization import visualize_decision_boundary
 
 
-def render_decision_boundary_tab(X, y,
-                                 window_before_start=0,
-                                 window_after_start=0,
-                                 window_length=1000,
+def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
                                  model_class=None,
                                  model_params=None):
     """
@@ -16,16 +13,14 @@ def render_decision_boundary_tab(X, y,
 
     Parameters
     ----------
-    X : array-like
-        Feature matrix
-    y : array-like
-        Target variable
-    window_before_start : int
-        Start index for the pre-drift window (absolute)
-    window_after_start : int
-        Start index for the post-drift window (absolute)
-    window_length : int
-        Length of the analysis window
+    X_before : array-like
+        Feature matrix for 'before' window
+    y_before : array-like
+        Target variable for 'before' window
+    X_after : array-like
+        Feature matrix for 'after' window
+    y_after : array-like
+        Target variable for 'after' window
     model_class : class
         Classifier class
     model_params : dict
@@ -55,19 +50,6 @@ def render_decision_boundary_tab(X, y,
     if st.button("Run Decision Boundary Analysis", key="run_decision_boundary_btn"):
         with st.spinner("Running Analysis (Training SSNP and Classifiers)..."):
             try:
-                # Note: window_after_start from app.py is the absolute start index of the second window
-                # Prepare data slices
-                # Prepare data slices
-                start_before = window_before_start
-                end_before = start_before + window_length
-                start_after = window_after_start
-                end_after = start_after + window_length
-
-                X_before = X.iloc[start_before:end_before] if hasattr(X, "iloc") else X[start_before:end_before]
-                y_before = y.iloc[start_before:end_before] if hasattr(y, "iloc") else y[start_before:end_before]
-                X_after = X.iloc[start_after:end_after] if hasattr(X, "iloc") else X[start_after:end_after]
-                y_after = y.iloc[start_after:end_after] if hasattr(y, "iloc") else y[start_after:end_after]
-
                 results = compute_decision_boundary_analysis(
                     X_before, y_before, X_after, y_after,
                     model_class=model_class,

@@ -15,28 +15,26 @@ from src.feature_importance import (
 )
 
 
-def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
-                                           window_before_start=0, window_after_start=0, window_length=1000,
+def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
+                                           feature_names, show_boxplot,
                                            model_class=None, model_params=None):
     """
     Renders the Feature Importance Analysis tab.
 
     Parameters
     ----------
-    X : array-like
-        Feature matrix
-    y : array-like
-        Target variable
+    X_before : array-like
+        Feature matrix for 'before' window
+    y_before : array-like
+        Target variable for 'before' window
+    X_after : array-like
+        Feature matrix for 'after' window
+    y_after : array-like
+        Target variable for 'after' window
     feature_names : list
         List of feature names
     show_boxplot : bool
         Whether to show boxplots
-    window_before_start : int
-        Start index for window before drift
-    window_after_start : int
-        Start index for window after drift (relative to drift point)
-    window_length : int
-        Length of the analysis window
     """
     st.header("2. Drift Analysis Configuration & Results")
 
@@ -78,17 +76,6 @@ def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
             The feature importance scores show which features contributed most to this change.
             """)
             with st.spinner(f'Running Data Drift analysis with {importance_method.upper()}...'):
-                # Prepare data slices
-                start_before = window_before_start
-                end_before = start_before + window_length
-                start_after = window_after_start
-                end_after = start_after + window_length
-
-                X_before = X.iloc[start_before:end_before] if hasattr(X, "iloc") else X[start_before:end_before]
-                y_before = y.iloc[start_before:end_before] if hasattr(y, "iloc") else y[start_before:end_before]
-                X_after = X.iloc[start_after:end_after] if hasattr(X, "iloc") else X[start_after:end_after]
-                y_after = y.iloc[start_after:end_after] if hasattr(y, "iloc") else y[start_after:end_after]
-
                 # Compute the analysis results
                 data_drift_result = compute_data_drift_analysis(
                     X_before, y_before, X_after, y_after,
@@ -137,17 +124,6 @@ def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
             and the target has changed (i.e., concept drift).
             """)
             with st.spinner(f'Running Concept Drift analysis with {importance_method.upper()}...'):
-                # Prepare data slices
-                start_before = window_before_start
-                end_before = start_before + window_length
-                start_after = window_after_start
-                end_after = start_after + window_length
-
-                X_before = X.iloc[start_before:end_before] if hasattr(X, "iloc") else X[start_before:end_before]
-                y_before = y.iloc[start_before:end_before] if hasattr(y, "iloc") else y[start_before:end_before]
-                X_after = X.iloc[start_after:end_after] if hasattr(X, "iloc") else X[start_after:end_after]
-                y_after = y.iloc[start_after:end_after] if hasattr(y, "iloc") else y[start_after:end_after]
-
                 # Compute the analysis results
                 concept_drift_result = compute_concept_drift_analysis(
                     X_before, y_before, X_after, y_after,
@@ -197,17 +173,6 @@ def render_feature_importance_analysis_tab(X, y, feature_names, show_boxplot,
             A significant shift in feature importance between the two models indicates concept drift.
             """)
             with st.spinner(f'Running Predictive Power Shift analysis with {importance_method.upper()}...'):
-                # Prepare data slices
-                start_before = window_before_start
-                end_before = start_before + window_length
-                start_after = window_after_start
-                end_after = start_after + window_length
-
-                X_before = X.iloc[start_before:end_before] if hasattr(X, "iloc") else X[start_before:end_before]
-                y_before = y.iloc[start_before:end_before] if hasattr(y, "iloc") else y[start_before:end_before]
-                X_after = X.iloc[start_after:end_after] if hasattr(X, "iloc") else X[start_after:end_after]
-                y_after = y.iloc[start_after:end_after] if hasattr(y, "iloc") else y[start_after:end_after]
-
                 # Compute the analysis results
                 shift_result = compute_predictive_importance_shift(
                     X_before, y_before, X_after, y_after,
