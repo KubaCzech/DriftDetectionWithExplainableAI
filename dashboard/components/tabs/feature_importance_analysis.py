@@ -108,7 +108,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                         'Mean Importance': '{:.4f}',
                         'Std Deviation': '{:.4f}'
                     }),
-                    use_container_width=True
+                    width="stretch"
                 )
 
                 # Display visualizations
@@ -151,7 +151,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                         'Mean Importance': '{:.4f}',
                         'Std Deviation': '{:.4f}'
                     }),
-                    use_container_width=True
+                    width="stretch"
                 )
 
                 # Display visualizations
@@ -197,7 +197,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                             'Mean Importance': '{:.4f}',
                             'Std Deviation': '{:.4f}'
                         }),
-                        use_container_width=True
+                        width="stretch"
                     )
 
                 with col2:
@@ -213,7 +213,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                             'Mean Importance': '{:.4f}',
                             'Std Deviation': '{:.4f}'
                         }),
-                        use_container_width=True
+                        width="stretch"
                     )
 
                 # Display visualizations

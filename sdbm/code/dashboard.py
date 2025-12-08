@@ -18,7 +18,7 @@ def display_image(image_path, caption):
         try:
             image = Image.open(image_path)
             # --- THIS LINE IS THE FIX ---
-            st.image(image, caption=caption, use_container_width=True)
+            st.image(image, caption=caption, width="stretch")
         except Exception as e:
             st.error(f"Error loading image {image_path}: {e}")
     else:
