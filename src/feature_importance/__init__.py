@@ -7,9 +7,6 @@ from .visualization import (  # noqa: F401
 )
 from .drift_analysis import (  # noqa: F401
     compute_data_drift_analysis,
-    analyze_data_drift,
     compute_concept_drift_analysis,
-    analyze_concept_drift,
-    compute_predictive_importance_shift,
-    analyze_predictive_importance_shift
+    compute_predictive_importance_shift
 )

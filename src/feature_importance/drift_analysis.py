@@ -1,11 +1,5 @@
 import numpy as np
-from sklearn.neural_network import MLPClassifier
 from .methods import calculate_feature_importance
-from .visualization import (
-    visualize_data_drift_analysis,
-    visualize_concept_drift_analysis,
-    visualize_predictive_importance_shift
-)
 
 
 def compute_data_drift_analysis(X, y, feature_names=None,
@@ -92,44 +86,6 @@ def compute_data_drift_analysis(X, y, feature_names=None,
         'importance_mean': importance_mean,
         'importance_std': importance_std
     }
-
-
-def analyze_data_drift(X, y, drift_point, feature_names=None,
-                       importance_method="permutation",
-                       show_importance_boxplot=True,
-                       model_class=None,
-                       model_params=None):
-    """
-    Analyze and visualize data drift by classifying time periods using only
-    features (X).
-
-    Parameters
-    ----------
-    X : array-like (n_samples, n_features)
-        Feature matrix
-    y : array-like (n_samples,)
-        Binary class labels (not used in this analysis)
-    drift_point : int
-        Index where drift occurs
-    feature_names : list
-        Names of features
-    importance_method : str, default="permutation"
-        Method for feature importance: "permutation", "shap", or "lime"
-    show_importance_boxplot : bool, default=True
-        Whether to display the boxplot of importance score distributions.
-
-    Returns
-    -------
-    dict
-        Dictionary containing analysis results
-    """
-    result = compute_data_drift_analysis(X, y, drift_point, feature_names,
-                                         importance_method,
-                                         model_class=model_class,
-                                         model_params=model_params)
-    visualize_data_drift_analysis(result, feature_names,
-                                  show_boxplot=show_importance_boxplot)
-    return result
 
 
 def compute_concept_drift_analysis(X, y, feature_names=None,
@@ -226,46 +182,6 @@ def compute_concept_drift_analysis(X, y, feature_names=None,
     }
 
 
-def analyze_concept_drift(X, y, drift_point, feature_names=None,
-                          importance_method="permutation",
-                          show_importance_boxplot=True,
-                          model_class=None,
-                          model_params=None):
-    """
-    Analyze and visualize concept drift by classifying time periods using
-    features and target (X, Y).
-
-    Parameters
-    ----------
-    X : array-like (n_samples, n_features)
-        Feature matrix
-    y : array-like (n_samples,)
-        Binary class labels
-    drift_point : int
-        Index where drift occurs
-    feature_names : list
-        Names of features
-    importance_method : str, default="permutation"
-        Method for feature importance: "permutation", "shap", or "lime"
-    show_importance_boxplot : bool, default=True
-        Whether to display the boxplot of importance score distributions.
-
-    Returns
-    -------
-    dict
-        Dictionary containing analysis results
-    """
-    result = compute_concept_drift_analysis(X, y, drift_point, feature_names,
-                                            importance_method,
-                                            model_class=model_class,
-                                            model_params=model_params)
-    # Get the feature names list that includes 'Y' from the result
-    feature_names_with_y = result['feature_names_with_y']
-    visualize_concept_drift_analysis(result, feature_names_with_y,
-                                     show_boxplot=show_importance_boxplot)
-    return result
-
-
 def compute_predictive_importance_shift(X, y, feature_names=None,
                                         importance_method="permutation",
                                         window_before_start=0,
@@ -355,42 +271,3 @@ def compute_predictive_importance_shift(X, y, feature_names=None,
         'fi_before': fi_before,
         'fi_after': fi_after
     }
-
-
-def analyze_predictive_importance_shift(X, y, drift_point, feature_names=None,
-                                        importance_method="permutation",
-                                        show_importance_boxplot=True,
-                                        model_class=None,
-                                        model_params=None):
-    """
-    Analyze and visualize how predictive feature importance shifts before
-    and after drift.
-
-    Parameters
-    ----------
-    X : array-like (n_samples, n_features)
-        Feature matrix
-    y : array-like (n_samples,)
-        Binary class labels
-    drift_point : int
-        Index where drift occurs
-    feature_names : list
-        Names of features
-    importance_method : str, default="permutation"
-        Method for feature importance: "permutation", "shap", or "lime"
-    show_importance_boxplot : bool, default=True
-        Whether to display the boxplot of importance score distributions.
-
-    Returns
-    -------
-    dict
-        Dictionary containing analysis results
-    """
-    result = compute_predictive_importance_shift(X, y, drift_point,
-                                                 feature_names,
-                                                 importance_method,
-                                                 model_class=model_class,
-                                                 model_params=model_params)
-    visualize_predictive_importance_shift(result, feature_names,
-                                          show_boxplot=show_importance_boxplot)
-    return result
