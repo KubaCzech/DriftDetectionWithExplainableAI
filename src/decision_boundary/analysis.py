@@ -142,11 +142,12 @@ class DecisionBoundaryDriftAnalyzer:
             }
 
         # 4. Process Pre and Post
-        result_pre = process_window(self.X_before, self.y_before, X_before_2d)
+        # 4. Process Pre and Post
+        result_pre = process_window(X_before_scaled, self.y_before, X_before_2d)
 
         # For Post, we use the SAME SSNP projector (already trained on Pre),
         # but we train a NEW classifier on the Post data.
-        result_post = process_window(self.X_after, self.y_after, X_after_2d)
+        result_post = process_window(X_after_scaled, self.y_after, X_after_2d)
 
         return {
             'pre': result_pre,
