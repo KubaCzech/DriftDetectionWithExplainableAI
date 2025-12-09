@@ -14,7 +14,7 @@ from dashboard.components.tabs import (  # noqa: E402
     render_recurring_race_p_tab,
     render_clustering_analysis_tab
 )
-from dashboard.components.sidebar import render_configuration_sidebar, render_feature_selection_sidebar  # noqa: E402
+from dashboard.components.sidebar import render_configuration_sidebar
 
 
 # --- App Configuration ---
@@ -88,13 +88,31 @@ else:
 if X is None:
     st.warning("Please upload a CSV file or select a valid dataset to proceed.")
     st.stop()
-
 # --- Feature Selection ---
-selected_features = render_feature_selection_sidebar(X)
+# Feature selection is now handled in the sidebar configuration modal
+selected_features = sidebar_config.get("selected_features", [])
+
+# If no features selected (or first run), default to all if empty, but sidebar should handle it.
+if not selected_features and X is not None:
+    # Fallback if state wasn't initialized
+    selected_features = X.columns.tolist()
 
 # Filter X and update feature_names
-X = X[selected_features]
-feature_names = selected_features
+if selected_features:
+    # Ensure selected features exist in X (in case params changed and X changed schema)
+    valid_features = [f for f in selected_features if f in X.columns]
+    if not valid_features:
+        st.warning("Selected features no longer exist in the dataset. Resetting to all features.")
+        valid_features = X.columns.tolist()
+    X = X[valid_features]
+    feature_names = valid_features
+else:
+     # Just in case
+    feature_names = X.columns.tolist()
+
+if not feature_names:
+    st.error("No features selected or available.")
+    st.stop()
 
 
 # --- Tabs (Navigation) ---
