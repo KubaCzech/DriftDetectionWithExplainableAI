@@ -34,7 +34,7 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
     with st.spinner("Running cluster-based drift detection..."):
         try:
             drift_flag, details = detector.detect()
-
+            
             # 1. Information whether drift occurred
             if drift_flag:
                 st.error(f"**Drift Detected:** {drift_flag}")
@@ -49,7 +49,10 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
             rows = []
             for class_label, class_details in details.items():
                 row = {'Class': class_label}
-                row.update(class_details)
+                
+                row['nr_of_clusters'] = class_details.get('nr_of_clusters')
+                row['centroid_shift'] = class_details.get('centroid_shift')
+                
                 rows.append(row)
 
             details_df = pd.DataFrame(rows)
@@ -78,7 +81,7 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
                         disabled=True
                     )
                 },
-                width=True,
+                width="stretch",
                 hide_index=True
             )
 

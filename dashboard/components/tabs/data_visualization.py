@@ -171,7 +171,7 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
 
             st.dataframe(
                 stats_pivot.style.format("{:.4f}"),
-                use_container_width=True
+                width="stretch"
             )
         else:
              st.dataframe(stats_combined)

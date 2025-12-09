@@ -147,7 +147,7 @@ def render_configuration_sidebar():  # noqa: C901
             st.session_state.dataset_params = {}
 
         with col_ds2:
-            if st.button("⚙️", key="dataset_settings_btn", help="Configure dataset settings", use_container_width=True):
+            if st.button("⚙️", key="dataset_settings_btn", help="Configure dataset settings", width="stretch"):
                 # Clear temporary settings widgets to ensure a fresh start from committed params
                 keys_to_clear = [k for k in st.session_state.keys() if k.startswith("temp_dataset_param_")]
                 for k in keys_to_clear:
@@ -173,7 +173,7 @@ def render_configuration_sidebar():  # noqa: C901
             st.session_state.model_params = {}
 
         with col_m2:
-            if st.button("⚙️", key="model_settings_btn", help="Configure model settings", use_container_width=True):
+            if st.button("⚙️", key="model_settings_btn", help="Configure model settings", width="stretch"):
                 # Clear temporary settings widgets to ensure a fresh start
                 keys_to_clear = [k for k in st.session_state.keys() if k.startswith("temp_model_param_")]
                 for k in keys_to_clear:
