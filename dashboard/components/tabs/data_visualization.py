@@ -180,6 +180,6 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
         stats_display = _calculate_statistics_styled(X_before, X_after, feature_names)
         if hasattr(stats_display, 'format') or isinstance(stats_display, (pd.DataFrame, pd.io.formats.style.Styler)):
             # If explicit width is necessary, st.dataframe handles Styler objects too
-            st.dataframe(stats_display, width=None)  # width="stretch" deprecated in recent streamlit, but kept if needed
+            st.dataframe(stats_display, width="stretch")
         else:
             st.dataframe(stats_display)
