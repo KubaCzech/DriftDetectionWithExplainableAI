@@ -117,7 +117,7 @@ if not feature_names:
 
 # --- Tabs (Navigation) ---
 tabs = [
-    "Dataset Selection and Visualization",
+    "Dataset",
     "Drift Detection",
     "Decision Boundary",
     "Feature Importance Analysis",

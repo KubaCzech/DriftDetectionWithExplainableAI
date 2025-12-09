@@ -103,12 +103,11 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
     # Define plot names and their assumed index based on creation
     # order in visualize_data_stream
     PLOT_OPTIONS = {
-        "Feature Space Distribution for particular features": 0,  # Assumed first plot
-        "Feature vs Index Plots": 1,      # Assumed second plot
-        "Target vs Index Plot": 2,        # Assumed third plot
-        "Feature Space Distribution": 3,  # Assumed fourth plot
+        "Feature Space Distribution": 3,
+        "Class Distribution": 2,
+        "Feature vs Target Plots": 1,
     }
-    DEFAULT_PLOT = "Feature Space Distribution for particular features"
+    DEFAULT_PLOT = "Feature Space Distribution"
 
     # Plot selection dropdown
     plot_choice = st.selectbox(
