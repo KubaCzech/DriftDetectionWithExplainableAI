@@ -18,7 +18,6 @@ from dashboard.components.sidebar import render_configuration_sidebar  # noqa: E
 from dashboard.components.modals.info import show_info_modal  # noqa: E402
 
 
-
 # --- App Configuration ---
 st.set_page_config(
     page_title="Concept Drift Analysis Dashboard",
@@ -28,7 +27,6 @@ st.set_page_config(
 )
 
 # --- Helper Functions ---
-
 
 
 # --- Main App ---

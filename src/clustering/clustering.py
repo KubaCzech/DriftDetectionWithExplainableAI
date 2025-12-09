@@ -199,7 +199,7 @@ class ClusterBasedDriftDetector:
         """
 
         classes = set(self.y_old).union(set(self.y_new))
-        
+
         clusters_all = {'old': [], 'new': []}
         details = {cl: {} for cl in classes}
         maps = []
@@ -244,7 +244,7 @@ class ClusterBasedDriftDetector:
             )
 
             idx = set(self.cluster_labels_old[self.y_old == cl]).union(set(self.cluster_labels_new[self.y_new == cl]))
-            
+
             # Filter changes by threshold
             raw_changes = {k: details_3[k] for k in idx if k in details_3}
             significant_changes = {}
@@ -259,7 +259,7 @@ class ClusterBasedDriftDetector:
                         sig_cluster_changes[feature] = sig_stats
                 if sig_cluster_changes:
                     significant_changes[cluster_id] = sig_cluster_changes
-            
+
             details[cl]['desc_stats_changes'] = significant_changes
 
         self.drift_flag = any([details[cl]['nr_of_clusters'] or details[cl]['centroid_shift'] for cl in classes])

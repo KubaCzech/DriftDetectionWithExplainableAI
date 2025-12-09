@@ -22,12 +22,16 @@ color_map = {i: colors[i] for i in range(len(colors))}
 
 def plot_drift(X_before, y_before, X_after, y_after, show=True, in_subplot=False):
     plt.figure(figsize=(12, 5))
-    
+
     # Ensure numpy arrays
-    if hasattr(X_before, "values"): X_before = X_before.values
-    if hasattr(y_before, "values"): y_before = y_before.values
-    if hasattr(X_after, "values"): X_after = X_after.values
-    if hasattr(y_after, "values"): y_after = y_after.values
+    if hasattr(X_before, "values"):
+        X_before = X_before.values
+    if hasattr(y_before, "values"):
+        y_before = y_before.values
+    if hasattr(X_after, "values"):
+        X_after = X_after.values
+    if hasattr(y_after, "values"):
+        y_after = y_after.values
 
     # Before drift
     plt.subplot(1, 2, 1)
@@ -50,9 +54,11 @@ def plot_drift(X_before, y_before, X_after, y_after, show=True, in_subplot=False
 def plot_clusters(X, labels, title, color_map=None):
     # plot clusters with different colors
     # Function used later
-    if hasattr(X, "values"): X = X.values
-    if hasattr(labels, "values"): labels = labels.values
-    
+    if hasattr(X, "values"):
+        X = X.values
+    if hasattr(labels, "values"):
+        labels = labels.values
+
     unique_labels = sorted(np.unique(labels))
     if color_map is None:
         cmap = plt.cm.viridis
@@ -99,6 +105,9 @@ def plot_final_comparison(X_before, X_after, y_before, y_after, labels_before, l
 
     # Top-right: after drift
     plt.sca(axes[0, 1])
+    # Note: plot_drift_clustered might need adjustment if called in loop, but here it's specific
+    # Effectively we should refactor plot_drift_clustered to support 'ax' argument for better matplotlib usage
+    # But sticking to existing logic with plt.sca and in_subplot=True assumes it plots to current axes.
     plot_drift_clustered(X_before, X_after, labels_before, labels_after, color_map=color_map, in_subplot=True)
 
     # Bottom-left: clustered before only
