@@ -14,7 +14,7 @@ from dashboard.components.tabs import (  # noqa: E402
     render_recurring_race_p_tab,
     render_clustering_analysis_tab
 )
-from dashboard.components.sidebar import render_configuration_sidebar
+from dashboard.components.sidebar import render_configuration_sidebar  # noqa: E402
 
 
 # --- App Configuration ---
@@ -107,7 +107,7 @@ if selected_features:
     X = X[valid_features]
     feature_names = valid_features
 else:
-     # Just in case
+    # Just in case
     feature_names = X.columns.tolist()
 
 if not feature_names:

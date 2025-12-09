@@ -34,7 +34,7 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
     with st.spinner("Running cluster-based drift detection..."):
         try:
             drift_flag, details = detector.detect()
-            
+
             # 1. Information whether drift occurred
             if drift_flag:
                 st.error(f"**Drift Detected:** {drift_flag}")
@@ -43,7 +43,7 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
 
             # 2. Table based on details
             st.subheader("Drift Details by Class")
-            
+
             # Flatten the details dictionary for DataFrame
             # details structure: {class_label: {'nr_of_clusters': bool, 'centroid_shift': bool, ...}}
             rows = []
@@ -51,12 +51,12 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
                 row = {'Class': class_label}
                 row.update(class_details)
                 rows.append(row)
-            
+
             details_df = pd.DataFrame(rows)
-            
+
             # Ensure Class is string to avoid checkbox rendering for binary labels
             details_df['Class'] = details_df['Class'].astype(str)
-            
+
             # Rename columns for better readability
             details_df = details_df.rename(columns={
                 'nr_of_clusters': 'Cluster Count Drift',
@@ -84,24 +84,23 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
 
             # 3. Plot created with plot_drift_clustered
             st.subheader("Cluster Visualization")
-            
+
             # We need labels from the detector for the plot
             labels_old = detector.cluster_labels_old
             labels_new = detector.cluster_labels_new
-            
+
             if labels_old is not None and labels_new is not None:
                 plot_drift_clustered(X_before, X_after, labels_old, labels_new, color_map=color_map, show=False)
                 fig = plt.gcf()
                 st.pyplot(fig)
                 plt.close(fig)
-                
+
             else:
                 st.warning("Cluster labels not available for plotting.")
 
         except Exception as e:
             st.error(f"An error occurred during drift detection: {e}")
-            # It might be useful to see the traceback in logs, 
+            # It might be useful to see the traceback in logs,
             # but for dashboard just showing error is distinct.
             import traceback
             st.text(traceback.format_exc())
-

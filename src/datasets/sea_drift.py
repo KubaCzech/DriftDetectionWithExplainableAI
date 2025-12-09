@@ -41,8 +41,6 @@ class SeaDriftDataset(BaseDataset):
             "random_seed": 42
         }
 
-
-
     def generate(self, n_samples_before=1000, n_samples_after=1000, random_seed=42, **kwargs):
         """
         Generate synthetic data stream using River's SEA generator.

@@ -38,7 +38,7 @@ def generate_river_data(river_stream, total_samples, n_features=2):
 
     X = pd.DataFrame(X_all, columns=[f'X{i+1}' for i in range(n_features)])
     y = pd.Series(y_all, name='Y')
-    
+
     return X, y
 
 
@@ -82,5 +82,5 @@ def generate_river_data_with_selection(river_stream, total_samples, feature_name
 
     X = pd.DataFrame(X_all, columns=feature_names)
     y = pd.Series(y_all, name='Y')
-    
+
     return X, y

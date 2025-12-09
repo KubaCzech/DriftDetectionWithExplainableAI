@@ -1,15 +1,15 @@
 import os
 import json
-import shutil
 from typing import List, Dict, Optional
+
 
 class DatasetRegistry:
     def __init__(self, data_dir: str = "data/imported_datasets", registry_file: str = "registry.json"):
-        # Ensure paths are absolute or relative to the project root as needed. 
+        # Ensure paths are absolute or relative to the project root as needed.
         # Assuming run from project root.
         self.data_dir = data_dir
         self.registry_path = os.path.join(self.data_dir, registry_file)
-        
+
         self._ensure_data_dir()
         self._load_registry()
 
@@ -61,10 +61,10 @@ class DatasetRegistry:
         if name in self.registry:
             dataset_info = self.registry[name]
             file_path = os.path.join(self.data_dir, dataset_info["filename"])
-            
+
             if os.path.exists(file_path):
                 os.remove(file_path)
-            
+
             del self.registry[name]
             self._save_registry()
 

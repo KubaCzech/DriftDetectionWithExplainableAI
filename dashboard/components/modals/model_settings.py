@@ -1,14 +1,21 @@
 import streamlit as st
 from dashboard.components.settings import render_settings_from_schema
 
-@st.dialog("Model Settings")
-def open_model_settings_modal(selected_model_class):
-    # Instantiate temporarily to get schema/settings/display_name
-    temp_model = selected_model_class()
-    
-    st.write(f"Configure advanced settings for **{temp_model.display_name}**.")
 
-    # 6. Model Preset Selection
+def _on_model_setting_change_handler(model_available_settings):
+    """Callback when model settings dropdown changes"""
+    selected = st.session_state.model_setting_selectbox
+    if selected == "Not selected":
+        st.session_state.selected_model_setting = None
+        st.session_state.model_params = {}
+    else:
+        st.session_state.selected_model_setting = selected
+        st.session_state.model_params = model_available_settings[selected].copy()
+        st.session_state.force_update_model_widgets = True
+
+
+def _render_model_preset_selection(temp_model):
+    """Renders the dropdown for selecting model presets."""
     model_available_settings = temp_model.get_available_settings()
 
     # Initialize session state for selected model setting if not exists
@@ -30,23 +37,25 @@ def open_model_settings_modal(selected_model_class):
         elif st.session_state.selected_model_setting is None:
             st.session_state.model_setting_selectbox = "Not selected"
 
-        def on_model_setting_change():
-            selected = st.session_state.model_setting_selectbox
-            if selected == "Not selected":
-                st.session_state.selected_model_setting = None
-                st.session_state.model_params = {}
-            else:
-                st.session_state.selected_model_setting = selected
-                st.session_state.model_params = model_available_settings[selected].copy()
-                st.session_state.force_update_model_widgets = True
-
         st.selectbox(
             "Select Model Preset",
             options=model_setting_options,
             key='model_setting_selectbox',
-            on_change=on_model_setting_change,
+            on_change=_on_model_setting_change_handler,
+            args=(model_available_settings,),
             help="Choose a preset configuration for the model."
         )
+
+
+@st.dialog("Model Settings")
+def open_model_settings_modal(selected_model_class):
+    # Instantiate temporarily to get schema/settings/display_name
+    temp_model = selected_model_class()
+
+    st.write(f"Configure advanced settings for **{temp_model.display_name}**.")
+
+    # 6. Model Preset Selection
+    _render_model_preset_selection(temp_model)
 
     # --- Model Settings ---
     model_schema = temp_model.get_settings_schema()

@@ -163,8 +163,6 @@ def render_configuration_sidebar():  # noqa: C901
             )
 
         selected_model_class = MODELS[model_key]
-        # Instantiate temporarily to get schema/settings
-        temp_model = selected_model_class()
 
         # Initialize session state for model parameters if not exists
         if 'model_params' not in st.session_state:
@@ -188,6 +186,3 @@ def render_configuration_sidebar():  # noqa: C901
         "model_params": model_params,
         "selected_features": st.session_state.get(f"selected_features_{dataset_key}", [])
     }
-
-
-

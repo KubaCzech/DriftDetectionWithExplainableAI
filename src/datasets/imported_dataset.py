@@ -2,6 +2,7 @@ import pandas as pd
 from .base import BaseDataset
 from .dataset_registry import DatasetRegistry
 
+
 class ImportedCSVDataset(BaseDataset):
     def __init__(self, name: str, registry_info: dict, registry: DatasetRegistry):
         self._name = name
@@ -45,10 +46,10 @@ class ImportedCSVDataset(BaseDataset):
         selected_features = self.registry_info.get("selected_features")
 
         if target_col not in df.columns:
-             raise ValueError(f"Target column '{target_col}' not found in dataset")
+            raise ValueError(f"Target column '{target_col}' not found in dataset")
 
         y = df[target_col]
-        
+
         if selected_features:
             # Filter columns, keeping only those selected (and checking existence)
             valid_features = [f for f in selected_features if f in df.columns and f != target_col]
