@@ -59,17 +59,17 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
     with m3:
         # Show Class 1 percentage consistently
         if not class_bal_before.empty:
-            c1_perc_before = class_bal_before.get(1, 0.0)
+            c1_perc_before = class_bal_before.to_dict().get(1, 0.0)
             st.metric("Label 1 Frequency (Before)", f"{c1_perc_before:.1%}")
         else:
             st.metric("Label 1 Frequency (Before)", "N/A")
 
     with m4:
         if not class_bal_after.empty:
-            c1_perc_after = class_bal_after.get(1, 0.0)
+            c1_perc_after = class_bal_after.to_dict().get(1, 0.0)
             delta = 0
             if not class_bal_before.empty:
-                delta = c1_perc_after - class_bal_before.get(1, 0.0)
+                delta = c1_perc_after - class_bal_before.to_dict().get(1, 0.0)
             st.metric("Label 1 Frequency (After)", f"{c1_perc_after:.1%}",
                       delta=f"{delta:.1%}", delta_color="off")
         else:
