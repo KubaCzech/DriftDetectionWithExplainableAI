@@ -9,15 +9,16 @@ def plot_feature_distribution_over_time(X, n_features, feature_names,
                                         X_before, X_after,
                                         mask_before_c0, mask_before_c1,
                                         mask_after_c0, mask_after_c1,
-                                        class_colors):
+                                        class_colors,
+                                        title='Feature Distributions over Time'):
     """
     Creates a figure showing feature distributions over time.
     """
     fig, axes = plt.subplots(n_features, 2,
                              figsize=(12, 4 * n_features),
                              squeeze=False)
-    fig.suptitle('Feature Distributions over Time',
-                 fontsize=16, fontweight='bold', y=1.0)
+    if title:
+        fig.suptitle(title, fontsize=16, fontweight='bold', y=1.0)
 
     for i in range(n_features):
         ax_before = axes[i, 0]
@@ -64,15 +65,16 @@ def plot_feature_target_relationship(X, n_features, feature_names,
                                      X_before, X_after,
                                      mask_before_c0, mask_before_c1,
                                      mask_after_c0, mask_after_c1,
-                                     class_colors):
+                                     class_colors,
+                                     title='Feature vs Target Relationship'):
     """
     Creates a figure showing feature vs target relationship.
     """
     fig, axes = plt.subplots(n_features, 2,
                              figsize=(12, 4 * n_features),
                              squeeze=False)
-    fig.suptitle('Feature vs Target Relationship',
-                 fontsize=16, fontweight='bold', y=1.0)
+    if title:
+        fig.suptitle(title, fontsize=16, fontweight='bold', y=1.0)
 
     for i in range(n_features):
         ax_before = axes[i, 0]
@@ -125,13 +127,14 @@ def plot_feature_target_relationship(X, n_features, feature_names,
     return fig
 
 
-def plot_class_distribution(class_dist_before, class_dist_after, class_colors):
+def plot_class_distribution(class_dist_before, class_dist_after, class_colors,
+                            title='Class Distribution'):
     """
     Creates a figure showing class distribution.
     """
     fig, (ax_class_before, ax_class_after) = plt.subplots(1, 2, figsize=(12, 6))
-    fig.suptitle('Class Distribution',
-                 fontsize=16, fontweight='bold', y=1.0)
+    if title:
+        fig.suptitle(title, fontsize=16, fontweight='bold', y=1.0)
 
     # Class distributions - Before (Window 1)
     ax_class_before.bar(['Class 0', 'Class 1'], class_dist_before,
@@ -158,7 +161,8 @@ def plot_class_distribution(class_dist_before, class_dist_after, class_colors):
 
 
 def plot_feature_space(n_features, feature_names, X_before, X_after,
-                       y_before, y_after, class_colors):
+                       y_before, y_after, class_colors,
+                       title='Feature Space'):
     """
     Creates a figure showing feature space (1D, 2D, or PCA).
     """
@@ -246,8 +250,9 @@ def plot_feature_space(n_features, feature_names, X_before, X_after,
     ax_fs_after.legend()
     ax_fs_after.grid(True, alpha=0.3)
 
-    fig.suptitle('Feature Space' + fs_title_suffix,
-                 fontsize=16, fontweight='bold', y=1.0)
+    if title:
+        fig.suptitle(title + fs_title_suffix,
+                     fontsize=16, fontweight='bold', y=1.0)
 
     plt.tight_layout()
     # Increased top margin
@@ -256,7 +261,11 @@ def plot_feature_space(n_features, feature_names, X_before, X_after,
 
 
 def visualize_data_stream(X, y, window_before_start, window_after_start,
-                          window_length, feature_names):
+                          window_length, feature_names,
+                          title_feat_dist='Feature Distributions over Time',
+                          title_feat_target='Feature vs Target Relationship',
+                          title_class_dist='Class Distribution',
+                          title_feat_space='Feature Space'):
     """
     Visualize the data stream for two specific windows.
 
@@ -338,22 +347,26 @@ def visualize_data_stream(X, y, window_before_start, window_after_start,
     figs.append(plot_feature_distribution_over_time(
         X, n_features, feature_names, time_steps_before, time_steps_after,
         X_before, X_after, mask_before_c0, mask_before_c1,
-        mask_after_c0, mask_after_c1, class_colors
+        mask_after_c0, mask_after_c1, class_colors,
+        title=title_feat_dist
     ))
 
     # 2. Feature vs Target Relationship
     figs.append(plot_feature_target_relationship(
          X, n_features, feature_names, X_before, X_after,
          mask_before_c0, mask_before_c1, mask_after_c0, mask_after_c1,
-         class_colors
+         class_colors,
+         title=title_feat_target
     ))
 
     # 3. Class Distribution
     figs.append(plot_class_distribution(class_dist_before, class_dist_after,
-                                        class_colors))
+                                        class_colors,
+                                        title=title_class_dist))
 
     # 4. Feature Space
     figs.append(plot_feature_space(n_features, feature_names, X_before,
-                                   X_after, y_before, y_after, class_colors))
+                                   X_after, y_before, y_after, class_colors,
+                                   title=title_feat_space))
 
     return figs

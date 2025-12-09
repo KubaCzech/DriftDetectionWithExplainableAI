@@ -15,6 +15,8 @@ from dashboard.components.tabs import (  # noqa: E402
     render_clustering_analysis_tab
 )
 from dashboard.components.sidebar import render_configuration_sidebar  # noqa: E402
+from dashboard.components.modals.info import show_info_modal  # noqa: E402
+
 
 
 # --- App Configuration ---
@@ -25,17 +27,20 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# --- Helper Functions ---
+
+
+
 # --- Main App ---
 
-st.title("📊 Concept Drift Analysis Dashboard")
+col_title, col_info = st.columns([0.9, 0.1])
 
+with col_title:
+    st.markdown("### 📊 Concept Drift Analysis Dashboard")
 
-st.markdown("""
-Welcome to the Concept Drift Analysis Dashboard. This tool allows you to:
-1.  **Generate** synthetic datasets with known concept drift.
-2.  **Visualize** the data stream and the drift itself.
-3.  **Analyze** the drift using various feature importance techniques to understand its root causes.
-""")
+with col_info:
+    if st.button("ℹ️ Info", help="Show dashboard information"):
+        show_info_modal()
 
 # --- Sidebar for User Input ---
 sidebar_config = render_configuration_sidebar()
@@ -191,6 +196,3 @@ elif active_tab == tabs[4]:
 
 elif active_tab == tabs[5]:
     render_recurring_race_p_tab(X_before, y_before, X_after, y_after)
-
-st.markdown("---")
-st.markdown("Developed as part of the xAI and Data Analysis Tools for Drift Detection project.")
