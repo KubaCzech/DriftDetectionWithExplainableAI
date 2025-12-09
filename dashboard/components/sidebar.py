@@ -148,6 +148,10 @@ def render_configuration_sidebar():  # noqa: C901
 
         with col_ds2:
             if st.button("⚙️", key="dataset_settings_btn", help="Configure dataset settings", use_container_width=True):
+                # Clear temporary settings widgets to ensure a fresh start from committed params
+                keys_to_clear = [k for k in st.session_state.keys() if k.startswith("temp_dataset_param_")]
+                for k in keys_to_clear:
+                    del st.session_state[k]
                 open_dataset_settings_modal(selected_dataset, window_length, dataset_key)
 
         # 5. Model Selection
@@ -170,6 +174,10 @@ def render_configuration_sidebar():  # noqa: C901
 
         with col_m2:
             if st.button("⚙️", key="model_settings_btn", help="Configure model settings", use_container_width=True):
+                # Clear temporary settings widgets to ensure a fresh start
+                keys_to_clear = [k for k in st.session_state.keys() if k.startswith("temp_model_param_")]
+                for k in keys_to_clear:
+                    del st.session_state[k]
                 open_model_settings_modal(selected_model_class)
 
         # Ensure dataset_params and model_params are populated for the main app execution

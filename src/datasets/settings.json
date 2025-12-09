@@ -1,6 +1,7 @@
 {
   "hyperplane_drift": {
     "Default": {
+      "default": true,
       "n_features": 2,
       "n_drift_features": 2,
       "noise_percentage": 0.05,
@@ -11,6 +12,7 @@
   },
   "random_rbf_drift": {
     "Default": {
+      "default": true,
       "n_features": 10,
       "n_classes": 2,
       "n_centroids": 50,
@@ -28,22 +30,27 @@
     }
   },
   "sea_drift": {
-    "Default": {}
+    "Default": {
+      "default": true
+    }
   },
   "electricity_drift": {
     "Default": {
+      "default": true,
       "size_of_block": 2000,
       "starting_point": -1
     }
   },
   "airlines_drift": {
     "Default": {
+      "default": true,
       "size_of_block": 2000,
       "starting_point": -1
     }
   },
   "forest_drift": {
     "Default": {
+      "default": true,
       "size_of_block": 2000,
       "starting_point": -1
     }
