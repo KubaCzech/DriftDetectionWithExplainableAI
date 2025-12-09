@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import numpy as np
 import pandas as pd
 
 
@@ -79,7 +78,7 @@ class BaseDataset(ABC):
         import os
 
         settings_path = os.path.join(os.path.dirname(__file__), 'settings.json')
-        
+
         try:
             with open(settings_path, 'r') as f:
                 all_settings = json.load(f)

@@ -30,7 +30,7 @@ class FeatureImportanceDriftAnalyzer:
         # Prepare features and labels
         if feature_names is None and hasattr(X_before, 'columns'):
             feature_names = X_before.columns.tolist()
-        
+
         self.feature_names = feature_names
 
         # Convert to numpy if pandas
@@ -77,7 +77,7 @@ class FeatureImportanceDriftAnalyzer:
             - 'importance_std': Standard deviation of importance scores.
         """
         X_features = np.concatenate([self.X_before, self.X_after])
-        
+
         n_samples_before = len(self.X_before)
         n_samples_after = len(self.X_after)
         time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
@@ -86,7 +86,7 @@ class FeatureImportanceDriftAnalyzer:
         if model_class is None:
             from src.models.mlp import MLPModel
             model_class = MLPModel
-        
+
         if model_params is None:
             model_params = {}
 
@@ -146,7 +146,7 @@ class FeatureImportanceDriftAnalyzer:
         y_combined = np.concatenate([self.y_before, self.y_after])
 
         X_features_with_y = np.column_stack([X_combined, y_combined])
-        
+
         n_samples_before = len(self.X_before)
         n_samples_after = len(self.X_after)
         time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
@@ -155,7 +155,7 @@ class FeatureImportanceDriftAnalyzer:
         if model_class is None:
             from src.models.mlp import MLPModel
             model_class = MLPModel
-        
+
         if model_params is None:
             model_params = {}
 
@@ -165,10 +165,10 @@ class FeatureImportanceDriftAnalyzer:
 
         # Calculate Feature Importance
         feature_names_with_y = (self.feature_names + ['Y']) if self.feature_names else None
-        
+
         if feature_names_with_y is None:
-             # Fallback if no feature names provided ever
-             feature_names_with_y = [f"Feature {i}" for i in range(X_features_with_y.shape[1])]
+            # Fallback if no feature names provided ever
+            feature_names_with_y = [f"Feature {i}" for i in range(X_features_with_y.shape[1])]
 
         fi_result = calculate_feature_importance(
             model_xy, X_features_with_y, time_labels,
@@ -224,7 +224,7 @@ class FeatureImportanceDriftAnalyzer:
         if model_class is None:
             from src.models.mlp import MLPModel
             model_class = MLPModel
-        
+
         if model_params is None:
             model_params = {}
 

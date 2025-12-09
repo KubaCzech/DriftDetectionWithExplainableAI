@@ -8,6 +8,7 @@ from .river_dataset import RiverDataset, RiverDatasetType
 from .dataset_registry import DatasetRegistry
 from .imported_dataset import ImportedCSVDataset
 
+
 def load_datasets():
     base_datasets = [
         SeaDriftDataset(),
@@ -20,17 +21,19 @@ def load_datasets():
         # RiverDataset(RiverDatasetType.AIRLIENES.value),
         # RiverDataset(RiverDatasetType.FOREST_COVER_TYPE.value)
     ]
-    
+
     datasets_dict = {d.name: d for d in base_datasets}
-    
+
     # Load imported datasets
     registry = DatasetRegistry()
     for name, info in registry.list_datasets().items():
         datasets_dict[name] = ImportedCSVDataset(name, info, registry)
-        
+
     return datasets_dict
 
+
 DATASETS = load_datasets()
+
 
 def reload_datasets():
     new_datasets = load_datasets()

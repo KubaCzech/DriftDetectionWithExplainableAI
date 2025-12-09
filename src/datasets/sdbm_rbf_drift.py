@@ -21,16 +21,14 @@ class SDBMRBFDriftDataset(BaseDataset):
             "n_features": 4,
             "gamma": 30.0,
             "noise": 0.0,
-            "gamma": 30.0,
-            "noise": 0.0,
             "cluster_std": 0.05,
             "random_seed": 42
         })
         return params
-        
+
     def get_settings_schema(self) -> list[dict]:
         return [
-             {
+            {
                 "name": "n_windows_before",
                 "type": "int",
                 "label": "Windows Before Drift",
@@ -48,7 +46,7 @@ class SDBMRBFDriftDataset(BaseDataset):
                 "step": 1,
                 "help": "Number of windows after the specific drift point."
             },
-             {
+            {
                 "name": "gamma",
                 "type": "float",
                 "label": "Gamma",
@@ -74,7 +72,6 @@ class SDBMRBFDriftDataset(BaseDataset):
                 "default": 0.05,
                 "min_value": 0.01,
                 "step": 0.01,
-                "step": 0.01,
                 "help": "Standard deviation of the Gaussian clusters."
             },
             {
@@ -92,8 +89,8 @@ class SDBMRBFDriftDataset(BaseDataset):
         """Generate Gaussian clusters with guaranteed samples per cluster."""
         n_centers = len(centers)
         if n_centers == 0:
-            return np.zeros((total_samples, 0)) # Should not happen with default logic
-        
+            return np.zeros((total_samples, 0))  # Should not happen with default logic
+
         base = total_samples // n_centers
         remainder = total_samples % n_centers
 
@@ -101,9 +98,9 @@ class SDBMRBFDriftDataset(BaseDataset):
         for i, c in enumerate(centers):
             n_cluster = base + (1 if i < remainder else 0)
             X_list.append(np.random.normal(loc=c, scale=std, size=(n_cluster, len(c))))
-        
+
         if not X_list:
-             return np.zeros((total_samples, len(centers[0]) if len(centers)>0 else 0))
+            return np.zeros((total_samples, len(centers[0]) if len(centers) > 0 else 0))
 
         return np.vstack(X_list)
 
@@ -123,7 +120,7 @@ class SDBMRBFDriftDataset(BaseDataset):
     def generate(self, n_samples_before=2000, n_samples_after=2000,
                  gamma=30.0, noise=0.0, cluster_std=0.05,
                  random_seed=42, **kwargs) -> tuple[pd.DataFrame, pd.Series]:
-        
+
         np.random.seed(random_seed)
 
         # Define 4 cluster centers in 4D → 2 per class
@@ -140,20 +137,20 @@ class SDBMRBFDriftDataset(BaseDataset):
 
         # Generate PRE drift data
         X_pre = self._generate_cluster_data(
-            np.vstack([centers_class0, centers_class1]), 
-            n_samples_before, 
+            np.vstack([centers_class0, centers_class1]),
+            n_samples_before,
             cluster_std
         )
         # Generate POST drift data
         X_post = self._generate_cluster_data(
-            np.vstack([centers_class0, centers_class1]), 
-            n_samples_after, 
+            np.vstack([centers_class0, centers_class1]),
+            n_samples_after,
             cluster_std
         )
 
         # Generate labels (Drift: swapped centers for class definition)
         y_pre = self._generate_labels(X_pre, centers_class0, centers_class1, gamma)
-        y_post = self._generate_labels(X_post, centers_class1, centers_class0, gamma) # Swapped
+        y_post = self._generate_labels(X_post, centers_class1, centers_class0, gamma)  # Swapped
 
         # Add noise
         y_pre = self._add_label_noise(y_pre, noise)
@@ -178,8 +175,4 @@ class SDBMRBFDriftDataset(BaseDataset):
         X_df = pd.DataFrame(X, columns=feature_names)
         y_series = pd.Series(y, name="target")
 
-        # Add drift_idx to kwags if needed for downstream (not standard in base, but useful context)
-        # But this method returns only X, y. 
-        # The calling code usually knows n_samples_before implies the drift index.
-        
         return X_df, y_series

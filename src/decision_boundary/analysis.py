@@ -8,7 +8,6 @@ from src.decision_boundary.ssnp import SSNP
 class DecisionBoundaryDriftAnalyzer:
     def __init__(self, X_before, y_before, X_after, y_after, random_state=42):
         self.random_state = random_state
-        
         # 0. Enforce Determinism
         np.random.seed(self.random_state)
         random.seed(self.random_state)
@@ -53,7 +52,7 @@ class DecisionBoundaryDriftAnalyzer:
         dict
             Dictionary containing results for 'pre' and 'post' windows, plus the SSNP model.
         """
-        
+
         # Normalize Data (Fit on Pre, Transform both)
         scaler = MinMaxScaler()
         X_before_scaled = scaler.fit_transform(self.X_before)
@@ -141,7 +140,6 @@ class DecisionBoundaryDriftAnalyzer:
                 'grid_bounds': (xmin - x_margin, xmax + x_margin, ymin - y_margin, ymax + y_margin)
             }
 
-        # 4. Process Pre and Post
         # 4. Process Pre and Post
         result_pre = process_window(X_before_scaled, self.y_before, X_before_2d)
 

@@ -55,15 +55,6 @@ class RandomRBFDriftDataset(BaseDataset):
                 "step": 1,
                 "help": "Number of numerical features."
             },
-            # {
-            #     "name": "n_classes",
-            #     "type": "int",
-            #     "label": "Number of Classes",
-            #     "default": 2,
-            #     "min_value": 2,
-            #     "step": 1,
-            #     "help": "Number of class labels."
-            # },
             {
                 "name": "n_centroids",
                 "type": "int",
@@ -102,8 +93,6 @@ class RandomRBFDriftDataset(BaseDataset):
             }
         ]
 
-
-
     def generate(self, n_samples_before=1000, n_samples_after=1000,
                  n_features=10, n_classes=2, n_centroids=50,
                  change_speed=0.0, n_drift_centroids=50, drift_width=400,
@@ -111,7 +100,7 @@ class RandomRBFDriftDataset(BaseDataset):
         """
         Generate synthetic data stream using River's RandomRBFDrift generator.
         """
-        
+
         # Stream 1: Static (change_speed=0)
         stream_static = synth.RandomRBFDrift(
             seed_model=random_seed,
@@ -119,14 +108,11 @@ class RandomRBFDriftDataset(BaseDataset):
             n_classes=n_classes,
             n_features=n_features,
             n_centroids=n_centroids,
-            change_speed=0.0, # Static
+            change_speed=0.0,  # Static
             n_drift_centroids=n_drift_centroids
         )
 
         # Stream 2: Drifting
-        # We use a different seed or same seed? 
-        # If we use same seed, it starts same but drifts?
-        # Hyperplane uses same seed.
         stream_drift = synth.RandomRBFDrift(
             seed_model=random_seed,
             seed_sample=random_seed,

@@ -1,6 +1,7 @@
 from sklearn.ensemble import RandomForestClassifier
 from .base import BaseModel
 
+
 class RandomForestModel(BaseModel):
     """Wrapper for RandomForestClassifier."""
 
@@ -23,7 +24,7 @@ class RandomForestModel(BaseModel):
         max_depth = self.max_depth
         if max_depth == 0:
             max_depth = None
-            
+
         return RandomForestClassifier(
             n_estimators=self.n_estimators,
             max_depth=max_depth,
@@ -46,7 +47,7 @@ class RandomForestModel(BaseModel):
                 "name": "max_depth",
                 "type": "int",
                 "label": "Max Depth",
-                "default": 0, # 0 will mean None in our logic if we handle it
+                "default": 0,  # 0 will mean None in our logic if we handle it
                 "min_value": 0,
                 "step": 1,
                 "help": "The maximum depth of the tree. 0 means unlimited."

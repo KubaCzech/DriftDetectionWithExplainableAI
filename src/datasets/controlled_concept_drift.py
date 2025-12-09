@@ -116,9 +116,8 @@ class ControlledConceptDriftDataset(BaseDataset):
         y_after = (scores_after > threshold_after).astype(int)
 
         # Combine data
-        # Combine data
         y_array = np.concatenate([y_before, y_after])
-        
+
         X_df = pd.DataFrame(X, columns=feature_names)
         y_series = pd.Series(y_array, name='Y')
 

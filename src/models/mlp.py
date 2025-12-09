@@ -2,6 +2,7 @@ from sklearn.neural_network import MLPClassifier
 import ast
 from .base import BaseModel
 
+
 class MLPModel(BaseModel):
     """Wrapper for MLPClassifier."""
 
@@ -30,7 +31,7 @@ class MLPModel(BaseModel):
                 # Fallback or error handling if parsing fails
                 # For now, let's assume valid input or default to (10, 10)
                 hidden_layers = (10, 10)
-        
+
         return MLPClassifier(
             hidden_layer_sizes=hidden_layers,
             max_iter=self.max_iter,

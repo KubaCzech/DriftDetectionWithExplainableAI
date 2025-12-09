@@ -39,7 +39,7 @@ class ClusterBasedDriftDetector:
 
         self.drift_flag = False
         self.drift_details = None
-        
+
         self.random_state = random_state
 
     # DONE
@@ -135,7 +135,7 @@ class ClusterBasedDriftDetector:
 
         for r, c in zip(row_ind, col_ind):
             if r < n_old and c < n_new:
-                d = dist[r, c]
+                # d = dist[r, c]
                 mapping[c] = r
             elif r < n_old and c >= n_new:
                 disappeared.append(r)
@@ -154,24 +154,25 @@ class ClusterBasedDriftDetector:
         # But if the user says "ensure deterministic", passing random_state implies we should manage seeds.
         # The standard pyclustering kmeans_plusplus_initializer might access global random state.
         # But let's check if it accepts a random_state argument in initializer.
-        # Assuming standard signature: kmeans_plusplus_initializer(data, amount_centers, candidate_centers=None, random_state=None)
+        # Assuming standard signature:
+        # kmeans_plusplus_initializer(data, amount_centers, candidate_centers=None, random_state=None)
         # If not, we rely on global seed which we can set here if self.random_state is set.
-        
+
         if self.random_state is not None:
-             import random
-             random.seed(self.random_state)
-             np.random.seed(self.random_state)
+            import random
+            random.seed(self.random_state)
+            np.random.seed(self.random_state)
 
         # Try to pass random_state if supported
         try:
-             init_centers = kmeans_plusplus_initializer(X, k_init, random_state=self.random_state).initialize()
+            init_centers = kmeans_plusplus_initializer(X, k_init, random_state=self.random_state).initialize()
         except TypeError:
-             # Fallback if random_state is not supported by this version of pyclustering
-             init_centers = kmeans_plusplus_initializer(X, k_init).initialize()
-        
+            # Fallback if random_state is not supported by this version of pyclustering
+            init_centers = kmeans_plusplus_initializer(X, k_init).initialize()
+
         # xmeans also uses random splitting sometimes in various implementations, typically relies on global random
         # setting global seeds above handles it if pyclustering relies on random/np.random
-        
+
         xm = xmeans(X, init_centers, kmax=k_max, ccore=False)
         xm.process()
         centers = np.array(xm.get_centers())
@@ -226,7 +227,7 @@ class ClusterBasedDriftDetector:
 
         self.stats_combined = self.compute_desc_stats_for_clusters()
 
-        details_3 = self.compare_desc_stats_for_clusters(self.stats_combined)
+        # details_3 = self.compare_desc_stats_for_clusters(self.stats_combined)
 
         # 3. desc stats changes
         for cl in classes:
@@ -244,7 +245,7 @@ class ClusterBasedDriftDetector:
                 for v in {i: self.cluster_shifts[i] for i in cl_old.intersection(cl_new)}.values()
             )
 
-            idx = set(self.cluster_labels_old[self.y_old == cl]).union(set(self.cluster_labels_new[self.y_new == cl]))
+            # idx = set(self.cluster_labels_old[self.y_old == cl]).union(set(self.cluster_labels_new[self.y_new == cl]))
             # details[cl]['desc_stats_changes'] = {k: details_3[k] for k in idx if k in details_3}
 
         self.drift_flag = any([details[cl]['nr_of_clusters'] or details[cl]['centroid_shift'] for cl in classes])

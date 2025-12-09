@@ -55,8 +55,6 @@ class RiverDataset(BaseDataset):
             }
         ]
 
-
-
     def get_params(self) -> dict:
         return {
             "size_of_block": 2000,

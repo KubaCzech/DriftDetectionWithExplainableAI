@@ -104,8 +104,6 @@ class HyperplaneDriftDataset(BaseDataset):
             }
         ]
 
-
-
     # TODO: Seems that the parameter mag_change has no effect on the data stream.
     # Remove it, or fix it.
     def generate(self, n_samples_before=1000, n_samples_after=1000,

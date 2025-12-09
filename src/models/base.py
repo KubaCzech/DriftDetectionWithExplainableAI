@@ -3,6 +3,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 import json
 import os
 
+
 class BaseModel(BaseEstimator, ClassifierMixin, ABC):
     """Abstract base class for all models."""
 
@@ -52,7 +53,7 @@ class BaseModel(BaseEstimator, ClassifierMixin, ABC):
         Return available named settings for this model.
         """
         settings_path = os.path.join(os.path.dirname(__file__), 'settings.json')
-        
+
         try:
             with open(settings_path, 'r') as f:
                 all_settings = json.load(f)
