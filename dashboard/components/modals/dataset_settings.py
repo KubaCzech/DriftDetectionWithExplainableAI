@@ -31,7 +31,7 @@ def _get_preview_features(registry, selected_dataset, temp_dataset_params, windo
 
         # Override for minimal generation
         gen_params["n_samples_before"] = 5
-        gen_params["n_samples_after"] = 0
+        gen_params["n_samples_after"] = 5
 
         X_preview, _ = selected_dataset.generate(**gen_params)
         if X_preview is not None:

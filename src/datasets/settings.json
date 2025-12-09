@@ -54,5 +54,12 @@
       "size_of_block": 2000,
       "starting_point": -1
     }
+  },
+  "controlled_concept_drift": {
+    "Default": {
+      "default": true,
+      "n_features": 11,
+      "n_drift_features": 5
+    }
   }
 }

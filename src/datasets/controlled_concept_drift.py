@@ -16,8 +16,8 @@ class ControlledConceptDriftDataset(BaseDataset):
     def get_params(self) -> dict:
         params = super().get_params()
         params.update({
-            "n_features": 4,
-            "n_drift_features": 2
+            "n_features": 11,
+            "n_drift_features": 5
         })
         return params
 
@@ -62,7 +62,7 @@ class ControlledConceptDriftDataset(BaseDataset):
         ]
 
     def generate(self, n_samples_before=1000, n_samples_after=1000,
-                 n_features=4, n_drift_features=2, random_seed=42, **kwargs):
+                 n_features=11, n_drift_features=5, random_seed=42, **kwargs):
         """
         Generate synthetic data with controlled Concept Drift.
         """
