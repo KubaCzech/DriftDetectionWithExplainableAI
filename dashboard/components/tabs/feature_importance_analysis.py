@@ -240,5 +240,3 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                         width="stretch",
                         height=200  # Fixed height
                     )
-
-    st.success("✅ Analysis complete!")
