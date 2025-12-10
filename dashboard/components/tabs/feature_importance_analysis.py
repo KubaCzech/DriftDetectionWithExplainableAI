@@ -36,30 +36,33 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
     """
     st.header("Feature Importance Analysis")
 
-    # Select Feature Importance Method
-    importance_method = st.selectbox(
-        "Choose a Feature Importance Method",
-        options=FeatureImportanceMethod.all_available(),
-        format_func=lambda x: x.upper(),
-        help="Select the method to explain the drift."
-    )
-
     # Analysis type selector dropdown
     ANALYSIS_OPTIONS = {
         "Concept Drift - P(Y|X) Changes": "concept_drift",
         "Data Drift - P(X) Changes": "data_drift",
         "Predictive Power Shift": "predictive_shift"
     }
-    analysis_choice = st.selectbox(
-        "Select Analysis Type",
-        options=list(ANALYSIS_OPTIONS.keys()),
-        index=0,  # Default to Concept Drift (P(Y|X))
-        help="Choose which drift analysis to display."
-    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        analysis_choice = st.selectbox(
+            "Select Analysis Type",
+            options=list(ANALYSIS_OPTIONS.keys()),
+            index=0,  # Default to Concept Drift (P(Y|X))
+            help="Choose which drift analysis to display."
+        )
+
+    with col2:
+        # Select Feature Importance Method
+        importance_method = st.selectbox(
+            "Choose a Feature Importance Method",
+            options=FeatureImportanceMethod.all_available(),
+            format_func=lambda x: x.upper(),
+            help="Select the method to explain the drift."
+        )
 
     selected_analysis = ANALYSIS_OPTIONS[analysis_choice]
-
-    st.markdown(f"Running **{analysis_choice}** analysis with **{importance_method.upper()}** method.")
 
     # Plot Type Selector
     plot_type_display = st.radio(
