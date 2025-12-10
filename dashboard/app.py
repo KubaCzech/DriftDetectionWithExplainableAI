@@ -14,7 +14,6 @@ from dashboard.components.tabs import (  # noqa: E402
     render_recurring_race_p_tab,
     render_clustering_analysis_tab
 )
-from dashboard.components.sidebar import render_configuration_sidebar  # noqa: E402
 from dashboard.components.modals.info import show_info_modal  # noqa: E402
 
 
@@ -41,15 +40,16 @@ with col_info:
         show_info_modal()
 
 # --- Sidebar for User Input ---
-sidebar_config = render_configuration_sidebar()
+# 1. Render Datasource Configuration (load dataset parameters)
+from dashboard.components.sidebar import render_sidebar_datasource_config, render_sidebar_window_selection
 
-window_length = sidebar_config["window_length"]
-window_before_start = sidebar_config["window_before_start"]
-window_after_start = sidebar_config["window_after_start"]
-dataset_key = sidebar_config["dataset_key"]
-dataset_params = sidebar_config["dataset_params"]
-selected_model_class = sidebar_config["selected_model_class"]
-model_params = sidebar_config["model_params"]
+datasource_config = render_sidebar_datasource_config()
+
+window_length = datasource_config["window_length"]
+dataset_key = datasource_config["dataset_key"]
+dataset_params = datasource_config["dataset_params"]
+selected_model_class = datasource_config["selected_model_class"]
+model_params = datasource_config["model_params"]
 
 
 # --- Data Generation ---
@@ -87,13 +87,23 @@ if X is not None:
     feature_names = X.columns.tolist()
 else:
     feature_names = []
+    # If data generation fails or no data, we can't really set window selection constraints properly.
+    # But we should still render the inputs to avoid UI disappearing, just with default/fallback max.
+    
+# 2. Render Window Selection (now that we know data length)
+if X is not None:
+    max_samples = len(X)
+else:
+    max_samples = 1000 # Fallback
+
+window_before_start, window_after_start = render_sidebar_window_selection(max_samples, window_length)
 
 if X is None:
     st.warning("Please upload a CSV file or select a valid dataset to proceed.")
     st.stop()
 # --- Feature Selection ---
 # Feature selection is now handled in the sidebar configuration modal
-selected_features = sidebar_config.get("selected_features", [])
+selected_features = datasource_config.get("selected_features", [])
 
 # If no features selected (or first run), default to all if empty, but sidebar should handle it.
 if not selected_features and X is not None:
