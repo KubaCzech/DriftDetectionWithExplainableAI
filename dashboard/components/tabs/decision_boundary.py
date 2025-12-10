@@ -26,7 +26,7 @@ def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
     model_params : dict
         Parameters for the classifier
     """
-    st.header("3. Decision Boundary Analysis")
+    st.header("Decision Boundary Analysis")
     st.markdown("""
     This tab visualizes the decision boundary of a classifier trained on the pre-drift and post-drift data.
     It uses **SSNP (Semi-Supervised Neural Projection)** to project the high-dimensional data into 2D while

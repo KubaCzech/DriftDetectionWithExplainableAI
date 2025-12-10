@@ -34,7 +34,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
     model_params : dict (optional)
         Parameters for the model
     """
-    st.header("2. Drift Analysis Configuration & Results")
+    st.header("Feature Importance Analysis")
 
     # Select Feature Importance Method
     importance_method = st.selectbox(

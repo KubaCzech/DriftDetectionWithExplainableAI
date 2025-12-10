@@ -7,7 +7,7 @@ from src.clustering.visualization import plot_drift_clustered, color_map
 
 
 def _display_intro():
-    st.header("Clustering Analysis (Cluster-Based Drift Detection)")
+    st.header("Clustering Analysis")
     st.markdown("""
     This tab uses cluster-based methods to detect and analyze concept drift.
     It compares the data distribution and cluster structures between two windows:
