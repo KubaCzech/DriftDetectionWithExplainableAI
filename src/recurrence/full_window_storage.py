@@ -5,8 +5,8 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
-from protree import TPrototypes, TDataBatch, TTarget
-from protree.explainers import TExplainer
+from src.recurrence.protree import TPrototypes, TDataBatch, TTarget
+from src.recurrence.protree.explainers import TExplainer
 
 
 class FullWindowStorage:
@@ -162,8 +162,8 @@ class FullWindowStorage:
         """Compute similarity metric between two prototype sets."""
 
         if measure in ["mutual_information", "rand_index", "completeness", "fowlkes_mallows"]:
-            import protree.metrics.compare
-            metric = getattr(protree.metrics.compare, measure)
+            import src.recurrence.protree.metrics.compare as compare_metrics
+            metric = getattr(compare_metrics, measure)
 
             kwargs = {
                 "a": prototypes_a,
@@ -179,7 +179,7 @@ class FullWindowStorage:
             return metric(**kwargs)
 
         elif measure == "prototype_reassignment_impact":
-            from protree.metrics.compare import prototype_reassignment_impact
+            from src.recurrence.protree.metrics.compare import prototype_reassignment_impact
 
             if distance == "tree":
                 return prototype_reassignment_impact(prototypes_a, prototypes_b, x, y, explainer=explainer_b)
@@ -187,20 +187,20 @@ class FullWindowStorage:
 
         elif measure == "minimal_distance":
             if strategy == "class":
-                from protree.metrics.compare import classwise_mean_minimal_distance
+                from src.recurrence.protree.metrics.compare import classwise_mean_minimal_distance
                 result = classwise_mean_minimal_distance(prototypes_a, prototypes_b)
                 return np.mean(list(result.values()))
             else:
-                from protree.metrics.compare import mean_minimal_distance
+                from src.recurrence.protree.metrics.compare import mean_minimal_distance
                 return mean_minimal_distance(prototypes_a, prototypes_b)
 
         elif measure == "centroid_displacement":
             if strategy == "class":
-                from protree.metrics.compare import centroids_displacements
+                from src.recurrence.protree.metrics.compare import centroids_displacements
                 result = centroids_displacements(prototypes_a, prototypes_b)
                 return np.mean(list(result.values()))
             else:
-                from protree.metrics.compare import mean_centroid_displacement
+                from src.recurrence.protree.metrics.compare import mean_centroid_displacement
                 return mean_centroid_displacement(prototypes_a, prototypes_b)
 
         return 0.0

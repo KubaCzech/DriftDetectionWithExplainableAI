@@ -12,3 +12,6 @@ shap
 streamlit
 tensorflow
 pyclustering
+seaborn
+hdbscan
+icecream

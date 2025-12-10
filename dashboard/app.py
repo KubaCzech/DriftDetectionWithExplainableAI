@@ -4,6 +4,7 @@ import os
 
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'recurrence')))
 
 from src.datasets import DATASETS  # noqa: E402
 from dashboard.components.tabs import (  # noqa: E402
@@ -203,4 +204,4 @@ elif active_tab == tabs[4]:
     render_clustering_analysis_tab(X_before, y_before, X_after, y_after)
 
 elif active_tab == tabs[5]:
-    render_recurring_race_p_tab(X_before, y_before, X_after, y_after)
+    render_recurring_race_p_tab(X, y, window_length)
