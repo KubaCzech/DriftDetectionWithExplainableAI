@@ -44,7 +44,7 @@ class SeaDriftDataset(BaseDataset):
         ]
 
     def get_params(self) -> dict:
-        return {"n_windows_before": 1, "n_windows_after": 1, "random_seed": 42}
+        return {"n_windows_before": 1, "n_windows_after": 1, "random_seed": 42, "n_features": 3}
 
     def generate(self, n_samples_before=1000, n_samples_after=1000, random_seed=42, n_features=3, **kwargs):
         """
