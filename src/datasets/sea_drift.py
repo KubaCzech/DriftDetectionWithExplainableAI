@@ -32,6 +32,15 @@ class SeaDriftDataset(BaseDataset):
                 "step": 1,
                 "help": "Number of windows generated after the concept drift occurs.",
             },
+            {
+                "name": "n_features",
+                "type": "int",
+                "label": "Number of Features in the stream",
+                "default": 3,
+                "min_value": 2,
+                "step": 1,
+                "help": "Number of features to be generated in the stream.",
+            },
         ]
 
     def get_params(self) -> dict:
