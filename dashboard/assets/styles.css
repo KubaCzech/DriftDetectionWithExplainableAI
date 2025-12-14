@@ -1,16 +1,5 @@
 :root {
     --primary-color: #ff4b4b;
-    --background-color: #ffffff;
-    --secondary-background-color: #f0f2f6;
-    --text-color: #31333F;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background-color: #0e1117;
-        --secondary-background-color: #262730;
-        --text-color: #fafafa;
-    }
 }
 
 div[role="radiogroup"] {
@@ -39,8 +28,6 @@ div[role="radiogroup"] label>input {
 
 /* Base Tab Style (Apply to content div) */
 div[role="radiogroup"] label>div:not(:first-child) {
-    background-color: var(--secondary-background-color);
-    color: var(--text-color);
     padding: 10px;
     border-radius: 5px 5px 0 0;
     text-align: center;
@@ -67,11 +54,9 @@ div[role="radiogroup"] label:hover>div:not(:first-child) {
 /* Selected Tab Style - Simplest robust selector: input checked + div */
 /* Note: Streamlit structure is input + div for the content */
 input[type="radio"]:checked+div {
-    background-color: var(--background-color) !important;
     color: var(--primary-color) !important;
     font-weight: bold !important;
     border-top: 4px solid var(--primary-color) !important;
-    border-bottom: 2px solid var(--background-color) !important;
     border-left: 1px solid rgba(128, 128, 128, 0.2) !important;
     border-right: 1px solid rgba(128, 128, 128, 0.2) !important;
     filter: none !important;

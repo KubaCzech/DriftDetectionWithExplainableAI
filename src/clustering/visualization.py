@@ -59,13 +59,22 @@ def plot_clusters(X, labels, title, color_map=None):
     if hasattr(labels, "values"):
         labels = labels.values
 
+    # Ensure labels are integers
+    if labels.dtype.kind == 'f':
+        labels = labels.astype(int)
+
     unique_labels = sorted(np.unique(labels))
     if color_map is None:
-        cmap = plt.cm.viridis
-        color_map = {ul: cmap(i / len(unique_labels)) for i, ul in enumerate(unique_labels)}
+        if len(unique_labels) <= len(colors):
+            color_map = {ul: colors[i] for i, ul in enumerate(unique_labels)}
+        else:
+            cmap = plt.cm.viridis
+            color_map = {ul: cmap(i / len(unique_labels)) for i, ul in enumerate(unique_labels)}
 
     for ul in unique_labels:
-        plt.scatter(X[labels == ul, 0], X[labels == ul, 1], color=color_map[ul], label=f'Cluster {ul}', s=30)
+        # Safety check for color map
+        color = color_map.get(ul, "#333333") # Default to dark gray if missing
+        plt.scatter(X[labels == ul, 0], X[labels == ul, 1], color=color, label=f'Cluster {ul}', s=30)
 
     plt.title(title)
     plt.xlabel("Feature 1")
@@ -75,11 +84,31 @@ def plot_clusters(X, labels, title, color_map=None):
 
 
 def plot_drift_clustered(
-    X_before, X_after, labels_before, labels_after, color_map=color_map, show=True, in_subplot=False
+    X_before, X_after, labels_before, labels_after, color_map=None, show=True, in_subplot=False
 ):
     # plot and color clusters before and after the drift
     if not in_subplot:
         plt.figure(figsize=(12, 5))
+
+    # Normalize inputs
+    if hasattr(labels_before, "values"): labels_before = labels_before.values
+    if hasattr(labels_after, "values"): labels_after = labels_after.values
+
+    if labels_before.dtype.kind == 'f': labels_before = labels_before.astype(int)
+    if labels_after.dtype.kind == 'f': labels_after = labels_after.astype(int)
+
+    # Dynamic color map generation if not provided
+    if color_map is None:
+        unique_before = np.unique(labels_before)
+        unique_after = np.unique(labels_after)
+        all_labels = sorted(list(set(unique_before) | set(unique_after)))
+        
+        if len(all_labels) <= len(colors):
+             color_map = {label: colors[i] for i, label in enumerate(all_labels)}
+        else:
+             # Use tab20 for more distinct colors if many clusters
+             cmap = plt.cm.get_cmap('tab20')
+             color_map = {label: cmap(i / len(all_labels)) for i, label in enumerate(all_labels)}
 
     # Before drift
     plt.subplot(1, 2, 1)

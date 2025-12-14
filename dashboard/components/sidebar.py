@@ -6,9 +6,11 @@ from dashboard.components.modals.dataset_settings import open_dataset_settings_m
 from dashboard.components.modals.model_settings import open_model_settings_modal
 
 
-def render_configuration_sidebar():  # noqa: C901
+def render_sidebar_datasource_config():
     """
-    Renders the main configuration sidebar (Dataset, Model, Global Settings).
+    Renders the configuration sidebar (Dataset, Model, Global Settings).
+    Does NOT render window selection (requires data length).
+
     Returns a dictionary containing the configuration.
     """
     with st.sidebar:
@@ -22,27 +24,6 @@ def render_configuration_sidebar():  # noqa: C901
             value=1000,
             help="Length of the analysis window in samples."
         )
-
-        st.subheader("Analysis Window Selection")
-        col_w1, col_w2 = st.columns(2)
-        with col_w1:
-            window_before_start_windows = st.number_input(
-                "Before",
-                min_value=0,
-                value=0,
-                help="Starting index for the first analysis window (in number of windows)."
-            )
-        with col_w2:
-            window_after_start_windows = st.number_input(
-                "After",
-                min_value=0,
-                value=1,
-                help="Starting index for the second analysis window (in number of windows)."
-            )
-
-        # Calculate absolute indices
-        window_before_start = window_before_start_windows * window_length
-        window_after_start = window_after_start_windows * window_length
 
         st.subheader("Dataset Selection")
 
@@ -186,11 +167,93 @@ def render_configuration_sidebar():  # noqa: C901
 
     return {
         "window_length": window_length,
-        "window_before_start": window_before_start,
-        "window_after_start": window_after_start,
         "dataset_key": dataset_key,
         "dataset_params": dataset_params,
         "selected_model_class": selected_model_class,
         "model_params": model_params,
         "selected_features": st.session_state.get(f"selected_features_{dataset_key}", [])
     }
+
+
+def render_sidebar_window_selection(max_samples, window_length):
+    """
+    Renders the Analysis Window Selection controls in the sidebar.
+    Uses actual max_samples to enforce constraints.
+    """
+    with st.sidebar:
+        st.subheader("Analysis Window Selection")
+
+        max_windows = max(1, int(max_samples // window_length))
+
+        col_w1, col_w2 = st.columns(2)
+
+        # Get current values from session state to set dynamic limits and auto-correct
+        curr_before_key = "window_before_input"
+        curr_after_key = "window_after_input"
+
+        # Initialize if not present (default 0 and 1)
+        if curr_before_key not in st.session_state: st.session_state[curr_before_key] = 0
+        if curr_after_key not in st.session_state: st.session_state[curr_after_key] = 1
+
+        curr_before = st.session_state[curr_before_key]
+        curr_after = st.session_state[curr_after_key]
+
+        # Constraint 1: Absolute Max
+        # Last index is max_windows - 1
+        # Before can be at most max_windows - 2 (needs 1 spot for after)
+        abs_max_before = max(0, max_windows - 2)
+        abs_max_after = max(1, max_windows - 1)
+
+        # Auto-correct absolute bounds
+        if curr_before > abs_max_before:
+            curr_before = abs_max_before
+            st.session_state[curr_before_key] = curr_before
+
+        if curr_after > abs_max_after:
+            curr_after = abs_max_after
+            st.session_state[curr_after_key] = curr_after
+
+        # Constraint 2: Relative Order (Before < After)
+        # We ensure min_after is at least Before + 1
+        # If current After is too small, bump it up
+        min_after = curr_before + 1
+        if curr_after < min_after:
+            curr_after = min_after
+            # Verify we didn't exceed absolute max for After
+            if curr_after > abs_max_after:
+                # If bumping After exceeds max, we must push Before down
+                curr_after = abs_max_after
+                curr_before = curr_after - 1
+                st.session_state[curr_before_key] = curr_before
+            st.session_state[curr_after_key] = curr_after
+
+        # Now Render Widgets with safe values
+        with col_w1:
+            window_before_start_windows = st.number_input(
+                "Before",
+                min_value=0,
+                max_value=abs_max_before,
+                # value=curr_before,  <-- Removed to avoid warning
+                key=curr_before_key,
+                help="Starting index for the first analysis window (in number of windows)."
+            )
+
+        with col_w2:
+            window_after_start_windows = st.number_input(
+                "After",
+                min_value=window_before_start_windows + 1,  # Dynamic min based on widget
+                max_value=abs_max_after,
+                # value=curr_after,  <-- Removed to avoid warning
+                key=curr_after_key,
+                help="Starting index for the second analysis window (in number of windows)."
+            )
+
+        # Force constraint verification (visual warning just in case, though logic handles it)
+        if window_before_start_windows >= window_after_start_windows:
+            st.warning("Window 'Before' must be strictly smaller than 'After'.")
+
+        # Calculate absolute indices
+        window_before_start = window_before_start_windows * window_length
+        window_after_start = window_after_start_windows * window_length
+
+        return window_before_start, window_after_start

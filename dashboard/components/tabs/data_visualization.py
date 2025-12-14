@@ -159,7 +159,7 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
     window_after_start : int
     window_length : int
     """
-    st.header("1. Data Stream Visualization")
+    st.header("Dataset Visualization")
 
     # --- Metrics Section ---
     n_before = len(y_before)

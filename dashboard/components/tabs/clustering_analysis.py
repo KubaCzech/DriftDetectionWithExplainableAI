@@ -3,11 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import traceback
 from src.clustering.clustering import ClusterBasedDriftDetector
-from src.clustering.visualization import plot_drift_clustered, color_map
+from src.clustering.visualization import plot_drift_clustered
 
 
 def _display_intro():
-    st.header("Clustering Analysis (Cluster-Based Drift Detection)")
+    st.header("Clustering Analysis")
     st.markdown("""
     This tab uses cluster-based methods to detect and analyze concept drift.
     It compares the data distribution and cluster structures between two windows:
@@ -64,7 +64,7 @@ def _display_cluster_plot(X_before, X_after, detector):
     labels_new = detector.cluster_labels_new
 
     if labels_old is not None and labels_new is not None:
-        plot_drift_clustered(X_before, X_after, labels_old, labels_new, color_map=color_map, show=False)
+        plot_drift_clustered(X_before, X_after, labels_old, labels_new, show=False)
         fig = plt.gcf()
         st.pyplot(fig)
         plt.close(fig)

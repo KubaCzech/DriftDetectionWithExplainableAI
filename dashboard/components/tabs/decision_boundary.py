@@ -26,7 +26,7 @@ def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
     model_params : dict
         Parameters for the classifier
     """
-    st.header("3. Decision Boundary Analysis")
+    st.header("Decision Boundary Analysis")
     st.markdown("""
     This tab visualizes the decision boundary of a classifier trained on the pre-drift and post-drift data.
     It uses **SSNP (Semi-Supervised Neural Projection)** to project the high-dimensional data into 2D while
@@ -47,8 +47,26 @@ def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
     if 'decision_boundary_results' not in st.session_state:
         st.session_state.decision_boundary_results = None
 
-    if st.button("Run Decision Boundary Analysis", key="run_decision_boundary_btn"):
-        with st.spinner("Running Analysis (Training SSNP and Classifiers)..."):
+    # Define current run parameters to detect changes
+    current_run_params = {
+        'ssnp_epochs': ssnp_epochs,
+        'grid_size': grid_size,
+        'model_class': getattr(model_class, '__name__', str(model_class)),
+        'model_params': str(model_params),
+        'X_shape': X_before.shape if hasattr(X_before, 'shape') else None
+    }
+
+    # Determine if analysis needs to be run
+    should_run = False
+    if st.session_state.decision_boundary_results is None:
+        should_run = True
+    elif 'decision_boundary_last_params' not in st.session_state:
+        should_run = True
+    elif st.session_state.decision_boundary_last_params != current_run_params:
+        should_run = True
+
+    if should_run:
+        with st.spinner("Running Analysis (Auto-refresh)..."):
             try:
                 analyzer = DecisionBoundaryDriftAnalyzer(X_before, y_before, X_after, y_after)
                 results = analyzer.analyze(
@@ -57,8 +75,9 @@ def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
                     ssnp_epochs=ssnp_epochs,
                     grid_size=grid_size
                 )
-                # Store results in session state
+                # Store results and params in session state
                 st.session_state.decision_boundary_results = results
+                st.session_state.decision_boundary_last_params = current_run_params
 
             except Exception as e:
                 st.error(f"An error occurred during analysis: {e}")
