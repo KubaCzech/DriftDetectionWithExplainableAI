@@ -7,8 +7,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.extmath import cartesian
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import matplotlib.cm as cm
-from skimage.color import rgb2hsv, hsv2rgb
+import matplotlib.colors as mcolors
 import ssnp  # Requires your ssnp.py
 
 # ===========================================================
@@ -18,9 +17,16 @@ OUTPUT_DIR = "./results_hyperplane"
 GRID_SIZE = 300
 
 def get_disagreement_table(tree, feature_names, X_data=None):
+    """
+    Extracts rules from the tree for printing. 
+    Returns the dataframe and the raw leaf indices corresponding to 'Drift' rules.
+    """
     tree_ = tree.tree_
     tree_classes = tree.classes_
     rules_data = []
+    
+    # Store leaf indices that classify as Drift (Class 1)
+    drift_leaves = []
 
     feature_mins = {}
     feature_maxs = {}
@@ -50,6 +56,7 @@ def get_disagreement_table(tree, feature_names, X_data=None):
         return ",  ".join(range_strings)
 
     def recurse(node, path_tuples):
+        # Check if leaf node
         if tree_.feature[node] == -2:
             val = tree_.value[node][0]
             total = val.sum()
@@ -61,40 +68,39 @@ def get_disagreement_table(tree, feature_names, X_data=None):
                     'Rule': readable_rule,
                     'Drift Conf.': f"{class_prob:.1%}",
                     'Samples': tree_.n_node_samples[node],
-                    'Coverage': f"{tree_.n_node_samples[node] / tree_.n_node_samples[0]:.1%}"
+                    'Coverage': tree_.n_node_samples[node] / tree_.n_node_samples[0], # Keep as float for sorting
+                    'Leaf_ID': node  # Store internal ID
                 })
+                drift_leaves.append(node)
             return
+
         name = feature_names[tree_.feature[node]]
         threshold = tree_.threshold[node]
         recurse(tree_.children_left[node], path_tuples + [(name, "<=", threshold)])
         recurse(tree_.children_right[node], path_tuples + [(name, ">", threshold)])
 
     recurse(0, [])
+    
     if not rules_data: 
-        return pd.DataFrame(columns=["No Drift Regions Found"])
-    return pd.DataFrame(rules_data).sort_values(by='Coverage', ascending=False)
+        return pd.DataFrame(columns=["No Drift Regions Found"]), []
+    
+    df = pd.DataFrame(rules_data).sort_values(by='Coverage', ascending=False)
+    # Reformat coverage for display
+    df['Coverage'] = df['Coverage'].apply(lambda x: f"{x:.1%}")
+    return df, df['Leaf_ID'].tolist()
 
 # ===========================================================
-# Visualization: Exact Square Replica of Experiments.py
+# Visualization: Categorical Drift Map (New Function)
 # ===========================================================
-def plot_drift_overlay_exact(clf_post, ssnpgt, arch_name, X_norm, y_delta, X_ssnpgt_ref):
-    print(f"[INFO] Generating Exact SDBM + Rule Overlay for {arch_name}...")
+def plot_drift_map_rules(viz_tree, ssnpgt, arch_name, drift_leaf_ids, bounds):
+    print(f"[INFO] Generating Categorical Drift Map for {arch_name}...")
 
-    # 1. Train Visualization Tree (High Dim -> Rule ID)
-    viz_tree = DecisionTreeClassifier(
-        max_depth=4, 
-        min_samples_leaf=0.01, 
-        class_weight='balanced', 
-        random_state=42
-    )
-    viz_tree.fit(X_norm, y_delta)
+    # Unpack exact bounds passed from main (matching the DBM script)
+    # Note: DBM script maps x_intrvls (Comp 0) to Rows (Vertical)
+    # and y_intrvls (Comp 1) to Cols (Horizontal)
+    xmin, xmax, ymin, ymax = bounds
 
-    # 2. Determine Bounds EXACTLY like experiments.py
-    # Component 0 = Rows (Vertical), Component 1 = Cols (Horizontal)
-    xmin, xmax = np.min(X_ssnpgt_ref[:, 0]), np.max(X_ssnpgt_ref[:, 0])
-    ymin, ymax = np.min(X_ssnpgt_ref[:, 1]), np.max(X_ssnpgt_ref[:, 1])
-
-    # 3. Create Grid Arrays
+    # Create Grid Arrays (Exact match to experiments.py)
     x_intrvls = np.linspace(xmin, xmax, num=GRID_SIZE)
     y_intrvls = np.linspace(ymin, ymax, num=GRID_SIZE)
     
@@ -106,95 +112,61 @@ def plot_drift_overlay_exact(clf_post, ssnpgt, arch_name, X_norm, y_delta, X_ssn
     pts = cartesian((x_intrvls, y_intrvls))
     pts_grid = cartesian((x_grid_indices, y_grid_indices)).astype(int)
 
-    # 4. Fill Matrices
-    img_grid = np.zeros((GRID_SIZE, GRID_SIZE))         
-    prob_grid = np.zeros((GRID_SIZE, GRID_SIZE))        
-    rule_grid = np.zeros((GRID_SIZE, GRID_SIZE))        
-    drift_mask_grid = np.zeros((GRID_SIZE, GRID_SIZE))  
-
-    batch_size = 100000
+    # Fill Matrix
+    rule_map_grid = np.zeros((GRID_SIZE, GRID_SIZE))
     
+    batch_size = 100000
     for i in range(0, len(pts), batch_size):
         pts_batch = pts[i:i + batch_size]
         pts_grid_batch = pts_grid[i:i + batch_size]
         
         high_dim_batch = ssnpgt.inverse_transform(pts_batch)
-
-        # A. Background
-        if hasattr(clf_post, "predict_proba"):
-            probs = clf_post.predict_proba(high_dim_batch)
-            alpha = np.amax(probs, axis=1)
-            labels = probs.argmax(axis=1)
-        else:
-            labels = clf_post.predict(high_dim_batch)
-            alpha = np.ones(len(labels))
-
-        # B. Foreground
-        rule_leaves = viz_tree.apply(high_dim_batch)
-        is_drift = viz_tree.predict(high_dim_batch)
-
-        # C. Assign
+        leaves = viz_tree.apply(high_dim_batch)
+        
         rows = pts_grid_batch[:, 0]
         cols = pts_grid_batch[:, 1]
-        
-        img_grid[rows, cols] = labels
-        prob_grid[rows, cols] = alpha
-        rule_grid[rows, cols] = rule_leaves
-        drift_mask_grid[rows, cols] = is_drift
+        rule_map_grid[rows, cols] = leaves
 
-    # 5. Flip Vertical Axis (Standard orientation from experiments.py)
-    img_grid = np.flipud(img_grid)
-    prob_grid = np.flipud(prob_grid)
-    rule_grid = np.flipud(rule_grid)
-    drift_mask_grid = np.flipud(drift_mask_grid)
+    # Flip to match standard image orientation
+    rule_map_grid = np.flipud(rule_map_grid)
 
-    # 6. Construct Background Image Manually (Tab20 + HSV)
-    n_classes = len(np.unique(img_grid))
-    if n_classes < 2: n_classes = 2 
+    # ... [Rest of categorical mapping logic stays the same] ...
+    # Map raw leaf IDs to plot indices
+    final_grid = np.zeros_like(rule_map_grid)
+    leaf_to_plot_idx = {leaf: i+1 for i, leaf in enumerate(drift_leaf_ids)}
+    unique_leaves = np.unique(rule_map_grid)
+    for leaf in unique_leaves:
+        if leaf in leaf_to_plot_idx:
+            final_grid[rule_map_grid == leaf] = leaf_to_plot_idx[leaf]
+        else:
+            final_grid[rule_map_grid == leaf] = 0 
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 10)) # Square figure to match
     
-    norm_classes = img_grid / n_classes
-    rgba_base = cm.tab20(norm_classes)
-    
-    hsv_base = rgb2hsv(rgba_base[:, :, :3])
-    hsv_base[:, :, 2] = prob_grid 
-    final_rgb = hsv2rgb(hsv_base)
+    num_rules = len(drift_leaf_ids)
+    cmap_base = plt.get_cmap('tab10', num_rules)
+    colors = ['#f0f0f0'] + [mcolors.rgb2hex(cmap_base(i)) for i in range(num_rules)]
+    cmap = mcolors.ListedColormap(colors)
+    bounds_norm = np.arange(-0.5, num_rules + 1.5, 1)
+    norm = mcolors.BoundaryNorm(bounds_norm, cmap.N)
 
-    # 7. Plotting - FORCE SQUARE FIGURE
-    # We use (10, 10) to force a square canvas
-    fig, ax = plt.subplots(figsize=(10, 10))
-    
-    # We allow aspect='auto' so the rectangular data range fills the square axes
-    # This matches the behavior of generating a 300x300 pixel image regardless of data range
-    ax.imshow(final_rgb, extent=[ymin, ymax, xmin, xmax], aspect='auto')
-    
-    # Overlay Rules
-    drift_leaf_ids = np.unique(rule_grid[drift_mask_grid == 1])
-    rule_colors = ['#FF0000', '#FF00FF', '#000000', '#00FFFF', '#FFFFFF']
-    legend_patches = []
+    # Use explicit extent matching bounds
+    # imshow extent order: [left, right, bottom, top]
+    # ymin/ymax = Component 2 (Horizontal/Cols)
+    # xmin/xmax = Component 1 (Vertical/Rows)
+    img = ax.imshow(final_grid, cmap=cmap, norm=norm, 
+                    extent=[ymin, ymax, xmin, xmax], 
+                    aspect='auto', interpolation='nearest')
 
-    for i, leaf_id in enumerate(drift_leaf_ids):
-        color = rule_colors[i % len(rule_colors)]
-        mask = (rule_grid == leaf_id) & (drift_mask_grid == 1)
-        mask = mask.astype(float)
-        
-        if np.sum(mask) == 0: continue
-
-        ax.contour(mask, levels=[0.5], extent=[ymin, ymax, xmin, xmax], 
-                   colors=[color], linewidths=3, origin='upper')
-        ax.contourf(mask, levels=[0.5, 1.5], extent=[ymin, ymax, xmin, xmax], 
-                    colors='none', hatches=['//'], origin='upper', extend='max')
-        
-        patch = mpatches.Patch(facecolor='none', hatch='//', edgecolor=color, label=f'Rule {i+1}')
-        legend_patches.append(patch)
-
-    ax.set_title(f"{arch_name.upper()}: Post-Drift SDBM + Rule Regions")
-    ax.set_xlabel("SSNP Component 2")
+    ax.set_title(f"{arch_name.upper()} Disagreement Map")
     ax.set_ylabel("SSNP Component 1")
+    ax.set_xlabel("SSNP Component 2")
 
-    if legend_patches:
-        ax.legend(handles=legend_patches, loc='upper right')
-
-    save_path = os.path.join(OUTPUT_DIR, f"drift_overlay_rules_{arch_name}.png")
+    cbar = plt.colorbar(img, ticks=np.arange(0, num_rules + 1), fraction=0.046, pad=0.04)
+    cbar.ax.set_yticklabels(['Stable'] + [f'Rule {i+1}' for i in range(num_rules)])
+    
+    save_path = os.path.join(OUTPUT_DIR, f"drift_map_rules_{arch_name}.png")
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"[INFO] Saved: {save_path}")
@@ -202,7 +174,7 @@ def plot_drift_overlay_exact(clf_post, ssnpgt, arch_name, X_norm, y_delta, X_ssn
 # ===========================================================
 # Core Logic
 # ===========================================================
-def analyze_drift(arch_name, X_eval_norm, X_eval_raw, feature_names, projector, X_ssnpgt_ref):
+def analyze_drift(arch_name, X_eval_norm, X_eval_raw, feature_names, projector, bounds):
     print(f"\n--- Analyzing {arch_name.upper()} ---")
 
     path_pre = os.path.join(OUTPUT_DIR, f"hyperplane4d_pre_drift_{arch_name}.pkl")
@@ -215,6 +187,7 @@ def analyze_drift(arch_name, X_eval_norm, X_eval_raw, feature_names, projector, 
     clf_pre = pickle.load(open(path_pre, "rb"))
     clf_post = pickle.load(open(path_post, "rb"))
 
+    # 1. Detect Drift Points
     pred_pre = clf_pre.predict(X_eval_norm)
     pred_post = clf_post.predict(X_eval_norm)
     y_delta = (pred_pre != pred_post).astype(int)
@@ -223,6 +196,7 @@ def analyze_drift(arch_name, X_eval_norm, X_eval_raw, feature_names, projector, 
         print("[INFO] No drift detected.")
         return
 
+    # 2. Train Explainable Surrogate (Visualization Tree)
     surrogate = DecisionTreeClassifier(
         max_depth=4, 
         min_samples_leaf=0.01, 
@@ -232,13 +206,24 @@ def analyze_drift(arch_name, X_eval_norm, X_eval_raw, feature_names, projector, 
     X_df_raw = pd.DataFrame(X_eval_raw, columns=feature_names)
     surrogate.fit(X_df_raw, y_delta)
     
-    df_rules = get_disagreement_table(surrogate, feature_names, X_data=X_df_raw)
+    # 3. Get Rules and Leaf IDs
+    viz_tree = DecisionTreeClassifier(
+        max_depth=4, 
+        min_samples_leaf=0.01, 
+        class_weight='balanced', 
+        random_state=42
+    )
+    viz_tree.fit(X_eval_norm, y_delta)
+    
+    df_rules, _ = get_disagreement_table(surrogate, feature_names, X_data=X_df_raw)
     print(f"\n[DRIFT RULES] {arch_name.upper()}")
     print(df_rules.to_string(index=False))
 
-    if projector is not None:
-        plot_drift_overlay_exact(clf_post, projector, arch_name, X_eval_norm, y_delta, X_ssnpgt_ref)
+    _, drift_leaf_ids = get_disagreement_table(viz_tree, [f"f{i}" for i in range(X_eval_norm.shape[1])])
 
+    if projector is not None:
+        plot_drift_map_rules(viz_tree, projector, arch_name, drift_leaf_ids, bounds)
+        
 if __name__ == "__main__":
     print("[INFO] Loading datasets...")
     
@@ -254,6 +239,7 @@ if __name__ == "__main__":
     X_combined_norm = np.concatenate([X_pre_norm, X_post_norm], axis=0)
     X_combined_raw = np.concatenate([X_pre_raw, X_post_raw], axis=0)
     
+    # Subsample for speed if dataset is huge
     if len(X_combined_norm) > 20000:
         np.random.seed(42)
         idx = np.random.choice(len(X_combined_norm), 10000, replace=False)
@@ -266,18 +252,29 @@ if __name__ == "__main__":
     projector_path = os.path.join(OUTPUT_DIR, f"hyperplane{n_features}d_pre_drift_ssnp")
     
     ssnp_model = None
-    X_ssnpgt_ref = None
+    ref_bounds = None
 
     if os.path.exists(projector_path):
         print("[INFO] Loading SSNP Projector...")
         ssnp_model = ssnp.SSNP(epochs=1, opt="adam", bottleneck_activation="linear")
         ssnp_model.load_model(projector_path)
         
-        # Calculate Reference Bounds from Post-Drift Data
-        print("[INFO] Calculating Bounds from Post-Drift Data...")
-        X_ssnpgt_ref = ssnp_model.transform(X_post_norm) 
+        # --- CHANGE START: Use Post-Drift Data ---
+        print("[INFO] Calculating Bounds from Post-Drift Data (for exact DBM alignment)...")
+        
+        # 1. Transform Post-Drift Data
+        X_ssnpgt_post = ssnp_model.transform(X_post_norm) 
+        
+        # 2. Extract EXACT min/max (No margins, matching experiments.py)
+        xmin = np.min(X_ssnpgt_post[:, 0])
+        xmax = np.max(X_ssnpgt_post[:, 0])
+        ymin = np.min(X_ssnpgt_post[:, 1])
+        ymax = np.max(X_ssnpgt_post[:, 1])
+        
+        ref_bounds = (xmin, xmax, ymin, ymax)
+        # --- CHANGE END ---
 
-    analyze_drift("rf", X_combined_norm, X_combined_raw, feature_names, ssnp_model, X_ssnpgt_ref)
-    analyze_drift("mlp", X_combined_norm, X_combined_raw, feature_names, ssnp_model, X_ssnpgt_ref)
+    analyze_drift("rf", X_combined_norm, X_combined_raw, feature_names, ssnp_model, ref_bounds)
+    analyze_drift("mlp", X_combined_norm, X_combined_raw, feature_names, ssnp_model, ref_bounds)
     
     print("\n[DONE]")
