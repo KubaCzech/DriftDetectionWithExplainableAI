@@ -4,61 +4,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 
 
-def plot_feature_distribution_over_time(X, n_features, feature_names,
-                                        time_steps_before, time_steps_after,
-                                        X_before, X_after,
-                                        mask_before_c0, mask_before_c1,
-                                        mask_after_c0, mask_after_c1,
-                                        class_colors,
-                                        title='Feature Distributions over Time'):
-    """
-    Creates a figure showing feature distributions over time.
-    """
-    fig, axes = plt.subplots(n_features, 2,
-                             figsize=(12, 4 * n_features),
-                             squeeze=False)
-    if title:
-        fig.suptitle(title, fontsize=16, fontweight='bold', y=1.0)
 
-    for i in range(n_features):
-        ax_before = axes[i, 0]
-        ax_after = axes[i, 1]
-        feat_name = feature_names[i]
-
-        # Before Drift (Window 1)
-        ax_before.scatter(time_steps_before[mask_before_c0],
-                          X_before[mask_before_c0, i],
-                          alpha=0.5, s=20, label='Class 0',
-                          color=class_colors[0])
-        ax_before.scatter(time_steps_before[mask_before_c1],
-                          X_before[mask_before_c1, i],
-                          alpha=0.5, s=20, label='Class 1',
-                          color=class_colors[1])
-        ax_before.set_xlabel('Time')
-        ax_before.set_ylabel(f'{feat_name} Value')
-        ax_before.set_title(f'{feat_name} - Window 1')
-        ax_before.legend()
-        ax_before.grid(True, alpha=0.3)
-
-        # After Drift (Window 2)
-        ax_after.scatter(time_steps_after[mask_after_c0],
-                         X_after[mask_after_c0, i],
-                         alpha=0.5, s=20, label='Class 0',
-                         color=class_colors[0])
-        ax_after.scatter(time_steps_after[mask_after_c1],
-                         X_after[mask_after_c1, i],
-                         alpha=0.5, s=20, label='Class 1',
-                         color=class_colors[1])
-        ax_after.set_xlabel('Time')
-        ax_after.set_ylabel(f'{feat_name} Value')
-        ax_after.set_title(f'{feat_name} - Window 2')
-        ax_after.legend()
-        ax_after.grid(True, alpha=0.3)
-
-    plt.tight_layout()
-    # Increased top margin
-    fig.subplots_adjust(top=0.92)
-    return fig
 
 
 def plot_feature_target_relationship(X, n_features, feature_names,
@@ -301,7 +247,6 @@ def plot_feature_space(n_features, feature_names, X_before, X_after,
 
 def visualize_data_stream(X, y, window_before_start, window_after_start,
                           window_length, feature_names,
-                          title_feat_dist='Feature Distributions over Time',
                           title_feat_target='Feature vs Target Relationship',
                           title_class_dist='Class Distribution',
                           title_feat_space='Feature Space',
@@ -371,15 +316,7 @@ def visualize_data_stream(X, y, window_before_start, window_after_start,
 
     figs = []
 
-    # 1. Feature Distributions over Time
-    figs.append(plot_feature_distribution_over_time(
-        X, n_features, feature_names, time_steps_before, time_steps_after,
-        X_before, X_after, mask_before_c0, mask_before_c1,
-        mask_after_c0, mask_after_c1, class_colors,
-        title=title_feat_dist
-    ))
-
-    # 2. Feature vs Target Relationship
+    # 1. Feature vs Target Relationship
     figs.append(plot_feature_target_relationship(
          X, n_features, feature_names, X_before, X_after,
          mask_before_c0, mask_before_c1, mask_after_c0, mask_after_c1,
