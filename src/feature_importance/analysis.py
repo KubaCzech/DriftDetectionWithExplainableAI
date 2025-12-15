@@ -48,19 +48,22 @@ class FeatureImportanceDriftAnalyzer:
         self.X_after = X_after
         self.y_after = y_after
 
-    def compute_data_drift(self, importance_method="permutation", model_class=None, model_params=None):
+    def compute_drift_importance(self, importance_method="permutation", include_target=True,
+                                 model_class=None, model_params=None):
         """
-        Compute data drift analysis by classifying time periods using only features (X).
-
-        This method trains a classifier to distinguish between the 'before' and 'after'
-        datasets based solely on the feature values. High accuracy indicates that the
-        feature distributions P(X) have changed (covariate shift). Feature importance
-        identifies which features contribute most to the drift.
+        Compute drift analysis (data drift or concept drift) importance.
+        
+        If include_target is True, this analyzes Concept Drift (P(Y|X) changes) by using both
+        features and target (X, Y) to classify time periods.
+        If include_target is False, this analyzes Data Drift (P(X) changes) by using only
+        features (X) to classify time periods.
 
         Parameters
         ----------
         importance_method : str, default="permutation"
             Method to calculate feature importance ("permutation", "shap", "lime").
+        include_target : bool, default=True
+            Whether to include the target variable 'Y' in the analysis.
         model_class : class, optional
             Class of the model to use for classification. Defaults to MLPModel.
         model_params : dict, optional
@@ -71,12 +74,19 @@ class FeatureImportanceDriftAnalyzer:
         dict
             A dictionary containing:
             - 'model': The trained classifier.
-            - 'accuracy': The accuracy of determining the time period (drift magnitude).
+            - 'accuracy': The accuracy of determining the time period.
             - 'importance_result': Full feature importance results.
-            - 'importance_mean': Mean importance scores for features.
+            - 'importance_mean': Mean importance scores.
             - 'importance_std': Standard deviation of importance scores.
+            - 'feature_names': List of feature names.
         """
-        X_features = np.concatenate([self.X_before, self.X_after])
+        # Prepare Data
+        if include_target:
+            X_combined = np.concatenate([self.X_before, self.X_after])
+            y_combined = np.concatenate([self.y_before, self.y_after])
+            X_features = np.column_stack([X_combined, y_combined])
+        else:
+            X_features = np.concatenate([self.X_before, self.X_after])
 
         n_samples_before = len(self.X_before)
         n_samples_after = len(self.X_after)
@@ -92,124 +102,56 @@ class FeatureImportanceDriftAnalyzer:
 
         model = model_class(**model_params)
         model.fit(X_features, time_labels)
-        nn_accuracy = model.score(X_features, time_labels)
+        accuracy = model.score(X_features, time_labels)
+
+        # Prepare Feature Names
+        if include_target:
+            feature_names_for_calc = (self.feature_names + ['Y']) if self.feature_names else None
+            if feature_names_for_calc is None:
+                feature_names_for_calc = [f"Feature {i}" for i in range(X_features.shape[1])]
+        else:
+            feature_names_for_calc = self.feature_names
+            if feature_names_for_calc is None:
+                feature_names_for_calc = [f"Feature {i}" for i in range(X_features.shape[1])]
 
         # Calculate Feature Importance
         fi_result = calculate_feature_importance(
             model, X_features, time_labels,
             method=importance_method,
-            feature_names=self.feature_names
+            feature_names=feature_names_for_calc
         )
+
+        # Filter out 'Y' (target) from results if it was included
+        if include_target:
+            # 1. Update arrays in fi_result
+            if 'importances_mean' in fi_result:
+                fi_result['importances_mean'] = fi_result['importances_mean'][:-1]
+            
+            if 'importances_std' in fi_result:
+                fi_result['importances_std'] = fi_result['importances_std'][:-1]
+                
+            if 'importances' in fi_result:
+                # Check shape to determine axis to slice
+                if fi_result['importances'].shape[0] == len(feature_names_for_calc):
+                    fi_result['importances'] = fi_result['importances'][:-1]
+                elif len(fi_result['importances'].shape) > 1 and fi_result['importances'].shape[1] == len(feature_names_for_calc):
+                    fi_result['importances'] = fi_result['importances'][:, :-1]
+            
+            # Features to return (exclude Y)
+            feature_names_returned = self.feature_names if self.feature_names else feature_names_for_calc[:-1]
+        else:
+            feature_names_returned = feature_names_for_calc
 
         importance_mean = fi_result['importances_mean']
         importance_std = fi_result['importances_std']
 
         return {
             'model': model,
-            'accuracy': nn_accuracy,
-            'importance_result': fi_result,
-            'importance_mean': importance_mean,
-            'importance_std': importance_std
-        }
-
-    def compute_concept_drift(self, importance_method="permutation", model_class=None, model_params=None):
-        """
-        Compute concept drift analysis by classifying time periods using features and target (X, Y).
-
-        This method trains a classifier to distinguish between 'before' and 'after'
-        datasets using both features and the target variable as inputs. If the target 'Y'
-        is identified as an important feature for this classification, it indicates that
-        the relationship between X and Y has changed (concept drift), as 'Y' helps
-        distinguish the time periods conditioned on X.
-
-        Parameters
-        ----------
-        importance_method : str, default="permutation"
-            Method to calculate feature importance ("permutation", "shap", "lime").
-        model_class : class, optional
-            Class of the model to use. Defaults to MLPModel.
-        model_params : dict, optional
-            Parameters for the model.
-
-        Returns
-        -------
-        dict
-            A dictionary containing:
-            - 'model': The trained classifier.
-            - 'accuracy': The accuracy of the classification.
-            - 'importance_result': Full feature importance results.
-            - 'importance_mean': Mean importance scores.
-            - 'importance_std': Standard deviation of importance scores.
-            - 'importance_std': Standard deviation of importance scores.
-            - 'feature_names': List of feature names (excluding 'Y').
-        """
-        X_combined = np.concatenate([self.X_before, self.X_after])
-        y_combined = np.concatenate([self.y_before, self.y_after])
-
-        X_features_with_y = np.column_stack([X_combined, y_combined])
-
-        n_samples_before = len(self.X_before)
-        n_samples_after = len(self.X_after)
-        time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
-
-        # Train Model
-        if model_class is None:
-            from src.models.mlp import MLPModel
-            model_class = MLPModel
-
-        if model_params is None:
-            model_params = {}
-
-        model_xy = model_class(**model_params)
-        model_xy.fit(X_features_with_y, time_labels)
-        nn_accuracy_xy = model_xy.score(X_features_with_y, time_labels)
-
-        # Calculate Feature Importance
-        feature_names_with_y = (self.feature_names + ['Y']) if self.feature_names else None
-
-        if feature_names_with_y is None:
-            # Fallback if no feature names provided ever
-            feature_names_with_y = [f"Feature {i}" for i in range(X_features_with_y.shape[1])]
-
-        fi_result = calculate_feature_importance(
-            model_xy, X_features_with_y, time_labels,
-            method=importance_method,
-            feature_names=feature_names_with_y
-        )
-
-        # Filter out 'Y' (target) from results
-        # Y is always the last feature because we used np.column_stack([X, y])
-        
-        # 1. Update arrays in fi_result
-        if 'importances_mean' in fi_result:
-            fi_result['importances_mean'] = fi_result['importances_mean'][:-1]
-        
-        if 'importances_std' in fi_result:
-            fi_result['importances_std'] = fi_result['importances_std'][:-1]
-            
-        if 'importances' in fi_result:
-            # Check shape to determine axis to slice
-            # If (n_features, n_samples)
-            if fi_result['importances'].shape[0] == len(feature_names_with_y):
-                fi_result['importances'] = fi_result['importances'][:-1]
-            # If (n_samples, n_features) - though standard assumes (n_feat, n_samp) or (n_feat,)
-            elif len(fi_result['importances'].shape) > 1 and fi_result['importances'].shape[1] == len(feature_names_with_y):
-                fi_result['importances'] = fi_result['importances'][:, :-1]
-
-        # 2. Update returned convenience variables
-        importance_mean = fi_result['importances_mean']
-        importance_std = fi_result['importances_std']
-        
-        # 3. Features to return (exclude Y)
-        feature_names_without_y = self.feature_names if self.feature_names else feature_names_with_y[:-1]
-
-        return {
-            'model': model_xy,
-            'accuracy': nn_accuracy_xy,
+            'accuracy': accuracy,
             'importance_result': fi_result,
             'importance_mean': importance_mean,
             'importance_std': importance_std,
-            'feature_names': feature_names_without_y
+            'feature_names': feature_names_returned
         }
 
     def compute_predictive_importance_shift(self, importance_method="permutation", model_class=None, model_params=None):

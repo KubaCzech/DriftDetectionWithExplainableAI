@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 from src.feature_importance import (
     FeatureImportanceMethod,
     FeatureImportanceDriftAnalyzer,
-    visualize_data_drift_analysis,
-    visualize_concept_drift_analysis,
+    visualize_drift_importance,
     visualize_predictive_importance_shift,
 )
 
@@ -38,8 +37,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
 
     # Analysis type selector dropdown
     ANALYSIS_OPTIONS = {
-        "Concept Drift - P(Y|X) Changes": "concept_drift",
-        "Data Drift - P(X) Changes": "data_drift",
+        "Drift Analysis (P(X) or P(Y|X))": "drift_analysis",
         "Predictive Power Shift": "predictive_shift"
     }
 
@@ -49,7 +47,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
         analysis_choice = st.selectbox(
             "Select Analysis Type",
             options=list(ANALYSIS_OPTIONS.keys()),
-            index=0,  # Default to Concept Drift (P(Y|X))
+            index=0,
             help="Choose which drift analysis to display."
         )
 
@@ -63,6 +61,15 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
         )
 
     selected_analysis = ANALYSIS_OPTIONS[analysis_choice]
+    
+    # Checkbox for including target (only for drift analysis)
+    include_target = True
+    if selected_analysis == "drift_analysis":
+        include_target = st.checkbox(
+            "Include Target (Y) in Analysis",
+            value=True,
+            help="If checked, analyzes Concept Drift (P(Y|X)). If unchecked, analyzes Data Drift (P(X))."
+        )
 
     # Plot Type Selector
     plot_type_display = st.radio(
@@ -80,20 +87,32 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
 
     # --- Conditional Analysis Display ---
 
-    if selected_analysis == "data_drift":
-        # --- Analysis: Data Drift ---
+    if selected_analysis == "drift_analysis":
+        # --- Analysis: Drift Analysis ---
         with st.container():
-            st.subheader("Analysis: Data Drift - P(X) Changes")
-            st.markdown("""
-            This analysis trains a model to distinguish between the 'before' and 'after' periods
-            using **only the input features (X)**.
-            High accuracy indicates that the feature distribution P(X) has changed significantly.
-            The feature importance scores show which features contributed most to this change.
-            """)
-            with st.spinner(f'Running Data Drift analysis with {importance_method.upper()}...'):
+            drift_title = "Concept Drift - P(Y|X) Changes" if include_target else "Data Drift - P(X) Changes"
+            st.subheader(f"Analysis: {drift_title}")
+            
+            if include_target:
+                st.markdown("""
+                This analysis trains a model to distinguish between the 'before' and 'after' periods
+                using **both input features (X) and the target variable (Y)**.
+                If the 'Y' feature has high importance, it suggests that the relationship between features
+                and the target has changed (i.e., concept drift).
+                """)
+            else:
+                st.markdown("""
+                This analysis trains a model to distinguish between the 'before' and 'after' periods
+                using **only the input features (X)**.
+                High accuracy indicates that the feature distribution P(X) has changed significantly.
+                The feature importance scores show which features contributed most to this change.
+                """)
+                
+            with st.spinner(f'Running Drift analysis with {importance_method.upper()}...'):
                 # Compute the analysis results
-                data_drift_result = analyzer.compute_data_drift(
+                drift_result = analyzer.compute_drift_importance(
                     importance_method=importance_method,
+                    include_target=include_target,
                     model_class=model_class,
                     model_params=model_params
                 )
@@ -104,9 +123,10 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                 with col_viz:
                     # Display visualizations
                     st.markdown("#### Drift Visualization")
-                    fig = visualize_data_drift_analysis(
-                        data_drift_result, feature_names,
-                        plot_type=selected_plot_type
+                    fig = visualize_drift_importance(
+                        drift_result, drift_result['feature_names'],
+                        plot_type=selected_plot_type,
+                        include_target=include_target
                     )
                     st.pyplot(fig)
                     plt.close(fig)
@@ -114,59 +134,11 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                 with col_table:
                     # Display the importance table
                     st.markdown("#### Feature Importance Summary")
+                    feature_names_result = drift_result['feature_names']
                     importance_df = pd.DataFrame({
-                        'Feature': feature_names,
-                        'Mean Importance': data_drift_result['importance_mean'],
-                        'Std Deviation': data_drift_result['importance_std']
-                    })
-                    importance_df = importance_df.sort_values('Mean Importance', ascending=False)
-                    st.dataframe(
-                        importance_df.style.format({
-                            'Mean Importance': '{:.4f}',
-                            'Std Deviation': '{:.4f}'
-                        }),
-                        width="stretch"
-                    )
-
-    elif selected_analysis == "concept_drift":
-        # --- Analysis: Concept Drift ---
-        with st.container():
-            st.subheader("Analysis: Concept Drift - P(Y|X) Changes")
-            st.markdown("""
-            This analysis trains a model to distinguish between the 'before' and 'after' periods
-            using **both input features (X) and the target variable (Y)**.
-            If the 'Y' feature has high importance, it suggests that the relationship between features
-            and the target has changed (i.e., concept drift).
-            """)
-            with st.spinner(f'Running Concept Drift analysis with {importance_method.upper()}...'):
-                # Compute the analysis results
-                concept_drift_result = analyzer.compute_concept_drift(
-                    importance_method=importance_method,
-                    model_class=model_class,
-                    model_params=model_params
-                )
-
-                # Create columns for side-by-side layout
-                col_viz, col_table = st.columns([3, 2])
-
-                with col_viz:
-                    # Display visualizations
-                    st.markdown("#### Drift Visualization")
-                    fig = visualize_concept_drift_analysis(
-                        concept_drift_result, concept_drift_result['feature_names'],
-                        plot_type=selected_plot_type
-                    )
-                    st.pyplot(fig)
-                    plt.close(fig)
-
-                with col_table:
-                    # Display the importance table
-                    st.markdown("#### Feature Importance Summary")
-                    feature_names_with_y = concept_drift_result['feature_names']
-                    importance_df = pd.DataFrame({
-                        'Feature': feature_names_with_y,
-                        'Mean Importance': concept_drift_result['importance_mean'],
-                        'Std Deviation': concept_drift_result['importance_std']
+                        'Feature': feature_names_result,
+                        'Mean Importance': drift_result['importance_mean'],
+                        'Std Deviation': drift_result['importance_std']
                     })
                     importance_df = importance_df.sort_values('Mean Importance', ascending=False)
                     st.dataframe(
