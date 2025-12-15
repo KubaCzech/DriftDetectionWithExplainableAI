@@ -153,7 +153,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                     # Display visualizations
                     st.markdown("#### Drift Visualization")
                     fig = visualize_concept_drift_analysis(
-                        concept_drift_result, concept_drift_result['feature_names_with_y'],
+                        concept_drift_result, concept_drift_result['feature_names'],
                         plot_type=selected_plot_type
                     )
                     st.pyplot(fig)
@@ -162,7 +162,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
                 with col_table:
                     # Display the importance table
                     st.markdown("#### Feature Importance Summary")
-                    feature_names_with_y = concept_drift_result['feature_names_with_y']
+                    feature_names_with_y = concept_drift_result['feature_names']
                     importance_df = pd.DataFrame({
                         'Feature': feature_names_with_y,
                         'Mean Importance': concept_drift_result['importance_mean'],

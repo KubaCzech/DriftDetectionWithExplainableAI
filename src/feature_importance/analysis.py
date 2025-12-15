@@ -140,7 +140,8 @@ class FeatureImportanceDriftAnalyzer:
             - 'importance_result': Full feature importance results.
             - 'importance_mean': Mean importance scores.
             - 'importance_std': Standard deviation of importance scores.
-            - 'feature_names_with_y': List of feature names including 'Y'.
+            - 'importance_std': Standard deviation of importance scores.
+            - 'feature_names': List of feature names (excluding 'Y').
         """
         X_combined = np.concatenate([self.X_before, self.X_after])
         y_combined = np.concatenate([self.y_before, self.y_after])
@@ -176,8 +177,31 @@ class FeatureImportanceDriftAnalyzer:
             feature_names=feature_names_with_y
         )
 
+        # Filter out 'Y' (target) from results
+        # Y is always the last feature because we used np.column_stack([X, y])
+        
+        # 1. Update arrays in fi_result
+        if 'importances_mean' in fi_result:
+            fi_result['importances_mean'] = fi_result['importances_mean'][:-1]
+        
+        if 'importances_std' in fi_result:
+            fi_result['importances_std'] = fi_result['importances_std'][:-1]
+            
+        if 'importances' in fi_result:
+            # Check shape to determine axis to slice
+            # If (n_features, n_samples)
+            if fi_result['importances'].shape[0] == len(feature_names_with_y):
+                fi_result['importances'] = fi_result['importances'][:-1]
+            # If (n_samples, n_features) - though standard assumes (n_feat, n_samp) or (n_feat,)
+            elif len(fi_result['importances'].shape) > 1 and fi_result['importances'].shape[1] == len(feature_names_with_y):
+                fi_result['importances'] = fi_result['importances'][:, :-1]
+
+        # 2. Update returned convenience variables
         importance_mean = fi_result['importances_mean']
         importance_std = fi_result['importances_std']
+        
+        # 3. Features to return (exclude Y)
+        feature_names_without_y = self.feature_names if self.feature_names else feature_names_with_y[:-1]
 
         return {
             'model': model_xy,
@@ -185,7 +209,7 @@ class FeatureImportanceDriftAnalyzer:
             'importance_result': fi_result,
             'importance_mean': importance_mean,
             'importance_std': importance_std,
-            'feature_names_with_y': feature_names_with_y
+            'feature_names': feature_names_without_y
         }
 
     def compute_predictive_importance_shift(self, importance_method="permutation", model_class=None, model_params=None):
