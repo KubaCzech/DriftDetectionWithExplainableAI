@@ -35,183 +35,156 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
     """
     st.header("Feature Importance Analysis")
 
-    # Analysis type selector dropdown
-    ANALYSIS_OPTIONS = {
-        "Drift Analysis (P(X) or P(Y|X))": "drift_analysis",
-        "Predictive Power Shift": "predictive_shift"
-    }
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        analysis_choice = st.selectbox(
-            "Select Analysis Type",
-            options=list(ANALYSIS_OPTIONS.keys()),
-            index=0,
-            help="Choose which drift analysis to display."
-        )
-
-    with col2:
-        # Select Feature Importance Method
-        importance_method = st.selectbox(
-            "Choose a Feature Importance Method",
-            options=FeatureImportanceMethod.all_available(),
-            format_func=lambda x: x.upper(),
-            help="Select the method to explain the drift."
-        )
-
-    selected_analysis = ANALYSIS_OPTIONS[analysis_choice]
+    # --- Controls Section ---
     
-    # Checkbox for including target (only for drift analysis)
-    include_target = True
-    if selected_analysis == "drift_analysis":
-        include_target = st.checkbox(
-            "Include Target (Y) in Analysis",
-            value=True,
-            help="If checked, analyzes Concept Drift (P(Y|X)). If unchecked, analyzes Data Drift (P(X))."
-        )
+    # Configuration in an expander
+    with st.expander("Analysis Settings", expanded=False):
+        col_controls_1, col_controls_2, col_controls_3 = st.columns(3)
+        
+        with col_controls_1:
+            # Select Feature Importance Method
+            importance_method = st.selectbox(
+                "Feature Importance Method",
+                options=FeatureImportanceMethod.all_available(),
+                format_func=lambda x: x.upper(),
+                help="Select the method to calculate importance (e.g., Permutation, SHAP)."
+            )
 
-    # Plot Type Selector
-    plot_type_display = st.radio(
-        "Select Plot Type",
-        options=["Bar Chart", "Box Plot"],
-        index=0,
-        horizontal=True,
-        help="Choose visualization type."
-    )
-    plot_type_map = {"Bar Chart": "bar", "Box Plot": "box"}
-    selected_plot_type = plot_type_map[plot_type_display]
+        with col_controls_2:
+            # Plot Type Selector
+            plot_type_display = st.selectbox(
+                "Plot Type",
+                options=["Bar Chart", "Box Plot"],
+                index=0,
+                help="Choose visualization type for the charts."
+            )
+            plot_type_map = {"Bar Chart": "bar", "Box Plot": "box"}
+            selected_plot_type = plot_type_map[plot_type_display]
+
+        with col_controls_3:
+            # Checkbox for including target (Drift Analysis setting)
+            st.write("") # Add spacing to align with selectbox
+            st.write("")
+            include_target = st.checkbox(
+                "Include Target (Y) in Drift Analysis",
+                value=True,
+                help="Checked: Concept Drift (P(Y|X)). Unchecked: Data Drift (P(X))."
+            )
 
     # Initialize DriftAnalyzer
     analyzer = FeatureImportanceDriftAnalyzer(X_before, y_before, X_after, y_after, feature_names=feature_names)
 
-    # --- Conditional Analysis Display ---
+    # --- Analysis Section (Side-by-Side) ---
+    col_drift, col_pred = st.columns(2)
 
-    if selected_analysis == "drift_analysis":
-        # --- Analysis: Drift Analysis ---
-        with st.container():
-            drift_title = "Concept Drift - P(Y|X) Changes" if include_target else "Data Drift - P(X) Changes"
-            st.subheader(f"Analysis: {drift_title}")
+    # --- Left Column: Drift Analysis ---
+    with col_drift:
+        drift_title = "Concept Drift (P(Y|X))" if include_target else "Data Drift (P(X))"
+        
+        if include_target:
+            drift_help = """
+            Goal: Detect changes in relationship between Features and Target.
+            Method: Classification (X, Y) → Time Period.
+            Interp: High importance = Feature contributing to drift.
+            """
+        else:
+            drift_help = """
+            Goal: Detect changes in Feature Distribution.
+            Method: Classification (X) → Time Period.
+            Interp: High importance = Feature contributing to drift.
+            """
             
-            if include_target:
-                st.markdown("""
-                This analysis trains a model to distinguish between the 'before' and 'after' periods
-                using **both input features (X) and the target variable (Y)**.
-                If the 'Y' feature has high importance, it suggests that the relationship between features
-                and the target has changed (i.e., concept drift).
-                """)
-            else:
-                st.markdown("""
-                This analysis trains a model to distinguish between the 'before' and 'after' periods
-                using **only the input features (X)**.
-                High accuracy indicates that the feature distribution P(X) has changed significantly.
-                The feature importance scores show which features contributed most to this change.
-                """)
-                
-            with st.spinner(f'Running Drift analysis with {importance_method.upper()}...'):
-                # Compute the analysis results
-                drift_result = analyzer.compute_drift_importance(
-                    importance_method=importance_method,
-                    include_target=include_target,
-                    model_class=model_class,
-                    model_params=model_params
-                )
+        st.subheader(f"{drift_title}", help=drift_help)
+            
+        with st.spinner(f'Running {drift_title}...'):
+            # Compute Drift Analysis
+            drift_result = analyzer.compute_drift_importance(
+                importance_method=importance_method,
+                include_target=include_target,
+                model_class=model_class,
+                model_params=model_params
+            )
 
-                # Create columns for side-by-side layout
-                col_viz, col_table = st.columns([3, 2])
+            # Visualization
+            fig_drift = visualize_drift_importance(
+                drift_result, drift_result['feature_names'],
+                plot_type=selected_plot_type,
+                include_target=include_target
+            )
+            st.pyplot(fig_drift)
+            plt.close(fig_drift)
 
-                with col_viz:
-                    # Display visualizations
-                    st.markdown("#### Drift Visualization")
-                    fig = visualize_drift_importance(
-                        drift_result, drift_result['feature_names'],
-                        plot_type=selected_plot_type,
-                        include_target=include_target
-                    )
-                    st.pyplot(fig)
-                    plt.close(fig)
+            # Table
+            st.markdown("**Importance Summary**")
+            feature_names_result = drift_result['feature_names']
+            drift_df = pd.DataFrame({
+                'Feature': feature_names_result,
+                'Mean Importance': drift_result['importance_mean'],
+                'Std Deviation': drift_result['importance_std']
+            })
+            drift_df = drift_df.sort_values('Mean Importance', ascending=False)
+            st.dataframe(
+                drift_df.style.format({
+                    'Mean Importance': '{:.4f}',
+                    'Std Deviation': '{:.4f}'
+                }),
+                width="stretch"
+            )
 
-                with col_table:
-                    # Display the importance table
-                    st.markdown("#### Feature Importance Summary")
-                    feature_names_result = drift_result['feature_names']
-                    importance_df = pd.DataFrame({
-                        'Feature': feature_names_result,
-                        'Mean Importance': drift_result['importance_mean'],
-                        'Std Deviation': drift_result['importance_std']
-                    })
-                    importance_df = importance_df.sort_values('Mean Importance', ascending=False)
-                    st.dataframe(
-                        importance_df.style.format({
-                            'Mean Importance': '{:.4f}',
-                            'Std Deviation': '{:.4f}'
-                        }),
-                        width="stretch"
-                    )
+    # --- Right Column: Predictive Power Shift ---
+    with col_pred:
+        pred_help = """
+        Goal: Compare model reliance on features before vs after.
+        Method: Train Model(Before) vs Train Model(After).
+        Interp: Change in importance ranking = Mechanism shift.
+        """
+        st.subheader("Predictive Power Shift", help=pred_help)
+        
+        with st.spinner('Running Predictive Shift Analysis...'):
+            # Compute Predictive Shift
+            shift_result = analyzer.compute_predictive_importance_shift(
+                importance_method=importance_method,
+                model_class=model_class,
+                model_params=model_params
+            )
 
-    elif selected_analysis == "predictive_shift":
-        # --- Analysis: Predictive Power Shift ---
-        with st.container():
-            st.subheader("Analysis: Predictive Power Shift")
-            st.markdown("""
-            This analysis compares the importance of features for predicting the target variable (Y) in two separate models:
-            1.  A model trained **only on 'before' data**.
-            2.  A model trained **only on 'after' data**.
-            A significant shift in feature importance between the two models indicates concept drift.
-            """)
-            with st.spinner(f'Running Predictive Power Shift analysis with {importance_method.upper()}...'):
-                # Compute the analysis results
-                shift_result = analyzer.compute_predictive_importance_shift(
-                    importance_method=importance_method,
-                    model_class=model_class,
-                    model_params=model_params
-                )
+            # Visualization
+            fig_shift = visualize_predictive_importance_shift(
+                shift_result, feature_names,
+                plot_type=selected_plot_type
+            )
+            st.pyplot(fig_shift)
+            plt.close(fig_shift)
 
-                # Create columns for side-by-side layout
-                col_viz, col_table = st.columns([3, 2])
+            # Tables (Side-by-side inner columns for tables to save space, or stacked)
+            # Stacked might be better for readability in the column
+            
+            st.markdown("**Importance: Before Drift**")
+            pred_before_df = pd.DataFrame({
+                'Feature': feature_names,
+                'Mean Importance': shift_result['fi_before']['importances_mean'],
+                'Std Deviation': shift_result['fi_before']['importances_std']
+            })
+            pred_before_df = pred_before_df.sort_values('Mean Importance', ascending=False)
+            st.dataframe(
+                pred_before_df.style.format({
+                    'Mean Importance': '{:.4f}',
+                    'Std Deviation': '{:.4f}'
+                }),
+                width="stretch"
+            )
 
-                with col_viz:
-                    # Display visualizations
-                    st.markdown("#### Drift Visualization")
-                    fig = visualize_predictive_importance_shift(
-                        shift_result, feature_names,
-                        plot_type=selected_plot_type
-                    )
-                    st.pyplot(fig)
-                    plt.close(fig)
-
-                with col_table:
-                    # Display the importance tables stacked
-                    st.markdown("#### Feature Importance Summary")
-
-                    st.markdown("**Before Drift**")
-                    importance_before_df = pd.DataFrame({
-                        'Feature': feature_names,
-                        'Mean Importance': shift_result['fi_before']['importances_mean'],
-                        'Std Deviation': shift_result['fi_before']['importances_std']
-                    })
-                    importance_before_df = importance_before_df.sort_values('Mean Importance', ascending=False)
-                    st.dataframe(
-                        importance_before_df.style.format({
-                            'Mean Importance': '{:.4f}',
-                            'Std Deviation': '{:.4f}'
-                        }),
-                        width="stretch",
-                        height=200  # Fixed height to avoid overtaking the column
-                    )
-
-                    st.markdown("**After Drift**")
-                    importance_after_df = pd.DataFrame({
-                        'Feature': feature_names,
-                        'Mean Importance': shift_result['fi_after']['importances_mean'],
-                        'Std Deviation': shift_result['fi_after']['importances_std']
-                    })
-                    importance_after_df = importance_after_df.sort_values('Mean Importance', ascending=False)
-                    st.dataframe(
-                        importance_after_df.style.format({
-                            'Mean Importance': '{:.4f}',
-                            'Std Deviation': '{:.4f}'
-                        }),
-                        width="stretch",
-                        height=200  # Fixed height
-                    )
+            st.markdown("**Importance: After Drift**")
+            pred_after_df = pd.DataFrame({
+                'Feature': feature_names,
+                'Mean Importance': shift_result['fi_after']['importances_mean'],
+                'Std Deviation': shift_result['fi_after']['importances_std']
+            })
+            pred_after_df = pred_after_df.sort_values('Mean Importance', ascending=False)
+            st.dataframe(
+                pred_after_df.style.format({
+                    'Mean Importance': '{:.4f}',
+                    'Std Deviation': '{:.4f}'
+                }),
+                width="stretch"
+            )
