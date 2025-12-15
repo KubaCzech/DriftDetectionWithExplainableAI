@@ -66,9 +66,11 @@ def plot_feature_target_relationship(X, n_features, feature_names,
                                      mask_before_c0, mask_before_c1,
                                      mask_after_c0, mask_after_c1,
                                      class_colors,
-                                     title='Feature vs Target Relationship'):
+                                     title='Feature vs Target Relationship',
+                                     viz_type='violin'):
     """
     Creates a figure showing feature vs target relationship.
+    viz_type: 'scatter', 'violin', or 'box'
     """
     fig, axes = plt.subplots(n_features, 2,
                              figsize=(12, 4 * n_features),
@@ -81,46 +83,83 @@ def plot_feature_target_relationship(X, n_features, feature_names,
         ax_after = axes[i, 1]
         feat_name = feature_names[i]
 
-        # Add jitter to Y for better visualization
-        y_jitter_before_c0 = (np.random.normal(0, 0.02,
-                                               np.sum(mask_before_c0)))
-        y_jitter_before_c1 = (1 + np.random.normal(0, 0.02,
-                                                   np.sum(mask_before_c1)))
-        y_jitter_after_c0 = (np.random.normal(0, 0.02,
-                                              np.sum(mask_after_c0)))
-        y_jitter_after_c1 = (1 + np.random.normal(0, 0.02,
-                                                  np.sum(mask_after_c1)))
+        data_before = [X_before[mask_before_c0, i], X_before[mask_before_c1, i]]
+        data_after = [X_after[mask_after_c0, i], X_after[mask_after_c1, i]]
 
-        # Before Drift (Window 1)
-        ax_before.scatter(X_before[mask_before_c0, i], y_jitter_before_c0,
-                          alpha=0.5, s=20, label='Class 0',
-                          color=class_colors[0])
-        ax_before.scatter(X_before[mask_before_c1, i], y_jitter_before_c1,
-                          alpha=0.5, s=20, label='Class 1',
-                          color=class_colors[1])
+        if viz_type == 'violin':
+            # BEFORE
+            parts = ax_before.violinplot(data_before, positions=[0, 1], showmeans=True)
+            for pc, color in zip(parts['bodies'], [class_colors[0], class_colors[1]]):
+                pc.set_facecolor(color)
+                pc.set_alpha(0.5)
+            for partname in ('cbars', 'cmins', 'cmaxes', 'cmeans'):
+                if partname in parts:
+                    parts[partname].set_edgecolor('black')
+            
+            # AFTER
+            parts = ax_after.violinplot(data_after, positions=[0, 1], showmeans=True)
+            for pc, color in zip(parts['bodies'], [class_colors[0], class_colors[1]]):
+                pc.set_facecolor(color)
+                pc.set_alpha(0.5)
+            for partname in ('cbars', 'cmins', 'cmaxes', 'cmeans'):
+                if partname in parts:
+                    parts[partname].set_edgecolor('black')
+
+        elif viz_type == 'box':
+            # BEFORE
+            bplot = ax_before.boxplot(data_before, positions=[0, 1], patch_artist=True)
+            for patch, color in zip(bplot['boxes'], [class_colors[0], class_colors[1]]):
+                patch.set_facecolor(color)
+                patch.set_alpha(0.5)
+            
+            # AFTER
+            bplot = ax_after.boxplot(data_after, positions=[0, 1], patch_artist=True)
+            for patch, color in zip(bplot['boxes'], [class_colors[0], class_colors[1]]):
+                patch.set_facecolor(color)
+                patch.set_alpha(0.5)
+
+        else: # scatter (default fallback)
+            # Add jitter to Y for better visualization
+            y_jitter_before_c0 = (np.random.normal(0, 0.02,
+                                                   np.sum(mask_before_c0)))
+            y_jitter_before_c1 = (1 + np.random.normal(0, 0.02,
+                                                       np.sum(mask_before_c1)))
+            y_jitter_after_c0 = (np.random.normal(0, 0.02,
+                                                  np.sum(mask_after_c0)))
+            y_jitter_after_c1 = (1 + np.random.normal(0, 0.02,
+                                                      np.sum(mask_after_c1)))
+
+            # Before Drift (Window 1)
+            ax_before.scatter(X_before[mask_before_c0, i], y_jitter_before_c0,
+                              alpha=0.5, s=20, label='Class 0',
+                              color=class_colors[0])
+            ax_before.scatter(X_before[mask_before_c1, i], y_jitter_before_c1,
+                              alpha=0.5, s=20, label='Class 1',
+                              color=class_colors[1])
+            
+            # After Drift (Window 2)
+            ax_after.scatter(X_after[mask_after_c0, i], y_jitter_after_c0,
+                             alpha=0.5, s=20, label='Class 0',
+                             color=class_colors[0])
+            ax_after.scatter(X_after[mask_after_c1, i], y_jitter_after_c1,
+                             alpha=0.5, s=20, label='Class 1',
+                             color=class_colors[1])
+
+        # Common styling
         ax_before.set_xlabel(feat_name)
-        ax_before.set_ylabel('Target Class (with jitter)')
+        ax_before.set_ylabel(f'Values (by Class)')
         ax_before.set_title(f'{feat_name} vs Target - Window 1')
-        ax_before.set_yticks([0, 1])
-        ax_before.set_yticklabels(['Class 0', 'Class 1'])
-        ax_before.legend()
+        ax_before.set_xticks([0, 1])
+        ax_before.set_xticklabels(['Class 0', 'Class 1'])
         ax_before.grid(True, alpha=0.3)
 
-        # After Drift (Window 2)
-        ax_after.scatter(X_after[mask_after_c0, i], y_jitter_after_c0,
-                         alpha=0.5, s=20, label='Class 0',
-                         color=class_colors[0])
-        ax_after.scatter(X_after[mask_after_c1, i], y_jitter_after_c1,
-                         alpha=0.5, s=20, label='Class 1',
-                         color=class_colors[1])
         ax_after.set_xlabel(feat_name)
-        ax_after.set_ylabel('Target Class (with jitter)')
+        ax_after.set_ylabel(f'Values (by Class)')
         ax_after.set_title(f'{feat_name} vs Target - Window 2')
-        ax_after.set_yticks([0, 1])
-        ax_after.set_yticklabels(['Class 0', 'Class 1'])
-        ax_after.legend()
+        ax_after.set_xticks([0, 1])
+        ax_after.set_xticklabels(['Class 0', 'Class 1'])
         ax_after.grid(True, alpha=0.3)
-
+    
     plt.tight_layout()
     # Increased top margin
     fig.subplots_adjust(top=0.92)
@@ -265,7 +304,8 @@ def visualize_data_stream(X, y, window_before_start, window_after_start,
                           title_feat_dist='Feature Distributions over Time',
                           title_feat_target='Feature vs Target Relationship',
                           title_class_dist='Class Distribution',
-                          title_feat_space='Feature Space'):
+                          title_feat_space='Feature Space',
+                          viz_type='violin'):
     """
     Visualize the data stream for two specific windows.
 
@@ -320,18 +360,6 @@ def visualize_data_stream(X, y, window_before_start, window_after_start,
     class_dist_before = [np.mean(y_before == 0), np.mean(y_before == 1)]
     class_dist_after = [np.mean(y_after == 0), np.mean(y_after == 1)]
 
-    # Print distribution info (kept for backward compatibility with dashboard capture)
-    print("=" * 70)
-    print("TARGET VARIABLE (Y) DISTRIBUTION")
-    print("=" * 70)
-    print(f"Window 1 ({start_before}-{end_before}): "
-          f"Class 0: {class_dist_before[0]:.2%}, "
-          f"Class 1: {class_dist_before[1]:.2%}")
-    print(f"Window 2 ({start_after}-{end_after}):  "
-          f"Class 0: {class_dist_after[0]:.2%}, "
-          f"Class 1: {class_dist_after[1]:.2%}")
-    print("=" * 70)
-
     # Colors for the two classes
     class_colors = {0: '#FF6B6B', 1: '#4ECDC4'}
 
@@ -356,7 +384,8 @@ def visualize_data_stream(X, y, window_before_start, window_after_start,
          X, n_features, feature_names, X_before, X_after,
          mask_before_c0, mask_before_c1, mask_after_c0, mask_after_c1,
          class_colors,
-         title=title_feat_target
+         title=title_feat_target,
+         viz_type=viz_type
     ))
 
     # 3. Class Distribution

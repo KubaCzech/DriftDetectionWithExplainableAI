@@ -5,14 +5,15 @@ import streamlit as st
 
 
 @st.cache_data(show_spinner="Generating data stream visualizations...")
-def generate_plots(X, y, window_before_start, window_after_start, window_length, feature_names):
+def generate_plots(X, y, window_before_start, window_after_start, window_length, feature_names, viz_type='violin'):
     """Generates all visualization plots."""
     return visualize_data_stream(
         X, y, window_before_start, window_after_start, window_length, feature_names,
         title_feat_dist=None,
         title_feat_target=None,
         title_class_dist=None,
-        title_feat_space=None
+        title_feat_space=None,
+        viz_type=viz_type
     )
 
 
@@ -171,7 +172,19 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
     st.markdown("---")
 
     # --- Visualizations ---
-    all_figs = generate_plots(X, y, window_before_start, window_after_start, window_length, feature_names)
+    # Add viz type selector
+    with st.expander("Visualization Settings", expanded=False):
+        col_viz_options, _ = st.columns([1, 2])
+        with col_viz_options:
+            viz_type = st.selectbox(
+                "Feature vs Target Visualization Type",
+                options=['violin', 'box', 'scatter'],
+                index=0,  # Default to violin
+                key='viz_type_selector',
+                help="Choose how the relationship between features and target is visualized for each class in the windows."
+            )
+
+    all_figs = generate_plots(X, y, window_before_start, window_after_start, window_length, feature_names, viz_type=viz_type)
     _render_visualization_plots(all_figs)
 
     # --- Descriptive Statistics ---
