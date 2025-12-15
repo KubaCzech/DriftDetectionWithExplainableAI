@@ -128,7 +128,6 @@ def _calculate_statistics_styled(X_before, X_after, feature_names):
 
 def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
                                   feature_names, window_before_start, window_after_start, window_length):
-
     """
     Renders the Data Stream Visualization tab.
 
