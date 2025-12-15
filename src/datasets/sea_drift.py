@@ -21,7 +21,7 @@ class SeaDriftDataset(BaseDataset):
                 "default": 1,
                 "min_value": 0,
                 "step": 1,
-                "help": "Number of windows generated before the concept drift occurs."
+                "help": "Number of windows generated before the concept drift occurs.",
             },
             {
                 "name": "n_windows_after",
@@ -30,18 +30,23 @@ class SeaDriftDataset(BaseDataset):
                 "default": 1,
                 "min_value": 0,
                 "step": 1,
-                "help": "Number of windows generated after the concept drift occurs."
-            }
+                "help": "Number of windows generated after the concept drift occurs.",
+            },
+            {
+                "name": "n_features",
+                "type": "int",
+                "label": "Number of Features in the stream",
+                "default": 3,
+                "min_value": 2,
+                "step": 1,
+                "help": "Number of features to be generated in the stream.",
+            },
         ]
 
     def get_params(self) -> dict:
-        return {
-            "n_windows_before": 1,
-            "n_windows_after": 1,
-            "random_seed": 42
-        }
+        return {"n_windows_before": 1, "n_windows_after": 1, "random_seed": 42, "n_features": 3}
 
-    def generate(self, n_samples_before=1000, n_samples_after=1000, random_seed=42, **kwargs):
+    def generate(self, n_samples_before=1000, n_samples_after=1000, random_seed=42, n_features=3, **kwargs):
         """
         Generate synthetic data stream using River's SEA generator.
         Drifts from variant 0 to variant 3 at the drift point.
@@ -52,6 +57,6 @@ class SeaDriftDataset(BaseDataset):
             drift_stream=synth.SEA(seed=random_seed, variant=3),
             position=n_samples_before,
             width=400,  # Gradual drift
-            seed=random_seed
+            seed=random_seed,
         )
-        return generate_river_data(stream_SEA, n_samples_before + n_samples_after, n_features=3)
+        return generate_river_data(stream_SEA, n_samples_before + n_samples_after, n_features=n_features)
