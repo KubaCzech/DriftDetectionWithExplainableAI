@@ -2,6 +2,18 @@ import streamlit as st
 import sys
 import os
 
+# Suppress TensorFlow oneDNN custom operations logs
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
+import logging
+import warnings
+
+# Suppress specific TensorFlow warnings
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+# Also try to suppress via warnings just in case it's reachable that way
+warnings.filterwarnings('ignore', category=UserWarning, module='tensorflow')
+warnings.filterwarnings('ignore', message='.*reset_default_graph.*')
+
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'recurrence')))
