@@ -36,11 +36,11 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
     st.header("Feature Importance Analysis")
 
     # --- Controls Section ---
-    
+
     # Configuration in an expander
     with st.expander("Analysis Settings", expanded=False):
         col_controls_1, col_controls_2, col_controls_3 = st.columns(3)
-        
+
         with col_controls_1:
             # Select Feature Importance Method
             importance_method = st.selectbox(
@@ -63,7 +63,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
 
         with col_controls_3:
             # Checkbox for including target (Drift Analysis setting)
-            st.write("") # Add spacing to align with selectbox
+            st.write("")  # Add spacing to align with selectbox
             st.write("")
             include_target = st.checkbox(
                 "Include Target (Y) in Drift Analysis",
@@ -80,7 +80,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
     # --- Left Column: Drift Analysis ---
     with col_drift:
         drift_title = "Concept Drift (P(Y|X))" if include_target else "Data Drift (P(X))"
-        
+
         if include_target:
             drift_help = """
             Goal: Detect changes in relationship between Features and Target.
@@ -93,9 +93,9 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
             Method: Classification (X) → Time Period.
             Interp: High importance = Feature contributing to drift.
             """
-            
+
         st.subheader(f"{drift_title}", help=drift_help)
-            
+
         with st.spinner(f'Running {drift_title}...'):
             # Compute Drift Analysis
             drift_result = analyzer.compute_drift_importance(
@@ -139,7 +139,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
         Interp: Change in importance ranking = Mechanism shift.
         """
         st.subheader("Predictive Power Shift", help=pred_help)
-        
+
         with st.spinner('Running Predictive Shift Analysis...'):
             # Compute Predictive Shift
             shift_result = analyzer.compute_predictive_importance_shift(
@@ -158,7 +158,7 @@ def render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,
 
             # Tables (Side-by-side inner columns for tables to save space, or stacked)
             # Stacked might be better for readability in the column
-            
+
             st.markdown("**Importance: Before Drift**")
             pred_before_df = pd.DataFrame({
                 'Feature': feature_names,

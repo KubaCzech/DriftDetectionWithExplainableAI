@@ -1,16 +1,16 @@
 import unittest
 import sys
 import os
-import numpy as np
 import pandas as pd
+
 
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from datasets.sea_drift import SeaDriftDataset
-from datasets.sdbm_rbf_drift import SDBMRBFDriftDataset
-from datasets.controlled_concept_drift import ControlledConceptDriftDataset
-from datasets.hyperplane_drift import HyperplaneDriftDataset
+from datasets.hyperplane_drift import HyperplaneDriftDataset  # noqa: E402
+from datasets.controlled_concept_drift import ControlledConceptDriftDataset  # noqa: E402
+from datasets.sdbm_rbf_drift import SDBMRBFDriftDataset  # noqa: E402
+from datasets.sea_drift import SeaDriftDataset  # noqa: E402
 
 
 class TestSyntheticDatasets(unittest.TestCase):
@@ -41,7 +41,7 @@ class TestSyntheticDatasets(unittest.TestCase):
         """Test Controlled Concept Drift dataset generation."""
         ds = ControlledConceptDriftDataset()
         n_features = 11
-        X, y = ds.generate(n_samples_before=self.n_before, n_samples_after=self.n_after, 
+        X, y = ds.generate(n_samples_before=self.n_before, n_samples_after=self.n_after,
                            n_features=n_features, drift_width=200)
         self._verify_shape(X, y, n_features)
 
@@ -55,7 +55,7 @@ class TestSyntheticDatasets(unittest.TestCase):
 
     def test_drift_width_parameter_overflow(self):
         """
-        Test that generating data with various drift widths does not cause 
+        Test that generating data with various drift widths does not cause
         OverflowError (specifically checks the sigmoid fix/workaround).
         """
         datasets = [
@@ -89,11 +89,11 @@ class TestSyntheticDatasets(unittest.TestCase):
         seed = 42
         for ds, kwargs in datasets:
             with self.subTest(dataset=ds.name):
-                X1, y1 = ds.generate(n_samples_before=100, n_samples_after=100, 
+                X1, y1 = ds.generate(n_samples_before=100, n_samples_after=100,
                                      drift_width=100, random_seed=seed, **kwargs)
-                X2, y2 = ds.generate(n_samples_before=100, n_samples_after=100, 
+                X2, y2 = ds.generate(n_samples_before=100, n_samples_after=100,
                                      drift_width=100, random_seed=seed, **kwargs)
-                
+
                 pd.testing.assert_frame_equal(X1, X2)
                 pd.testing.assert_series_equal(y1, y2)
 

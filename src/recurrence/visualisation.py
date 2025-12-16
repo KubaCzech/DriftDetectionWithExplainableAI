@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from full_window_storage import FullWindowStorage
 
+
 def plot_prototype_comparison(storage: FullWindowStorage, windows_to_compare: list[int]):
     # First compute global min/max across ALL prototypes for nice y scale
     global_min = float('inf')
@@ -38,8 +39,8 @@ def plot_prototype_comparison(storage: FullWindowStorage, windows_to_compare: li
                 ax[row, col].tick_params(axis='x', labelrotation=45)
                 num_prototypes = len(prototypes[class_name])
                 ax[row, col].text(
-                    0.02, 0.95, 
-                    f"n={num_prototypes}", 
+                    0.02, 0.95,
+                    f"n={num_prototypes}",
                     transform=ax[row, col].transAxes,
                     fontsize=9,
                     verticalalignment='top'

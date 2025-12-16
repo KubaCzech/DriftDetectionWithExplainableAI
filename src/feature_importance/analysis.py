@@ -10,6 +10,7 @@ class FeatureImportanceDriftAnalyzer:
     concept drift (changes in P(Y|X)), and predictive importance shifts.
     It encapsulates the data splits (before/after drift) and feature names.
     """
+
     def __init__(self, X_before, y_before, X_after, y_after, feature_names=None):
         """
         Initialize the analyzer with data splits.
@@ -48,11 +49,58 @@ class FeatureImportanceDriftAnalyzer:
         self.X_after = X_after
         self.y_after = y_after
 
+    def _prepare_drift_data(self, include_target):
+        if include_target:
+            X_combined = np.concatenate([self.X_before, self.X_after])
+            y_combined = np.concatenate([self.y_before, self.y_after])
+            X_features = np.column_stack([X_combined, y_combined])
+        else:
+            X_features = np.concatenate([self.X_before, self.X_after])
+
+        n_samples_before = len(self.X_before)
+        n_samples_after = len(self.X_after)
+        time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
+
+        if include_target:
+            feature_names_for_calc = (self.feature_names + ['Y']) if self.feature_names else None
+            if feature_names_for_calc is None:
+                feature_names_for_calc = [f"Feature {i}" for i in range(X_features.shape[1])]
+        else:
+            feature_names_for_calc = self.feature_names
+            if feature_names_for_calc is None:
+                feature_names_for_calc = [f"Feature {i}" for i in range(X_features.shape[1])]
+
+        return X_features, time_labels, feature_names_for_calc
+
+    def _filter_importance_results(self, fi_result, include_target, feature_names_for_calc):
+        if include_target:
+            # 1. Update arrays in fi_result
+            if 'importances_mean' in fi_result:
+                fi_result['importances_mean'] = fi_result['importances_mean'][:-1]
+
+            if 'importances_std' in fi_result:
+                fi_result['importances_std'] = fi_result['importances_std'][:-1]
+
+            if 'importances' in fi_result:
+                # Check shape to determine axis to slice
+                if fi_result['importances'].shape[0] == len(feature_names_for_calc):
+                    fi_result['importances'] = fi_result['importances'][:-1]
+                elif (len(fi_result['importances'].shape) > 1 and
+                      fi_result['importances'].shape[1] == len(feature_names_for_calc)):
+                    fi_result['importances'] = fi_result['importances'][:, :-1]
+
+            # Features to return (exclude Y)
+            feature_names_returned = self.feature_names if self.feature_names else feature_names_for_calc[:-1]
+        else:
+            feature_names_returned = feature_names_for_calc
+
+        return fi_result, feature_names_returned
+
     def compute_drift_importance(self, importance_method="permutation", include_target=True,
                                  model_class=None, model_params=None):
         """
         Compute drift analysis (data drift or concept drift) importance.
-        
+
         If include_target is True, this analyzes Concept Drift (P(Y|X) changes) by using both
         features and target (X, Y) to classify time periods.
         If include_target is False, this analyzes Data Drift (P(X) changes) by using only
@@ -81,16 +129,7 @@ class FeatureImportanceDriftAnalyzer:
             - 'feature_names': List of feature names.
         """
         # Prepare Data
-        if include_target:
-            X_combined = np.concatenate([self.X_before, self.X_after])
-            y_combined = np.concatenate([self.y_before, self.y_after])
-            X_features = np.column_stack([X_combined, y_combined])
-        else:
-            X_features = np.concatenate([self.X_before, self.X_after])
-
-        n_samples_before = len(self.X_before)
-        n_samples_after = len(self.X_after)
-        time_labels = np.array([0] * n_samples_before + [1] * n_samples_after)
+        X_features, time_labels, feature_names_for_calc = self._prepare_drift_data(include_target)
 
         # Train Model
         if model_class is None:
@@ -104,16 +143,6 @@ class FeatureImportanceDriftAnalyzer:
         model.fit(X_features, time_labels)
         accuracy = model.score(X_features, time_labels)
 
-        # Prepare Feature Names
-        if include_target:
-            feature_names_for_calc = (self.feature_names + ['Y']) if self.feature_names else None
-            if feature_names_for_calc is None:
-                feature_names_for_calc = [f"Feature {i}" for i in range(X_features.shape[1])]
-        else:
-            feature_names_for_calc = self.feature_names
-            if feature_names_for_calc is None:
-                feature_names_for_calc = [f"Feature {i}" for i in range(X_features.shape[1])]
-
         # Calculate Feature Importance
         fi_result = calculate_feature_importance(
             model, X_features, time_labels,
@@ -121,26 +150,10 @@ class FeatureImportanceDriftAnalyzer:
             feature_names=feature_names_for_calc
         )
 
-        # Filter out 'Y' (target) from results if it was included
-        if include_target:
-            # 1. Update arrays in fi_result
-            if 'importances_mean' in fi_result:
-                fi_result['importances_mean'] = fi_result['importances_mean'][:-1]
-            
-            if 'importances_std' in fi_result:
-                fi_result['importances_std'] = fi_result['importances_std'][:-1]
-                
-            if 'importances' in fi_result:
-                # Check shape to determine axis to slice
-                if fi_result['importances'].shape[0] == len(feature_names_for_calc):
-                    fi_result['importances'] = fi_result['importances'][:-1]
-                elif len(fi_result['importances'].shape) > 1 and fi_result['importances'].shape[1] == len(feature_names_for_calc):
-                    fi_result['importances'] = fi_result['importances'][:, :-1]
-            
-            # Features to return (exclude Y)
-            feature_names_returned = self.feature_names if self.feature_names else feature_names_for_calc[:-1]
-        else:
-            feature_names_returned = feature_names_for_calc
+        # Filter results
+        fi_result, feature_names_returned = self._filter_importance_results(
+            fi_result, include_target, feature_names_for_calc
+        )
 
         importance_mean = fi_result['importances_mean']
         importance_std = fi_result['importances_std']

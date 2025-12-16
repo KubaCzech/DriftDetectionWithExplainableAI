@@ -5,35 +5,7 @@ from src.decision_boundary.analysis import DecisionBoundaryDriftAnalyzer
 from src.decision_boundary.visualization import visualize_decision_boundary
 
 
-def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
-                                 model_class=None,
-                                 model_params=None):
-    """
-    Renders the Decision Boundary Analysis tab.
-
-    Parameters
-    ----------
-    X_before : array-like
-        Feature matrix for 'before' window
-    y_before : array-like
-        Target variable for 'before' window
-    X_after : array-like
-        Feature matrix for 'after' window
-    y_after : array-like
-        Target variable for 'after' window
-    model_class : class
-        Classifier class
-    model_params : dict
-        Parameters for the classifier
-    """
-    st.header("Decision Boundary Analysis")
-    st.markdown("""
-    This tab visualizes the decision boundary of a classifier trained on the pre-drift and post-drift data.
-    It uses **SSNP (Semi-Supervised Neural Projection)** to project the high-dimensional data into 2D while
-    preserving the separation between classes.
-    """)
-
-    # Configuration for SSNP
+def _render_ssnp_config():
     with st.expander("SSNP Configuration", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
@@ -42,7 +14,10 @@ def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
         with col2:
             grid_size = st.number_input("Grid Resolution", min_value=50, max_value=500, value=200, step=50,
                                         help="Resolution of the grid for visualizing probabilities.")
+    return ssnp_epochs, grid_size
 
+
+def _run_analysis_if_needed(X_before, y_before, X_after, y_after, model_class, model_params, ssnp_epochs, grid_size):
     # Initialize session state for results if not exists
     if 'decision_boundary_results' not in st.session_state:
         st.session_state.decision_boundary_results = None
@@ -85,7 +60,8 @@ def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
                 st.text(traceback.format_exc())
                 st.session_state.decision_boundary_results = None
 
-    # Display results if they exist in session state
+
+def _display_results():
     if st.session_state.decision_boundary_results is not None:
         try:
             st.markdown("### Decision Boundaries (Pre vs Post)")
@@ -100,3 +76,52 @@ def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
             if st.button("Clear Results"):
                 st.session_state.decision_boundary_results = None
                 st.rerun()
+
+
+def _render_decision_boundary_tab_content(X_before, y_before, X_after, y_after, model_class, model_params):
+    # Configuration for SSNP
+    ssnp_epochs, grid_size = _render_ssnp_config()
+
+    # Run Analysis
+    _run_analysis_if_needed(X_before, y_before, X_after, y_after, model_class, model_params, ssnp_epochs, grid_size)
+
+    # Display results
+    _display_results()
+
+
+def render_decision_boundary_tab(X_before, y_before, X_after, y_after,
+                                 model_class=None,
+                                 model_params=None):
+    """
+    Renders the Decision Boundary Analysis tab.
+
+    Parameters
+    ----------
+    X_before : array-like
+        Feature matrix for 'before' window
+    y_before : array-like
+        Target variable for 'before' window
+    X_after : array-like
+        Feature matrix for 'after' window
+    y_after : array-like
+        Target variable for 'after' window
+    model_class : class
+        Classifier class
+    model_params : dict
+        Parameters for the classifier
+    """
+    st.header("Decision Boundary Analysis")
+    st.markdown("""
+    This tab visualizes the decision boundary of a classifier trained on the pre-drift and post-drift data.
+    It uses **SSNP (Semi-Supervised Neural Projection)** to project the high-dimensional data into 2D while
+    preserving the separation between classes.
+    """)
+
+    # Configuration for SSNP
+    ssnp_epochs, grid_size = _render_ssnp_config()
+
+    # Run Analysis
+    _run_analysis_if_needed(X_before, y_before, X_after, y_after, model_class, model_params, ssnp_epochs, grid_size)
+
+    # Display results
+    _display_results()

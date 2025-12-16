@@ -1,22 +1,24 @@
-import streamlit as st
 import sys
 import os
+
+# Add the src directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'recurrence')))
+
+import warnings  # noqa: E402
+import logging  # noqa: E402
+import streamlit as st  # noqa: E402
+from dashboard.components.sidebar import render_sidebar_datasource_config, render_sidebar_window_selection  # noqa: E402
 
 # Suppress TensorFlow oneDNN custom operations logs
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
-import logging
-import warnings
 
 # Suppress specific TensorFlow warnings
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 # Also try to suppress via warnings just in case it's reachable that way
 warnings.filterwarnings('ignore', category=UserWarning, module='tensorflow')
 warnings.filterwarnings('ignore', message='.*reset_default_graph.*')
-
-# Add the src directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'recurrence')))
 
 from src.datasets import DATASETS  # noqa: E402
 from dashboard.components.tabs import (  # noqa: E402
@@ -54,7 +56,6 @@ with col_info:
 
 # --- Sidebar for User Input ---
 # 1. Render Datasource Configuration (load dataset parameters)
-from dashboard.components.sidebar import render_sidebar_datasource_config, render_sidebar_window_selection
 
 datasource_config = render_sidebar_datasource_config()
 
@@ -102,12 +103,12 @@ else:
     feature_names = []
     # If data generation fails or no data, we can't really set window selection constraints properly.
     # But we should still render the inputs to avoid UI disappearing, just with default/fallback max.
-    
+
 # 2. Render Window Selection (now that we know data length)
 if X is not None:
     max_samples = len(X)
 else:
-    max_samples = 1000 # Fallback
+    max_samples = 1000  # Fallback
 
 window_before_start, window_after_start = render_sidebar_window_selection(max_samples, window_length)
 

@@ -2,7 +2,7 @@ import unittest
 import sys
 import os
 import numpy as np
-import pandas as pd
+
 
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -31,7 +31,6 @@ class TestModels(unittest.TestCase):
                     self.assertLessEqual(score, 1.0)
                 except Exception as e:
                     self.fail(f"Model {name} failed with error: {e}")
-
 
 
 if __name__ == "__main__":

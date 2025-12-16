@@ -6,6 +6,154 @@ from dashboard.components.modals.dataset_settings import open_dataset_settings_m
 from dashboard.components.modals.model_settings import open_model_settings_modal
 
 
+def _render_import_dataset_modal(dataset_key):
+    if dataset_key == "➕ Import dataset...":
+        @st.dialog("Import Dataset")
+        def open_import_dataset_modal():
+            st.write("Upload a CSV file to import a new dataset.")
+            uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+
+            if uploaded_file is not None:
+                try:
+                    # Read header only
+                    uploaded_file.seek(0)
+                    df_preview = pd.read_csv(uploaded_file, nrows=0)
+                    columns = df_preview.columns.tolist()
+                except Exception as e:
+                    st.error(f"Error reading CSV: {e}")
+                    return
+
+                dataset_name = st.text_input("Dataset Name", value=uploaded_file.name.replace(".csv", ""))
+
+                # Default target is the last column
+                default_target_idx = len(columns) - 1 if columns else 0
+
+                target_col = st.selectbox(
+                    "Target Variable",
+                    options=columns,
+                    index=default_target_idx,
+                    help="Select the column containing the target variable."
+                )
+
+                # Default features are all except target
+                available_features = [c for c in columns if c != target_col]
+                features = st.multiselect(
+                    "Features to Include",
+                    options=available_features,
+                    default=available_features,
+                    help="Select the features to be used for the dataset."
+                )
+
+                if st.button("Import Dataset"):
+                    if not dataset_name:
+                        st.error("Please provide a dataset name.")
+                        return
+                    if not features:
+                        st.error("Please select at least one feature.")
+                        return
+
+                    # Save
+                    registry = DatasetRegistry()
+                    registry.save_dataset(dataset_name, uploaded_file, target_col, features)
+
+                    # Reload datasets
+                    reload_datasets()
+
+                    # Update session state to select the new dataset
+                    st.session_state.selected_dataset_key = dataset_name
+                    st.success(f"Dataset '{dataset_name}' imported successfully!")
+                    st.rerun()
+
+        open_import_dataset_modal()
+        # Stop execution so the rest of the app doesn't try to render with "Import dataset..." key
+        st.stop()
+
+
+def _render_dataset_selection():
+    st.subheader("Dataset Selection")
+
+    # 2. Select Dataset
+    # Define Import Option
+    IMPORT_OPTION = "➕ Import dataset..."
+
+    dataset_options = list(DATASETS.keys()) + [IMPORT_OPTION]
+
+    # Check if we should select a specific dataset (e.g. after import)
+    index = 0
+    if 'selected_dataset_key' in st.session_state and st.session_state.selected_dataset_key in dataset_options:
+        index = dataset_options.index(st.session_state.selected_dataset_key)
+
+    col_ds1, col_ds2 = st.columns([0.75, 0.25], vertical_alignment="bottom")
+    with col_ds1:
+        dataset_key = st.selectbox(
+            "Choose a Dataset",
+            options=dataset_options,
+            index=index,
+            format_func=lambda x: x if x == IMPORT_OPTION else DATASETS[x].display_name,
+            help="Select the synthetic dataset to analyze or import a new one."
+        )
+
+    # Handle import modal
+    _render_import_dataset_modal(dataset_key)
+
+    # Process selection (if not stopped by modal)
+    st.session_state.selected_dataset_key = dataset_key
+    selected_dataset = DATASETS[dataset_key]
+
+    # Add delete option for imported datasets
+    registry = DatasetRegistry()
+    if registry.get_dataset_info(dataset_key):
+        if st.sidebar.button("🗑️ Delete Dataset", help="Permanently remove this imported dataset."):
+            registry.delete_dataset(dataset_key)
+            reload_datasets()
+            st.session_state.selected_dataset_key = list(DATASETS.keys())[0]
+            st.rerun()
+
+    # Initialize session state for parameters if not exists
+    if 'dataset_params' not in st.session_state:
+        st.session_state.dataset_params = {}
+
+    with col_ds2:
+        if st.button("⚙️", key="dataset_settings_btn", help="Configure dataset settings", width="stretch"):
+            # Clear temporary settings widgets
+            keys_to_clear = [k for k in st.session_state.keys() if k.startswith("temp_dataset_param_")]
+            for k in keys_to_clear:
+                del st.session_state[k]
+            open_dataset_settings_modal(selected_dataset, st.session_state.get('window_length', 1000), dataset_key)
+
+    return dataset_key, selected_dataset, st.session_state.dataset_params
+
+
+def _render_model_selection():
+    # 5. Model Selection
+    st.subheader("Model Configuration")
+
+    col_m1, col_m2 = st.columns([0.75, 0.25], vertical_alignment="bottom")
+    with col_m1:
+        model_key = st.selectbox(
+            "Choose a Model",
+            options=list(MODELS.keys()),
+            format_func=lambda x: MODELS[x]().display_name,
+            help="Select the machine learning model to use for drift detection."
+        )
+
+    selected_model_class = MODELS[model_key]
+
+    # Initialize session state for model parameters if not exists
+    if 'model_params' not in st.session_state:
+        st.session_state.model_params = {}
+
+    with col_m2:
+        if st.button("⚙️", key="model_settings_btn", help="Configure model settings", width="stretch"):
+            # Clear temporary settings widgets
+            keys_to_clear = [k for k in st.session_state.keys() if k.startswith("temp_model_param_")]
+            for k in keys_to_clear:
+                del st.session_state[k]
+            open_model_settings_modal(selected_model_class)
+
+    return selected_model_class, st.session_state.model_params
+
+
 def render_sidebar_datasource_config():
     """
     Renders the configuration sidebar (Dataset, Model, Global Settings).
@@ -25,145 +173,13 @@ def render_sidebar_datasource_config():
             help="Length of the analysis window in samples."
         )
 
-        st.subheader("Dataset Selection")
+        st.session_state.window_length = window_length  # Store for modal usage
 
-        # 2. Select Dataset
-        # Define Import Option
-        IMPORT_OPTION = "➕ Import dataset..."
+        # Dataset Selection
+        dataset_key, selected_dataset, dataset_params = _render_dataset_selection()
 
-        dataset_options = list(DATASETS.keys()) + [IMPORT_OPTION]
-
-        # Check if we should select a specific dataset (e.g. after import)
-        index = 0
-        if 'selected_dataset_key' in st.session_state and st.session_state.selected_dataset_key in dataset_options:
-            index = dataset_options.index(st.session_state.selected_dataset_key)
-
-        col_ds1, col_ds2 = st.columns([0.75, 0.25], vertical_alignment="bottom")
-        with col_ds1:
-            dataset_key = st.selectbox(
-                "Choose a Dataset",
-                options=dataset_options,
-                index=index,
-                format_func=lambda x: x if x == IMPORT_OPTION else DATASETS[x].display_name,
-                help="Select the synthetic dataset to analyze or import a new one."
-            )
-
-        if dataset_key == IMPORT_OPTION:
-            @st.dialog("Import Dataset")
-            def open_import_dataset_modal():
-                st.write("Upload a CSV file to import a new dataset.")
-                uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
-
-                if uploaded_file is not None:
-                    try:
-                        # Read header only
-                        uploaded_file.seek(0)
-                        df_preview = pd.read_csv(uploaded_file, nrows=0)
-                        columns = df_preview.columns.tolist()
-                    except Exception as e:
-                        st.error(f"Error reading CSV: {e}")
-                        return
-
-                    dataset_name = st.text_input("Dataset Name", value=uploaded_file.name.replace(".csv", ""))
-
-                    # Default target is the last column
-                    default_target_idx = len(columns) - 1 if columns else 0
-
-                    target_col = st.selectbox(
-                        "Target Variable",
-                        options=columns,
-                        index=default_target_idx,
-                        help="Select the column containing the target variable."
-                    )
-
-                    # Default features are all except target
-                    available_features = [c for c in columns if c != target_col]
-                    features = st.multiselect(
-                        "Features to Include",
-                        options=available_features,
-                        default=available_features,
-                        help="Select the features to be used for the dataset."
-                    )
-
-                    if st.button("Import Dataset"):
-                        if not dataset_name:
-                            st.error("Please provide a dataset name.")
-                            return
-                        if not features:
-                            st.error("Please select at least one feature.")
-                            return
-
-                        # Save
-                        registry = DatasetRegistry()
-                        registry.save_dataset(dataset_name, uploaded_file, target_col, features)
-
-                        # Reload datasets
-                        reload_datasets()
-
-                        # Update session state to select the new dataset
-                        st.session_state.selected_dataset_key = dataset_name
-                        st.success(f"Dataset '{dataset_name}' imported successfully!")
-                        st.rerun()
-
-            open_import_dataset_modal()
-            # Stop execution so the rest of the app doesn't try to render with "Import dataset..." key
-            st.stop()
-        else:
-            st.session_state.selected_dataset_key = dataset_key
-
-        selected_dataset = DATASETS[dataset_key]
-
-        # Add delete option for imported datasets
-        # Check if it's an imported dataset by checking registry
-        registry = DatasetRegistry()
-        if registry.get_dataset_info(dataset_key):
-            if st.sidebar.button("🗑️ Delete Dataset", help="Permanently remove this imported dataset."):
-                registry.delete_dataset(dataset_key)
-                reload_datasets()
-                st.session_state.selected_dataset_key = list(DATASETS.keys())[0]  # specific fallback or let it reset
-                st.rerun()
-
-        # Initialize session state for parameters if not exists
-        if 'dataset_params' not in st.session_state:
-            st.session_state.dataset_params = {}
-
-        with col_ds2:
-            if st.button("⚙️", key="dataset_settings_btn", help="Configure dataset settings", width="stretch"):
-                # Clear temporary settings widgets to ensure a fresh start from committed params
-                keys_to_clear = [k for k in st.session_state.keys() if k.startswith("temp_dataset_param_")]
-                for k in keys_to_clear:
-                    del st.session_state[k]
-                open_dataset_settings_modal(selected_dataset, window_length, dataset_key)
-
-        # 5. Model Selection
-        st.subheader("Model Configuration")
-
-        col_m1, col_m2 = st.columns([0.75, 0.25], vertical_alignment="bottom")
-        with col_m1:
-            model_key = st.selectbox(
-                "Choose a Model",
-                options=list(MODELS.keys()),
-                format_func=lambda x: MODELS[x]().display_name,
-                help="Select the machine learning model to use for drift detection."
-            )
-
-        selected_model_class = MODELS[model_key]
-
-        # Initialize session state for model parameters if not exists
-        if 'model_params' not in st.session_state:
-            st.session_state.model_params = {}
-
-        with col_m2:
-            if st.button("⚙️", key="model_settings_btn", help="Configure model settings", width="stretch"):
-                # Clear temporary settings widgets to ensure a fresh start
-                keys_to_clear = [k for k in st.session_state.keys() if k.startswith("temp_model_param_")]
-                for k in keys_to_clear:
-                    del st.session_state[k]
-                open_model_settings_modal(selected_model_class)
-
-        # Ensure dataset_params and model_params are populated for the main app execution
-        dataset_params = st.session_state.dataset_params
-        model_params = st.session_state.model_params
+        # Model Selection
+        selected_model_class, model_params = _render_model_selection()
 
     return {
         "window_length": window_length,
@@ -192,8 +208,10 @@ def render_sidebar_window_selection(max_samples, window_length):
         curr_after_key = "window_after_input"
 
         # Initialize if not present (default 0 and 1)
-        if curr_before_key not in st.session_state: st.session_state[curr_before_key] = 0
-        if curr_after_key not in st.session_state: st.session_state[curr_after_key] = 1
+        if curr_before_key not in st.session_state:
+            st.session_state[curr_before_key] = 0
+        if curr_after_key not in st.session_state:
+            st.session_state[curr_after_key] = 1
 
         curr_before = st.session_state[curr_before_key]
         curr_after = st.session_state[curr_after_key]

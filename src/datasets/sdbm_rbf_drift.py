@@ -148,7 +148,7 @@ class SDBMRBFDriftDataset(BaseDataset):
 
         total_samples = n_samples_before + n_samples_after
         samples_total = total_samples  # Alias for clarity
-        
+
         # 1. Generate full length data for Concept 1 (Pre)
         X1 = self._generate_cluster_data(
             np.vstack([centers_class0, centers_class1]),
@@ -156,7 +156,7 @@ class SDBMRBFDriftDataset(BaseDataset):
             cluster_std
         )
         y1 = self._generate_labels(X1, centers_class0, centers_class1, gamma)
-        
+
         # 2. Generate full length data for Concept 2 (Post)
         X2 = self._generate_cluster_data(
             np.vstack([centers_class0, centers_class1]),
@@ -165,7 +165,7 @@ class SDBMRBFDriftDataset(BaseDataset):
         )
         # Swapped centers for labels
         y2 = self._generate_labels(X2, centers_class1, centers_class0, gamma)
-        
+
         # Add noise independently
         y1 = self._add_label_noise(y1, noise)
         y2 = self._add_label_noise(y2, noise)

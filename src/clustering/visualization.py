@@ -73,7 +73,7 @@ def plot_clusters(X, labels, title, color_map=None):
 
     for ul in unique_labels:
         # Safety check for color map
-        color = color_map.get(ul, "#333333") # Default to dark gray if missing
+        color = color_map.get(ul, "#333333")  # Default to dark gray if missing
         plt.scatter(X[labels == ul, 0], X[labels == ul, 1], color=color, label=f'Cluster {ul}', s=30)
 
     plt.title(title)
@@ -91,24 +91,28 @@ def plot_drift_clustered(
         plt.figure(figsize=(12, 5))
 
     # Normalize inputs
-    if hasattr(labels_before, "values"): labels_before = labels_before.values
-    if hasattr(labels_after, "values"): labels_after = labels_after.values
+    if hasattr(labels_before, "values"):
+        labels_before = labels_before.values
+    if hasattr(labels_after, "values"):
+        labels_after = labels_after.values
 
-    if labels_before.dtype.kind == 'f': labels_before = labels_before.astype(int)
-    if labels_after.dtype.kind == 'f': labels_after = labels_after.astype(int)
+    if labels_before.dtype.kind == 'f':
+        labels_before = labels_before.astype(int)
+    if labels_after.dtype.kind == 'f':
+        labels_after = labels_after.astype(int)
 
     # Dynamic color map generation if not provided
     if color_map is None:
         unique_before = np.unique(labels_before)
         unique_after = np.unique(labels_after)
         all_labels = sorted(list(set(unique_before) | set(unique_after)))
-        
+
         if len(all_labels) <= len(colors):
-             color_map = {label: colors[i] for i, label in enumerate(all_labels)}
+            color_map = {label: colors[i] for i, label in enumerate(all_labels)}
         else:
-             # Use tab20 for more distinct colors if many clusters
-             cmap = plt.cm.get_cmap('tab20')
-             color_map = {label: cmap(i / len(all_labels)) for i, label in enumerate(all_labels)}
+            # Use tab20 for more distinct colors if many clusters
+            cmap = plt.cm.get_cmap('tab20')
+            color_map = {label: cmap(i / len(all_labels)) for i, label in enumerate(all_labels)}
 
     # Before drift
     plt.subplot(1, 2, 1)

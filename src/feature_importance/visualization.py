@@ -54,7 +54,7 @@ def visualize_drift_importance(analysis_result, feature_names,
             bp = ax.boxplot([importances[i] for i in range(n_features)],
                             tick_labels=feature_names, patch_artist=True,
                             notch=True, showmeans=True)
-            
+
             # Rotate labels
             plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 
