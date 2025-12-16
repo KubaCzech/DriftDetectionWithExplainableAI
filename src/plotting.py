@@ -4,42 +4,104 @@ import pandas as pd
 from sklearn.decomposition import PCA
 
 
-def _plot_single_relationship(ax, viz_type, data, class_colors, feat_name, window_name,
-                              scatter_x=None, scatter_y=None, scatter_labels=None):
-    """Helper to plot on a single axis to reduce complexity."""
+def _plot_distribution_comparison(ax, viz_type, data_dict, feature_name):
+    """
+    Helper to plot distributions for comparison on a single axis.
+
+    Args:
+        ax: Matplotlib axis
+        viz_type: 'violin', 'box', or 'scatter'
+        data_dict: list of dicts with keys ['label', 'values', 'color', 'alpha', 'position']
+        feature_name: Name of the feature (for x-label)
+    """
+    positions = [d['position'] for d in data_dict]
+    values = [d['values'] for d in data_dict]
+
+    # Filter out empty data to prevent plotting errors
+    valid_indices = [i for i, v in enumerate(values) if len(v) > 0]
+    if not valid_indices:
+        return
+
+    valid_values = [values[i] for i in valid_indices]
+    valid_positions = [positions[i] for i in valid_indices]
+    valid_colors = [data_dict[i]['color'] for i in valid_indices]
+    valid_alphas = [data_dict[i]['alpha'] for i in valid_indices]
+
     if viz_type == 'violin':
-        parts = ax.violinplot(data, positions=[0, 1], showmeans=True)
-        for pc, color in zip(parts['bodies'], [class_colors[0], class_colors[1]]):
-            pc.set_facecolor(color)
-            pc.set_alpha(0.5)
-        for partname in ('cbars', 'cmins', 'cmaxes', 'cmeans'):
-            if partname in parts:
-                parts[partname].set_edgecolor('black')
+        _plot_violin(ax, valid_values, valid_positions, valid_colors, valid_alphas)
     elif viz_type == 'box':
-        bplot = ax.boxplot(data, positions=[0, 1], patch_artist=True)
-        for patch, color in zip(bplot['boxes'], [class_colors[0], class_colors[1]]):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.5)
+        _plot_box(ax, valid_values, valid_positions, valid_colors, valid_alphas)
     else:  # scatter
-        # scatter_x is list of [x_c0, x_c1], scatter_y is [y_c0, y_c1]
-        for i, (x_c, y_c) in enumerate(zip(scatter_x, scatter_y)):
-            ax.scatter(x_c, y_c, alpha=0.5, s=20, label=scatter_labels[i],
-                       color=class_colors[i])
-        ax.set_yticks([0, 1])
-        ax.set_yticklabels(['Class 0', 'Class 1'])
-        ax.legend()
+        # Scatter needs original data_dict for labels logic in loop, or simplified
+        _plot_scatter(ax, data_dict, valid_indices)
 
-    ax.set_xlabel(feat_name)
-    if viz_type == 'scatter':
-        ax.set_ylabel('Target Class (with jitter)')
-    else:
-        ax.set_ylabel('Values (by Class)')
+    # Formatting
+    ax.set_yticks(positions)
+    ax.set_yticklabels([d['label'] for d in data_dict])
+    ax.set_xlabel(feature_name)
+    ax.grid(True, alpha=0.3, axis='x')
 
-    ax.set_title(f'{feat_name} vs Target - {window_name}')
-    if viz_type != 'scatter':
-        ax.set_xticks([0, 1])
-        ax.set_xticklabels(['Class 0', 'Class 1'])
-    ax.grid(True, alpha=0.3)
+    # Remove top/right spines for cleaner look
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+
+def _plot_violin(ax, values, positions, colors, alphas):
+    # Horizontal violin plot
+    # Improvement: Add quantiles (25%, 75%) to see the IQR, and Median.
+    quantiles_list = [[0.25, 0.75] for _ in values]
+
+    parts = ax.violinplot(values, positions=positions,
+                          vert=False, showmeans=False, showextrema=False,
+                          showmedians=True, quantiles=quantiles_list)
+
+    # Style the violin bodies
+    if 'bodies' in parts:
+        for pc, color, alpha in zip(parts['bodies'], colors, alphas):
+            pc.set_facecolor(color)
+            pc.set_alpha(alpha)
+            pc.set_edgecolor('black')
+            pc.set_linewidth(1)
+
+    # Style the medians (Solid White for contrast)
+    if 'cmedians' in parts:
+        parts['cmedians'].set_edgecolor('white')
+        parts['cmedians'].set_linewidth(2)
+        parts['cmedians'].set_alpha(1.0)
+
+    # Style the quantiles (Dashed Black for IQR boundaries)
+    if 'cquantiles' in parts:
+        parts['cquantiles'].set_edgecolor('black')
+        parts['cquantiles'].set_linestyle('--')
+        parts['cquantiles'].set_linewidth(1)
+        parts['cquantiles'].set_alpha(0.6)
+
+
+def _plot_box(ax, values, positions, colors, alphas):
+    # Horizontal box plot
+    bplot = ax.boxplot(values, positions=positions,
+                       vert=False, patch_artist=True, widths=0.6)
+
+    for patch, color, alpha in zip(bplot['boxes'], colors, alphas):
+        patch.set_facecolor(color)
+        patch.set_alpha(alpha)
+        patch.set_edgecolor('black')
+
+    for median in bplot['medians']:
+        median.set_color('black')
+        median.set_linewidth(1.5)
+
+
+def _plot_scatter(ax, data_dict, valid_indices):
+    # Scatter with jitter on Y-axis (which represents the groups)
+    for i in valid_indices:
+        d = data_dict[i]
+        # Add random jitter to the Y-position
+        y_jitter = np.random.normal(d['position'], 0.08, size=len(d['values']))
+
+        ax.scatter(d['values'], y_jitter,
+                   alpha=d['alpha'], s=20, label=d['label'] if i == 0 else "",  # Label once if needed
+                   color=d['color'], edgecolors='none')
 
 
 def plot_feature_target_relationship(X, n_features, feature_names,
@@ -50,53 +112,73 @@ def plot_feature_target_relationship(X, n_features, feature_names,
                                      title='Feature vs Target Relationship',
                                      viz_type='violin'):
     """
-    Creates a figure showing feature vs target relationship.
-    viz_type: 'scatter', 'violin', or 'box'
+    Creates a figure showing feature distributions, grouped by Class and Window.
+
+    Layout:
+        One subplot per feature.
+        Inside each subplot, distributions are stacked horizontally:
+        - Class 0 (Before vs After)
+        - Class 1 (Before vs After)
     """
-    fig, axes = plt.subplots(n_features, 2,
-                             figsize=(12, 4 * n_features),
+    # Create taller subplots to accommodate 4 stacked distributions per feature
+    fig, axes = plt.subplots(n_features, 1,
+                             figsize=(10, 3.5 * n_features),
                              squeeze=False)
+
     if title:
-        fig.suptitle(title, fontsize=16, fontweight='bold', y=1.0)
+        fig.suptitle(title, fontsize=16, fontweight='bold', y=0.99)
 
     for i in range(n_features):
-        ax_before = axes[i, 0]
-        ax_after = axes[i, 1]
+        ax = axes[i, 0]
         feat_name = feature_names[i]
 
-        data_before = [X_before[mask_before_c0, i], X_before[mask_before_c1, i]]
-        data_after = [X_after[mask_after_c0, i], X_after[mask_after_c1, i]]
+        c0 = class_colors[0]
+        c1 = class_colors[1]
 
-        scatter_args_before = {}
-        scatter_args_after = {}
+        # Define data structure for the comparison plot
+        # We group by Class (0 then 1), and within class by Window (1 then 2)
+        # Alpha is used to distinguish Before (Faded/Past) vs After (Solid/Present)
 
-        if viz_type == 'scatter':
-            # Jitter calculation moved locally to when needed or computed always if cheap
-            y_j_b_c0 = np.random.normal(0, 0.02, np.sum(mask_before_c0))
-            y_j_b_c1 = 1 + np.random.normal(0, 0.02, np.sum(mask_before_c1))
-            y_j_a_c0 = np.random.normal(0, 0.02, np.sum(mask_after_c0))
-            y_j_a_c1 = 1 + np.random.normal(0, 0.02, np.sum(mask_after_c1))
+        plot_data = [
+            # --- Class 0 Group ---
+            {
+                'label': 'Class 0\n(Before)',
+                'values': X_before[mask_before_c0, i],
+                'color': c0,
+                'alpha': 0.3,      # Faded
+                'position': 0
+            },
+            {
+                'label': 'Class 0\n(After)',
+                'values': X_after[mask_after_c0, i],
+                'color': c0,
+                'alpha': 0.8,      # Solid
+                'position': 1
+            },
 
-            scatter_args_before = {
-                'scatter_x': [X_before[mask_before_c0, i], X_before[mask_before_c1, i]],
-                'scatter_y': [y_j_b_c0, y_j_b_c1],
-                'scatter_labels': ['Class 0', 'Class 1']
+            # --- Class 1 Group (Spaced apart) ---
+            {
+                'label': 'Class 1\n(Before)',
+                'values': X_before[mask_before_c1, i],
+                'color': c1,
+                'alpha': 0.3,      # Faded
+                'position': 2.5    # Gap of 1.5 units
+            },
+            {
+                'label': 'Class 1\n(After)',
+                'values': X_after[mask_after_c1, i],
+                'color': c1,
+                'alpha': 0.8,      # Solid
+                'position': 3.5
             }
-            scatter_args_after = {
-                'scatter_x': [X_after[mask_after_c0, i], X_after[mask_after_c1, i]],
-                'scatter_y': [y_j_a_c0, y_j_a_c1],
-                'scatter_labels': ['Class 0', 'Class 1']
-            }
+        ]
 
-        _plot_single_relationship(ax_before, viz_type, data_before, class_colors,
-                                  feat_name, 'Window 1', **scatter_args_before)
-
-        _plot_single_relationship(ax_after, viz_type, data_after, class_colors,
-                                  feat_name, 'Window 2', **scatter_args_after)
+        _plot_distribution_comparison(ax, viz_type, plot_data, feat_name)
+        ax.set_title(f'{feat_name} Distributions', fontsize=12)
 
     plt.tight_layout()
-    # Increased top margin
-    fig.subplots_adjust(top=0.92)
+    # Adjust top margin for the main title
+    fig.subplots_adjust(top=0.94)
     return fig
 
 
@@ -109,21 +191,21 @@ def plot_class_distribution(class_dist_before, class_dist_after, class_colors,
     if title:
         fig.suptitle(title, fontsize=16, fontweight='bold', y=1.0)
 
-    # Class distributions - Before (Window 1)
+    # Class distributions - Before
     ax_class_before.bar(['Class 0', 'Class 1'], class_dist_before,
                         color=[class_colors[0], class_colors[1]],
                         alpha=0.7, edgecolor='black')
     ax_class_before.set_ylabel('Proportion')
-    ax_class_before.set_title('Window 1')
+    ax_class_before.set_title('Before')
     ax_class_before.set_ylim([0, 1])
     ax_class_before.grid(True, alpha=0.3, axis='y')
 
-    # Class distributions - After (Window 2)
+    # Class distributions - After
     ax_class_after.bar(['Class 0', 'Class 1'], class_dist_after,
                        color=[class_colors[0], class_colors[1]],
                        alpha=0.7, edgecolor='black')
     ax_class_after.set_ylabel('Proportion')
-    ax_class_after.set_title('Window 2')
+    ax_class_after.set_title('After')
     ax_class_after.set_ylim([0, 1])
     ax_class_after.grid(True, alpha=0.3, axis='y')
 
@@ -215,11 +297,11 @@ def plot_feature_space(n_features, feature_names, X_before, X_after,
         ax_fs_after.set_ylabel('Principal Component 2')
         fs_title_suffix = " (PCA)"
 
-    ax_fs_before.set_title('Window 1')
+    ax_fs_before.set_title('Before')
     ax_fs_before.legend()
     ax_fs_before.grid(True, alpha=0.3)
 
-    ax_fs_after.set_title('Window 2')
+    ax_fs_after.set_title('After')
     ax_fs_after.legend()
     ax_fs_after.grid(True, alpha=0.3)
 
