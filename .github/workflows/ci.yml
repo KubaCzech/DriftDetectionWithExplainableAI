@@ -30,6 +30,6 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude .venv,sdbm
 
-    - name: Verify Imports
+    - name: Run Tests
       run: |
-        python -c "import src.datasets; import src.feature_importance; print('Imports successful')"
+        python -m unittest discover tests
