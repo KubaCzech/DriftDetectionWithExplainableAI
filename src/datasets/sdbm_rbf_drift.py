@@ -157,6 +157,11 @@ class SDBMRBFDriftDataset(BaseDataset):
         )
         y1 = self._generate_labels(X1, centers_class0, centers_class1, gamma)
 
+        # Shuffle Concept 1
+        p1 = np.random.permutation(samples_total)
+        X1 = X1[p1]
+        y1 = y1[p1]
+
         # 2. Generate full length data for Concept 2 (Post)
         X2 = self._generate_cluster_data(
             np.vstack([centers_class0, centers_class1]),
@@ -165,6 +170,11 @@ class SDBMRBFDriftDataset(BaseDataset):
         )
         # Swapped centers for labels
         y2 = self._generate_labels(X2, centers_class1, centers_class0, gamma)
+
+        # Shuffle Concept 2
+        p2 = np.random.permutation(samples_total)
+        X2 = X2[p2]
+        y2 = y2[p2]
 
         # Add noise independently
         y1 = self._add_label_noise(y1, noise)

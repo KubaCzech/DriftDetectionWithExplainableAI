@@ -113,17 +113,21 @@ def apply_sigmoid_drift(arr1, arr2, drift_point, drift_width):
     indices = np.arange(total_samples)
     w = max(1, drift_width)
 
-    # Sigmoid function centered at drift_point
-    # v = -4 * (x - p) / w
-    v = -4.0 * (indices - drift_point) / w
+    if drift_width < 2:
+        # Strict sudden drift
+        mask = indices >= drift_point
+    else:
+        # Sigmoid function centered at drift_point
+        # v = -4 * (x - p) / w
+        v = -4.0 * (indices - drift_point) / w
 
-    # Clip v to avoid overflow in exp
-    v = np.clip(v, -500, 500)
+        # Clip v to avoid overflow in exp
+        v = np.clip(v, -500, 500)
 
-    p_concept_2 = 1.0 / (1.0 + np.exp(v))
+        p_concept_2 = 1.0 / (1.0 + np.exp(v))
 
-    random_probs = np.random.random(total_samples)
-    mask = random_probs < p_concept_2
+        random_probs = np.random.random(total_samples)
+        mask = random_probs < p_concept_2
 
     # Handle broadcasting for multidimensional arrays (e.g., X)
     if arr1.ndim > 1:
