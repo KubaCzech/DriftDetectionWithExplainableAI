@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drift-detection-xai"
+version = "0.1.0"
+description = "Drift Detection with Explainable AI"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Deniz Aksoy"},
+    {name = "Kuba Czech"},
+    {name = "Wojciech Nagórka"},
+    {name = "Michał Redmer"}
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "scipy",
+    "pyclustering",
+    "river",
+    "matplotlib",
+    "umap-learn",
+    "lime",
+    "shap",
+    "streamlit",
+    "tensorflow",
+    "seaborn",
+    "hdbscan",
+    "icecream"
+]
+
+[project.optional-dependencies]
+dev = [
+    "flake8"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
