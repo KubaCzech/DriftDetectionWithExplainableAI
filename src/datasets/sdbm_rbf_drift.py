@@ -1,4 +1,5 @@
 from .base import BaseDataset
+from .utils import apply_sigmoid_drift
 import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import rbf_kernel
@@ -22,7 +23,8 @@ class SDBMRBFDriftDataset(BaseDataset):
             "gamma": 30.0,
             "noise": 0.0,
             "cluster_std": 0.05,
-            "random_seed": 42
+            "random_seed": 42,
+            "drift_width": 400
         })
         return params
 
@@ -82,6 +84,15 @@ class SDBMRBFDriftDataset(BaseDataset):
                 "min_value": 0,
                 "step": 1,
                 "help": "Seed for reproducible random generation."
+            },
+            {
+                "name": "drift_width",
+                "type": "int",
+                "label": "Drift Width (drift_width)",
+                "default": 400,
+                "min_value": 1,
+                "step": 1,
+                "help": "Width of the concept drift (number of samples)."
             }
         ]
 
@@ -119,7 +130,7 @@ class SDBMRBFDriftDataset(BaseDataset):
 
     def generate(self, n_samples_before=2000, n_samples_after=2000,
                  gamma=30.0, noise=0.0, cluster_std=0.05,
-                 random_seed=42, **kwargs) -> tuple[pd.DataFrame, pd.Series]:
+                 random_seed=42, drift_width=400, **kwargs) -> tuple[pd.DataFrame, pd.Series]:
 
         np.random.seed(random_seed)
 
@@ -135,40 +146,33 @@ class SDBMRBFDriftDataset(BaseDataset):
             [0.8, 0.8, 0.2, 0.2]
         ])
 
-        # Generate PRE drift data
-        X_pre = self._generate_cluster_data(
+        total_samples = n_samples_before + n_samples_after
+        samples_total = total_samples  # Alias for clarity
+        
+        # 1. Generate full length data for Concept 1 (Pre)
+        X1 = self._generate_cluster_data(
             np.vstack([centers_class0, centers_class1]),
-            n_samples_before,
+            samples_total,
             cluster_std
         )
-        # Generate POST drift data
-        X_post = self._generate_cluster_data(
+        y1 = self._generate_labels(X1, centers_class0, centers_class1, gamma)
+        
+        # 2. Generate full length data for Concept 2 (Post)
+        X2 = self._generate_cluster_data(
             np.vstack([centers_class0, centers_class1]),
-            n_samples_after,
+            samples_total,
             cluster_std
         )
+        # Swapped centers for labels
+        y2 = self._generate_labels(X2, centers_class1, centers_class0, gamma)
+        
+        # Add noise independently
+        y1 = self._add_label_noise(y1, noise)
+        y2 = self._add_label_noise(y2, noise)
 
-        # Generate labels (Drift: swapped centers for class definition)
-        y_pre = self._generate_labels(X_pre, centers_class0, centers_class1, gamma)
-        y_post = self._generate_labels(X_post, centers_class1, centers_class0, gamma)  # Swapped
-
-        # Add noise
-        y_pre = self._add_label_noise(y_pre, noise)
-        y_post = self._add_label_noise(y_post, noise)
-
-        # Shuffle pre-drift
-        perm_pre = np.random.permutation(len(y_pre))
-        X_pre = X_pre[perm_pre]
-        y_pre = y_pre[perm_pre]
-
-        # Shuffle post-drift
-        perm_post = np.random.permutation(len(y_post))
-        X_post = X_post[perm_post]
-        y_post = y_post[perm_post]
-
-        # Concatenate
-        X = np.vstack([X_pre, X_post])
-        y = np.concatenate([y_pre, y_post])
+        # 3. Probabilistic Mixing using utility function
+        X = apply_sigmoid_drift(X1, X2, n_samples_before, drift_width)
+        y = apply_sigmoid_drift(y1, y2, n_samples_before, drift_width)
 
         # Convert to Pandas
         feature_names = [f"x{i+1}" for i in range(X.shape[1])]

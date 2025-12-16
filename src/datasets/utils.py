@@ -84,3 +84,52 @@ def generate_river_data_with_selection(river_stream, total_samples, feature_name
     y = pd.Series(y_all, name='Y')
 
     return X, y
+
+
+def apply_sigmoid_drift(arr1, arr2, drift_point, drift_width):
+    """
+    Apply probabilistic sigmoid drift mixing between two arrays (streams).
+    
+    Parameters
+    ----------
+    arr1 : np.ndarray
+        Array representing the first concept (Pre-drift).
+    arr2 : np.ndarray
+        Array representing the second concept (Post-drift).
+    drift_point : int
+        The sample index where the drift is centered.
+    drift_width : int
+        The width of the drift window.
+        
+    Returns
+    -------
+    np.ndarray
+        Mixed array where elements are chosen from arr1 or arr2 based on sigmoid probability.
+    """
+    if arr1.shape != arr2.shape:
+        raise ValueError(f"Arrays must have the same shape. Got {arr1.shape} and {arr2.shape}")
+        
+    total_samples = arr1.shape[0]
+    indices = np.arange(total_samples)
+    w = max(1, drift_width)
+    
+    # Sigmoid function centered at drift_point
+    # v = -4 * (x - p) / w
+    v = -4.0 * (indices - drift_point) / w
+    
+    # Clip v to avoid overflow in exp
+    v = np.clip(v, -500, 500)
+    
+    p_concept_2 = 1.0 / (1.0 + np.exp(v))
+    
+    random_probs = np.random.random(total_samples)
+    mask = random_probs < p_concept_2
+    
+    # Handle broadcasting for multidimensional arrays (e.g., X)
+    if arr1.ndim > 1:
+        # Reshape mask to (N, 1, 1, ...) to match arr1's dimensions
+        shape = [1] * arr1.ndim
+        shape[0] = total_samples
+        mask = mask.reshape(shape)
+        
+    return np.where(mask, arr2, arr1)

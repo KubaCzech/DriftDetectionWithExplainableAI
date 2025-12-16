@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from .base import BaseDataset
+from .utils import apply_sigmoid_drift
 
 
 class ControlledConceptDriftDataset(BaseDataset):
@@ -17,7 +18,8 @@ class ControlledConceptDriftDataset(BaseDataset):
         params = super().get_params()
         params.update({
             "n_features": 11,
-            "n_drift_features": 5
+            "n_drift_features": 5,
+            "drift_width": 400
         })
         return params
 
@@ -58,11 +60,21 @@ class ControlledConceptDriftDataset(BaseDataset):
                 "min_value": 1,
                 "step": 1,
                 "help": "Number of features that will drift. Must be <= n_features."
+            },
+            {
+                "name": "drift_width",
+                "type": "int",
+                "label": "Drift Width (drift_width)",
+                "default": 400,
+                "min_value": 1,
+                "step": 1,
+                "help": "Width of the concept drift (number of samples)."
             }
         ]
 
     def generate(self, n_samples_before=1000, n_samples_after=1000,
-                 n_features=11, n_drift_features=5, random_seed=42, **kwargs):
+                 n_features=11, n_drift_features=5, random_seed=42, 
+                 drift_width=400, **kwargs):
         """
         Generate synthetic data with controlled Concept Drift.
         """
@@ -103,20 +115,18 @@ class ControlledConceptDriftDataset(BaseDataset):
 
         # --- Calculate Scores and Labels ---
 
-        # Calculate scores before drift (0 to drift_point)
-        scores_before = (X[:drift_point] @ W_before +
-                         np.random.normal(0, 0.1, n_samples_before))
-        threshold_before = np.percentile(scores_before, 50)
-        y_before = (scores_before > threshold_before).astype(int)
+        # We calculate "concept 1" (Pre) labels for ALL samples
+        scores_pre = (X @ W_before + np.random.normal(0, 0.1, total_samples))
+        threshold_pre = np.median(scores_pre)
+        y_pre = (scores_pre > threshold_pre).astype(int)
 
-        # Calculate scores after drift (drift_point to end)
-        scores_after = (X[drift_point:] @ W_after +
-                        np.random.normal(0, 0.1, n_samples_after))
-        threshold_after = np.percentile(scores_after, 50)
-        y_after = (scores_after > threshold_after).astype(int)
+        # We calculate "concept 2" (Post) labels for ALL samples
+        scores_post = (X @ W_after + np.random.normal(0, 0.1, total_samples))
+        threshold_post = np.median(scores_post)
+        y_post = (scores_post > threshold_post).astype(int)
 
-        # Combine data
-        y_array = np.concatenate([y_before, y_after])
+        # --- Mix Labels Based on Drift Width (Sigmoid) ---
+        y_array = apply_sigmoid_drift(y_pre, y_post, drift_point, drift_width)
 
         X_df = pd.DataFrame(X, columns=feature_names)
         y_series = pd.Series(y_array, name='Y')
