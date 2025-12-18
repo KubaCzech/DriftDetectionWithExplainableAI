@@ -103,3 +103,115 @@ def visualize_decision_boundary(results, title="Decision Boundary Analysis"):
 
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])  # Adjust for legend
     return fig
+
+
+def plot_categorical_drift_map(ssnp_model, viz_tree, drift_leaf_ids, grid_bounds, grid_size=300):
+    """
+    Plots the Categorical Drift Map showing regions of disagreement in the SSNP latent space.
+
+    Parameters
+    ----------
+    ssnp_model : SSNP
+        The trained SSNP model (for inverse transform).
+    viz_tree : DecisionTreeClassifier
+        The tree trained to predict disagreement (y_delta) from scaled features.
+    drift_leaf_ids : list
+        List of leaf IDs from viz_tree that correspond to drift (disagreement).
+    grid_bounds : tuple
+        (xmin, xmax, ymin, ymax) defining the extent of the plot.
+    grid_size : int
+        Resolution of the grid.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+    """
+    xmin, xmax, ymin, ymax = grid_bounds
+
+    # Create Grid
+    x_intrvls = np.linspace(xmin, xmax, num=grid_size)
+    y_intrvls = np.linspace(ymin, ymax, num=grid_size)
+
+    # We use meshgrid to generate points
+    # Note: meshgrid(x, y) returns shape (len(y), len(x))
+    xx, yy = np.meshgrid(x_intrvls, y_intrvls)
+    pts = np.c_[xx.ravel(), yy.ravel()]
+
+    # Initialize grid for leaf IDs
+    # We will map: 0 -> Stable, 1..N -> Drift Rules
+    # So we need to compute leaves for all points
+
+    # Process in batches
+    batch_size = 50000
+    n_pts = len(pts)
+    leaves_list = []
+
+    for i in range(0, n_pts, batch_size):
+        batch_pts = pts[i:i+batch_size]
+        # Inverse transform: 2D -> High Dim Scaled
+        batch_high_dim = ssnp_model.inverse_transform(batch_pts)
+        # Apply tree to get leaf IDs
+        batch_leaves = viz_tree.apply(batch_high_dim)
+        leaves_list.append(batch_leaves)
+
+    leaves_flat = np.concatenate(leaves_list)
+    leaves_grid = leaves_flat.reshape(grid_size, grid_size)
+
+    # Flip to match imshow origin='lower' / 'upper' convention?
+    # standard meshgrid with origin='lower' matches x,y axes
+    # sdbm did a flipud because of how they constructed grid vs imshow.
+    # In `visualize_decision_boundary`, we used origin='lower' and standard meshgrid.
+    # We will stick to origin='lower' and NO flip, assuming consistency.
+
+    # Map raw leaves to plot indices
+    # 0 = No Drift / Other
+    # 1..K = Drift Rules (indexed 1 to K)
+
+    final_grid = np.zeros_like(leaves_grid, dtype=int)
+
+    # Map drift leaves specific indices
+    leaf_to_plot_idx = {leaf: i+1 for i, leaf in enumerate(drift_leaf_ids)}
+
+    # Use numpy vectorize or mask for speed
+    # But leaf IDs are sparse, so iteration over unique leaves in grid is okay
+    unique_leaves = np.unique(leaves_grid)
+    for leaf in unique_leaves:
+        if leaf in leaf_to_plot_idx:
+            final_grid[leaves_grid == leaf] = leaf_to_plot_idx[leaf]
+        else:
+            final_grid[leaves_grid == leaf] = 0
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    num_rules = len(drift_leaf_ids)
+    if num_rules > 0:
+        # Create Colormap
+        # 0: Light Grey (Stable)
+        # 1..N: Colors from tab10/tab20
+        cmap_base = plt.get_cmap('tab10' if num_rules <= 10 else 'tab20', num_rules)
+        colors = ['#f0f0f0'] + [mcolors.rgb2hex(cmap_base(i)) for i in range(num_rules)]
+        cmap = mcolors.ListedColormap(colors)
+
+        bounds_norm = np.arange(-0.5, num_rules + 1.5, 1)
+        norm = mcolors.BoundaryNorm(bounds_norm, cmap.N)
+
+        img = ax.imshow(final_grid, cmap=cmap, norm=norm,
+                        extent=[xmin, xmax, ymin, ymax],
+                        origin='lower', aspect='auto', interpolation='nearest')
+
+        cbar = plt.colorbar(img, ticks=np.arange(0, num_rules + 1), fraction=0.046, pad=0.04)
+        cbar.ax.set_yticklabels(['Stable'] + [f'Rule {i+1}' for i in range(num_rules)])
+    else:
+        # No drift
+        ax.text(0.5, 0.5, "No Drift / Disagreement Detected",
+                ha='center', va='center', transform=ax.transAxes)
+        # Show empty grid
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+
+    ax.set_title("Categorical Drift Map (Disagreement)")
+    ax.set_xlabel("SSNP Component 1")
+    ax.set_ylabel("SSNP Component 2")
+
+    return fig

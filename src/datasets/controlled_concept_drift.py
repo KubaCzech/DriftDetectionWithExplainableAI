@@ -19,7 +19,7 @@ class ControlledConceptDriftDataset(BaseDataset):
         params.update({
             "n_features": 11,
             "n_drift_features": 5,
-            "drift_width": 400
+            "drift_width": 1
         })
         return params
 
@@ -65,7 +65,7 @@ class ControlledConceptDriftDataset(BaseDataset):
                 "name": "drift_width",
                 "type": "int",
                 "label": "Drift Width (drift_width)",
-                "default": 400,
+                "default": 1,
                 "min_value": 1,
                 "step": 1,
                 "help": "Width of the concept drift (number of samples)."
@@ -74,7 +74,7 @@ class ControlledConceptDriftDataset(BaseDataset):
 
     def generate(self, n_samples_before=1000, n_samples_after=1000,
                  n_features=11, n_drift_features=5, random_seed=42,
-                 drift_width=400, **kwargs):
+                 drift_width=1, **kwargs):
         """
         Generate synthetic data with controlled Concept Drift.
         """

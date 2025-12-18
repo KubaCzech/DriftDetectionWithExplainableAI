@@ -7,7 +7,7 @@
       "noise_percentage": 0.05,
       "drift_noise_percentage": 0.1,
       "mag_change": 0.2,
-      "drift_width": 400
+      "drift_width": 1
     }
   },
   "random_rbf_drift": {
@@ -18,7 +18,7 @@
       "n_centroids": 50,
       "change_speed": 0.0,
       "n_drift_centroids": 50,
-      "drift_width": 400
+      "drift_width": 1
     },
     "Fast Drift": {
       "n_features": 10,
@@ -26,7 +26,7 @@
       "n_centroids": 50,
       "change_speed": 0.87,
       "n_drift_centroids": 50,
-      "drift_width": 400
+      "drift_width": 1
     }
   },
   "sea_drift": {

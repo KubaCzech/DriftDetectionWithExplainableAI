@@ -205,7 +205,8 @@ elif active_tab == tabs[1]:
 elif active_tab == tabs[2]:
     render_decision_boundary_tab(X_before, y_before, X_after, y_after,
                                  model_class=selected_model_class,
-                                 model_params=model_params)
+                                 model_params=model_params,
+                                 feature_names=feature_names)
 
 elif active_tab == tabs[3]:
     render_feature_importance_analysis_tab(X_before, y_before, X_after, y_after,

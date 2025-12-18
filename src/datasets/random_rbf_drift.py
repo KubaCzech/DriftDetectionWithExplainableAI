@@ -22,7 +22,7 @@ class RandomRBFDriftDataset(BaseDataset):
             "n_centroids": 50,
             "change_speed": 0.0,
             "n_drift_centroids": 50,
-            "drift_width": 400
+            "drift_width": 1
         })
         return params
 
@@ -86,7 +86,7 @@ class RandomRBFDriftDataset(BaseDataset):
                 "name": "drift_width",
                 "type": "int",
                 "label": "Drift Width",
-                "default": 400,
+                "default": 1,
                 "min_value": 1,
                 "step": 1,
                 "help": "Width of the concept drift (number of samples)."
@@ -95,7 +95,7 @@ class RandomRBFDriftDataset(BaseDataset):
 
     def generate(self, n_samples_before=1000, n_samples_after=1000,
                  n_features=10, n_classes=2, n_centroids=50,
-                 change_speed=0.0, n_drift_centroids=50, drift_width=400,
+                 change_speed=0.0, n_drift_centroids=50, drift_width=1,
                  random_seed=42, **kwargs):
         """
         Generate synthetic data stream using River's RandomRBFDrift generator.

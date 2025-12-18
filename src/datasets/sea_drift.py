@@ -46,7 +46,7 @@ class SeaDriftDataset(BaseDataset):
                 "name": "drift_width",
                 "type": "int",
                 "label": "Drift Width (drift_width)",
-                "default": 400,
+                "default": 1,
                 "min_value": 1,
                 "step": 1,
                 "help": "Width of the concept drift (number of samples).",
@@ -59,10 +59,10 @@ class SeaDriftDataset(BaseDataset):
             "n_windows_after": 1,
             "random_seed": 42,
             "n_features": 3,
-            "drift_width": 400,
+            "drift_width": 1,
         }
 
-    def generate(self, n_samples_before=1000, n_samples_after=1000, random_seed=42, n_features=3, drift_width=400, **kwargs):
+    def generate(self, n_samples_before=1000, n_samples_after=1000, random_seed=42, n_features=3, drift_width=1, **kwargs):
         """
         Generate synthetic data stream using River's SEA generator.
         Drifts from variant 0 to variant 3 at the drift point.

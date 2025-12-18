@@ -556,7 +556,7 @@ def _render_window_stats(storage, selected_windows):
         stats_data.append(stats)
 
     df_stats = pd.DataFrame(stats_data)
-    st.dataframe(df_stats, use_container_width=True)
+    st.dataframe(df_stats, width='stretch')
 
 
 def _render_comparison_tab(storage, all_iterations, drift_locations):
@@ -739,7 +739,7 @@ def _render_prototype_feature_stats(proto_list):
         })
 
     st.write("**Feature Statistics Across Prototypes:**")
-    st.dataframe(pd.DataFrame(stats_rows), use_container_width=True)
+    st.dataframe(pd.DataFrame(stats_rows), width='stretch')
 
 
 def _calculate_coverage_for_class_prototypes(proto_list, x, y):

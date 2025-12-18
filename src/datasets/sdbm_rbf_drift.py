@@ -24,7 +24,7 @@ class SDBMRBFDriftDataset(BaseDataset):
             "noise": 0.0,
             "cluster_std": 0.05,
             "random_seed": 42,
-            "drift_width": 400
+            "drift_width": 1
         })
         return params
 
@@ -89,7 +89,7 @@ class SDBMRBFDriftDataset(BaseDataset):
                 "name": "drift_width",
                 "type": "int",
                 "label": "Drift Width (drift_width)",
-                "default": 400,
+                "default": 1,
                 "min_value": 1,
                 "step": 1,
                 "help": "Width of the concept drift (number of samples)."
@@ -130,7 +130,7 @@ class SDBMRBFDriftDataset(BaseDataset):
 
     def generate(self, n_samples_before=2000, n_samples_after=2000,
                  gamma=30.0, noise=0.0, cluster_std=0.05,
-                 random_seed=42, drift_width=400, **kwargs) -> tuple[pd.DataFrame, pd.Series]:
+                 random_seed=42, drift_width=1, **kwargs) -> tuple[pd.DataFrame, pd.Series]:
 
         np.random.seed(random_seed)
 

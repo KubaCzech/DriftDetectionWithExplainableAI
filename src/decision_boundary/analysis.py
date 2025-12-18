@@ -3,6 +3,7 @@ import random
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
 from src.decision_boundary.ssnp import SSNP
+from src.decision_boundary.disagreement import compute_disagreement_analysis
 
 
 class DecisionBoundaryDriftAnalyzer:
@@ -29,7 +30,7 @@ class DecisionBoundaryDriftAnalyzer:
         self.X_after = X_after
         self.y_after = y_after
 
-    def analyze(self, model_class=None, model_params=None, grid_size=300, ssnp_epochs=10, ssnp_patience=5):
+    def analyze(self, model_class=None, model_params=None, grid_size=300, ssnp_epochs=10, ssnp_patience=5, feature_names=None):
         """
         Compute decision boundary analysis using SSNP for dimensionality reduction
         and a classifier for the decision boundary. Handles both pre and post drift windows.
@@ -147,9 +148,20 @@ class DecisionBoundaryDriftAnalyzer:
         # but we train a NEW classifier on the Post data.
         result_post = process_window(X_after_scaled, self.y_after, X_after_2d)
 
+        # 5. Compute Disagreement Analysis (Drift Logic)
+        # We want to see where the OLD model disagrees with the NEW model on the NEW data.
+        disagreement_results = compute_disagreement_analysis(
+            clf_pre=result_pre['clf'],
+            clf_post=result_post['clf'],
+            X_eval_raw=self.X_after,     # Raw for readable rules
+            X_eval_scaled=X_after_scaled,  # Scaled for prediction consistency
+            feature_names=feature_names
+        )
+
         return {
             'pre': result_pre,
             'post': result_post,
             'ssnp_model': ssnp,
-            'grid_size': grid_size
+            'grid_size': grid_size,
+            'disagreement': disagreement_results
         }
