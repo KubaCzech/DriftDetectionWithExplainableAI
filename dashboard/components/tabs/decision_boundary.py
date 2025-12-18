@@ -98,7 +98,9 @@ def _display_results():
 
                 with col_table:
                     st.markdown("#### Disagreement Rules")
-                    st.dataframe(res['disagreement']['disagreement_table'], width='stretch')
+                    rules_df = res['disagreement']['disagreement_table'].copy()
+                    rules_df.index = rules_df.index + 1
+                    st.dataframe(rules_df, width='stretch')
             elif 'disagreement' in res:
                 st.success("No significant disagreement (drift) detected between pre-drift and post-drift models.")
 
