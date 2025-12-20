@@ -26,7 +26,7 @@ from dashboard.components.tabs import (  # noqa: E402
     render_feature_importance_analysis_tab,
     render_drift_detection_tab,
     render_decision_boundary_tab,
-    render_recurring_race_p_tab,
+    render_prototype_analysis_tab,
     render_clustering_analysis_tab
 )
 from dashboard.components.modals.info import show_info_modal  # noqa: E402
@@ -60,6 +60,7 @@ with col_info:
 datasource_config = render_sidebar_datasource_config()
 
 window_length = datasource_config["window_length"]
+num_windows = datasource_config["num_windows"]
 dataset_key = datasource_config["dataset_key"]
 dataset_params = datasource_config["dataset_params"]
 selected_model_class = datasource_config["selected_model_class"]
@@ -68,7 +69,7 @@ model_params = datasource_config["model_params"]
 
 # --- Data Generation ---
 @st.cache_data
-def generate_data(dataset_name, window_length_val, **kwargs):
+def generate_data(dataset_name, window_length_val, num_windows_val, **kwargs):
     """Cached function to generate data."""
     dataset = DATASETS.get(dataset_name)
     if not dataset:
@@ -77,6 +78,10 @@ def generate_data(dataset_name, window_length_val, **kwargs):
 
     gen_params = dataset.get_params()
     gen_params.update(kwargs)
+
+    # Add num_windows and window_length to params
+    gen_params["num_windows"] = num_windows_val
+    gen_params["window_length"] = window_length_val
 
     # Convert window-based parameters to samples if present
     if "n_windows_before" in gen_params:
@@ -94,6 +99,7 @@ def generate_data(dataset_name, window_length_val, **kwargs):
 X, y = generate_data(
     dataset_key,
     window_length,
+    num_windows,
     **dataset_params
 )
 
@@ -149,7 +155,7 @@ tabs = [
     "Decision Boundary",
     "Feature Importance Analysis",
     "Clustering Analysis",
-    "Recurring RACE-P"
+    "Prototype Analysis"
 ]
 
 # Initialize session state for active tab if it doesn't exist
@@ -200,7 +206,7 @@ if active_tab == tabs[0]:
                                   window_before_start, window_after_start, window_length)
 
 elif active_tab == tabs[1]:
-    render_drift_detection_tab(X_before, y_before, X_after, y_after)
+    render_drift_detection_tab(X, y, window_length)
 
 elif active_tab == tabs[2]:
     render_decision_boundary_tab(X_before, y_before, X_after, y_after,
@@ -218,4 +224,4 @@ elif active_tab == tabs[4]:
     render_clustering_analysis_tab(X_before, y_before, X_after, y_after)
 
 elif active_tab == tabs[5]:
-    render_recurring_race_p_tab(X, y, window_length)
+    render_prototype_analysis_tab(X, y, window_length)
