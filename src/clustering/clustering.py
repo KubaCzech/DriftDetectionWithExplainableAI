@@ -360,7 +360,6 @@ class ClusterBasedDriftDetector:
 
         for r, c in zip(row_ind, col_ind):
             if r < n_old and c < n_new:
-                d = dist[r, c]
                 mapping[c] = r
             elif r < n_old and c >= n_new:
                 disappeared.append(r)

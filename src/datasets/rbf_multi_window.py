@@ -1,7 +1,6 @@
 from .protree_data.river_generators import Rbf
 from .base import BaseDataset
 import pandas as pd
-import numpy as np
 
 
 class RbfMultiWindowDataset(BaseDataset):
@@ -61,13 +60,13 @@ class RbfMultiWindowDataset(BaseDataset):
             }
         ]
 
-    def generate(self, num_windows=100, window_length=1000, 
+    def generate(self, num_windows=100, window_length=1000,
                  drift_positions=None, drift_duration=1,
                  n_informative=5, n_centroids=11,
                  random_seed=42, **kwargs):
         """
         Generate synthetic data stream using protree's Rbf generator.
-        
+
         Parameters
         ----------
         num_windows : int
@@ -85,7 +84,7 @@ class RbfMultiWindowDataset(BaseDataset):
         random_seed : int
             Random seed for reproducibility
         """
-        
+
         # Parse drift positions if string
         if isinstance(drift_positions, str):
             if drift_positions.strip():
@@ -94,7 +93,7 @@ class RbfMultiWindowDataset(BaseDataset):
                 drift_positions = []
         elif drift_positions is None:
             drift_positions = []
-        
+
         # Create Rbf generator
         ds = Rbf(
             drift_position=drift_positions if drift_positions else 500,
@@ -103,23 +102,23 @@ class RbfMultiWindowDataset(BaseDataset):
             n_informative=n_informative,
             n_centroids=n_centroids
         )
-        
+
         # Generate all windows
         all_x = []
         all_y = []
-        
+
         for i in range(num_windows):
             x_block, y_block = zip(*ds.take(window_length))
             all_x.extend(x_block)
             all_y.extend(y_block)
-        
+
         # Convert to DataFrame and Series
         X = pd.DataFrame(all_x)
-        
+
         # Generate feature names
         n_features = X.shape[1]
         X.columns = [f'feature_{i}' for i in range(n_features)]
-        
+
         y = pd.Series(all_y, name='target')
-        
+
         return X, y

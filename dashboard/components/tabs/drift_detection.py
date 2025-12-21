@@ -1,11 +1,10 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
 from river import drift as river_drift
 from sklearn.neural_network import MLPClassifier
-from river.optim import Adam
 from src.DDM.BinaryErrorDriftDescriptor import BinaryErrorDriftDescriptor
+
 
 def generate_error_stream(X_np, y_np, model):
     """
@@ -41,6 +40,7 @@ def generate_error_stream(X_np, y_np, model):
     progress_bar.progress(1.0)
 
     return error_stream, predictions
+
 
 def run_drift_detection(
     error_stream,
@@ -80,13 +80,13 @@ def run_drift_detection(
     return drift_descriptions
 
 
-def render_drift_detection_tab(X, y, window_length):
+def render_drift_detection_tab(X, y, window_length):  # noqa: C901
     """
     Main entry point for DDM (Drift Detection Method) Analysis tab.
-    
+
     Uses online learning with River's MLPClassifier to track prediction errors
     and detect concept drift using binary drift detectors.
-    
+
     Parameters
     ----------
     X : pd.DataFrame or np.ndarray
@@ -96,12 +96,12 @@ def render_drift_detection_tab(X, y, window_length):
     window_length : int
         Number of samples per window (not used directly but kept for consistency)
     """
-    
+
     st.header("🔍 DDM Analysis")
     st.markdown("Binary Error Drift Detection using Online Learning")
 
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.markdown("**Detector Configuration**")
         detector_type = st.selectbox(
@@ -110,7 +110,7 @@ def render_drift_detection_tab(X, y, window_length):
             help="Type of drift detector to use",
             key="ddm_detector_type"
         )
-        
+
         # Detector-specific parameters
         if detector_type == "FHDDM":
             confidence_level = st.select_slider(
@@ -120,7 +120,7 @@ def render_drift_detection_tab(X, y, window_length):
                 help="Confidence level for FHDDM detector",
                 key="ddm_confidence"
             )
-    
+
     with col2:
         st.markdown("**Descriptor Parameters**")
         warning_grace_period = st.slider(
@@ -141,56 +141,56 @@ def render_drift_detection_tab(X, y, window_length):
             help="Window size for calculating error rates",
             key="ddm_rate_size"
         )
-    
+
     st.markdown("---")
-    
+
     # Convert data to numpy once
     X_np = X.to_numpy() if hasattr(X, "to_numpy") else X
     y_np = y.to_numpy() if hasattr(y, "to_numpy") else y
-    
+
     # Check if error stream needs to be generated
     need_error_stream = 'ddm_error_stream' not in st.session_state
-    
+
     # Button to generate error stream (only if not already done)
     if need_error_stream:
         if st.button("🎯 Generate Error Stream", type="primary", key="ddm_generate"):
             try:
                 status_text = st.empty()
                 status_text.text("Training model and generating error stream...")
-                
+
                 # Initialize model
                 model = MLPClassifier(
                     hidden_layer_sizes=(10,),
                     max_iter=1,
                     random_state=42
                 )
-                
+
                 # Generate error stream using helper function
                 error_stream, predictions = generate_error_stream(X_np, y_np, model)
-                
+
                 # Calculate sliding window error rate
                 error_array = np.array(error_stream)
                 error_rate = [
                     np.mean(error_array[i:i + rate_calculation_sample_size])
                     for i in range(len(error_stream) - rate_calculation_sample_size + 1)
                 ]
-                
+
                 # Store in session state
                 st.session_state.ddm_error_stream = error_stream
                 st.session_state.ddm_predictions = predictions
                 st.session_state.ddm_error_rate = error_rate
-                
+
                 status_text.text("✅ Error stream generated!")
                 st.success("Error stream generated! Now you can run drift detection with different detectors.")
                 st.rerun()
-                
+
             except Exception as e:
                 st.error(f"Error generating error stream: {str(e)}")
                 import traceback
                 st.code(traceback.format_exc())
     else:
         st.info("✓ Error stream already generated. You can now run drift detection with different parameters.")
-        
+
         if st.button("🔄 Regenerate Error Stream", key="ddm_regenerate"):
             # Clear the cached error stream
             del st.session_state.ddm_error_stream
@@ -201,7 +201,7 @@ def render_drift_detection_tab(X, y, window_length):
             if 'ddm_processing_complete' in st.session_state:
                 del st.session_state.ddm_processing_complete
             st.rerun()
-    
+
     # Run drift detection button (only if error stream exists)
     if not need_error_stream:
         st.markdown("---")
@@ -209,10 +209,10 @@ def render_drift_detection_tab(X, y, window_length):
             try:
                 status_text = st.empty()
                 status_text.text("Running drift detection...")
-                
+
                 # Get error stream from session state
                 error_stream = st.session_state.ddm_error_stream
-                
+
                 # Run drift detection with current parameters using helper function
                 confidence = confidence_level if detector_type == "FHDDM" else None
                 drift_descriptions = run_drift_detection(
@@ -222,33 +222,33 @@ def render_drift_detection_tab(X, y, window_length):
                     rate_calculation_sample_size,
                     confidence_level=confidence
                 )
-                
+
                 # Store results in session state
                 st.session_state.ddm_drift_descriptions = drift_descriptions
                 st.session_state.ddm_processing_complete = True
-                
+
                 status_text.text("✅ Drift detection complete!")
                 st.success(f"Detected {len(drift_descriptions)} drift(s) using {detector_type}!")
-                
+
             except Exception as e:
                 st.error(f"Error during drift detection: {str(e)}")
                 import traceback
                 st.code(traceback.format_exc())
-    
+
     # Display results if processing is complete
     if 'ddm_processing_complete' in st.session_state and st.session_state.ddm_processing_complete:
         st.markdown("---")
-        
+
         error_rate = st.session_state.ddm_error_rate
         drift_descriptions = st.session_state.ddm_drift_descriptions
         error_stream = st.session_state.ddm_error_stream
         predictions = st.session_state.ddm_predictions
-        
+
         # Create interactive plot with Plotly
         st.subheader("📊 Error Rate Over Time")
-        
+
         fig = go.Figure()
-        
+
         # Add error rate line
         fig.add_trace(go.Scatter(
             x=list(range(len(error_rate))),
@@ -258,12 +258,12 @@ def render_drift_detection_tab(X, y, window_length):
             line=dict(color='royalblue', width=2),
             hovertemplate='Index: %{x}<br>Error Rate: %{y:.3f}<extra></extra>'
         ))
-        
+
         # Add drift annotations
         for idx, drift in enumerate(drift_descriptions):
             start = max(0, drift.detected_at - drift.drift_duration)
             end = min(len(error_rate) - 1, drift.detected_at)
-            
+
             # Add drift line
             fig.add_trace(go.Scatter(
                 x=[start, end],
@@ -282,7 +282,7 @@ def render_drift_detection_tab(X, y, window_length):
                     f'<extra></extra>'
                 )
             ))
-        
+
         # Update layout
         fig.update_layout(
             title=f'Drift Detection using {detector_type}',
@@ -298,35 +298,35 @@ def render_drift_detection_tab(X, y, window_length):
                 x=0.01
             )
         )
-        
+
         # Display plot
         st.plotly_chart(fig, use_container_width=True)
-        
+
         # Display statistics
         st.markdown("---")
         st.subheader("📈 Detection Statistics")
-        
+
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
             st.metric("Total Data Points", len(error_stream))
             st.metric("Drifts Detected", len(drift_descriptions))
             overall_accuracy = 1 - np.mean(error_stream)
             st.metric("Overall Accuracy", f"{overall_accuracy:.3f}")
-        
+
         with col2:
             if drift_descriptions:
                 avg_duration = np.mean([d.drift_duration for d in drift_descriptions])
                 st.metric("Average Drift Duration", f"{avg_duration:.1f}")
                 avg_error_change = np.mean([
-                    d.error_rate_at_detection - d.error_rate_at_warning 
+                    d.error_rate_at_detection - d.error_rate_at_warning
                     for d in drift_descriptions
                 ])
                 st.metric("Avg Error Rate Change", f"{avg_error_change:.3f}")
             else:
                 st.metric("Average Drift Duration", "N/A")
                 st.metric("Avg Error Rate Change", "N/A")
-        
+
         with col3:
             if drift_descriptions:
                 min_duration = min([d.drift_duration for d in drift_descriptions])
@@ -334,36 +334,37 @@ def render_drift_detection_tab(X, y, window_length):
                 st.metric("Min/Max Duration", f"{min_duration} / {max_duration}")
             else:
                 st.metric("Min/Max Duration", "N/A")
-            
+
             # Calculate accuracy in first and last quarters
             quarter = len(error_stream) // 4
             if quarter > 0:
                 first_quarter_acc = 1 - np.mean(error_stream[:quarter])
                 last_quarter_acc = 1 - np.mean(error_stream[-quarter:])
                 st.metric("First/Last Quarter Acc", f"{first_quarter_acc:.3f} / {last_quarter_acc:.3f}")
-        
+
         # Detailed drift information
         if drift_descriptions:
             st.markdown("---")
             st.subheader("🔍 Detailed Drift Information")
-            
+
             for idx, drift in enumerate(drift_descriptions):
                 with st.expander(f"Drift {idx+1} - Detected at index {drift.detected_at}"):
                     col1, col2, col3 = st.columns(3)
-                    
+
                     with col1:
                         st.metric("Duration", drift.drift_duration)
                         st.metric("Start Index", drift.detected_at - drift.drift_duration)
                         st.metric("End Index", drift.detected_at)
-                    
+
                     with col2:
                         st.metric("Error Rate at Warning", f"{drift.error_rate_at_warning:.3f}")
                         st.metric("Error Rate at Detection", f"{drift.error_rate_at_detection:.3f}")
-                    
+
                     with col3:
                         error_change = drift.error_rate_at_detection - drift.error_rate_at_warning
                         st.metric("Error Rate Change", f"{error_change:.3f}")
-                        change_pct = (error_change / drift.error_rate_at_warning * 100) if drift.error_rate_at_warning > 0 else 0
+                        change_pct = (error_change / drift.error_rate_at_warning *
+                                      100) if drift.error_rate_at_warning > 0 else 0
                         st.metric("Change Percentage", f"{change_pct:.1f}%")
         else:
             st.info("No drifts detected with current configuration. Try adjusting the parameters.")

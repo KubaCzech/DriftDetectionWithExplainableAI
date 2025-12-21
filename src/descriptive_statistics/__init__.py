@@ -1,3 +1,3 @@
-from .descriptive_statistics import DescriptiveStatisticsDriftDetector, StatisticsType
+from .descriptive_statistics import DescriptiveStatisticsDriftDetector, StatisticsType  # noqa: F401
 
 # import visualizations
