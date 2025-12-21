@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans as SKKMeans
 
-from protree import TDataBatch, TTarget, TModel, TPrototypes
-from protree.explainers.tree_distance import IExplainer, ModelAdapterBuilder
-from protree.explainers.utils import _type_to_np_dtype
-from protree.meta import RANDOM_SEED
-from protree.utils import get_x_belonging_to_cls, iloc
+from src.recurrence.protree import TDataBatch, TTarget, TModel, TPrototypes
+from src.recurrence.protree.explainers.tree_distance import IExplainer, ModelAdapterBuilder
+from src.recurrence.protree.explainers.utils import _type_to_np_dtype
+from src.recurrence.protree.meta import RANDOM_SEED
+from src.recurrence.protree.utils import get_x_belonging_to_cls, iloc
 
 
 class KMeans(IExplainer):

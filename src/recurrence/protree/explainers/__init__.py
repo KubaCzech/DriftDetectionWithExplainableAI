@@ -3,8 +3,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import TypeAlias, Union
 
-from protree.explainers.naive import KMeans
-from protree.explainers.tree_distance import SM_A, SM_WA, SG, G_KM, APete
+from src.recurrence.protree.explainers.naive import KMeans
+from src.recurrence.protree.explainers.tree_distance import SM_A, SM_WA, SG, G_KM, APete
 
 TExplainer: TypeAlias = Union[KMeans, G_KM, SM_A, SM_WA, SG, APete]
 

@@ -12,18 +12,18 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 
-from methods import (  # noqa: E402
+from src.recurrence.methods import (  # noqa: E402
     cluster_windows,
     get_drift_from_clusters,
     median_mask
 )
 
 from river import forest  # noqa: E402
-from protree.data.stream_generators import Sine, Plane, RandomTree  # noqa: E402
-from protree.data.river_generators import Sea, Rbf, Stagger, Mixed  # noqa: E402
+from src.datasets.protree_data.stream_generators import Sine, Plane, RandomTree  # noqa: E402
+from src.datasets.protree_data.river_generators import Sea, Rbf, Stagger, Mixed  # noqa: E402
 
 from src.recurrence.protree.explainers import APete  # noqa: E402
-from full_window_storage import FullWindowStorage  # noqa: E402
+from src.recurrence.full_window_storage import FullWindowStorage  # noqa: E402
 
 
 def _handle_stream_processing(drift_positions_str, generator_name, num_windows, window_size, drift_duration, seed_value,

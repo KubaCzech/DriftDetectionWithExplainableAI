@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from protree.data.static import download_all, DEFAULT_DATA_DIR
+from src.datasets.protree_data.static import download_all, DEFAULT_DATA_DIR
 
 
 @click.command()

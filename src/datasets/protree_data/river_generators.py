@@ -5,7 +5,7 @@ from typing import Literal
 import numpy as np
 from river.datasets import synth
 
-from protree.data.stream_generators import IStreamGenerator
+from src.datasets.protree_data.stream_generators import IStreamGenerator
 
 
 class Sea(IStreamGenerator):

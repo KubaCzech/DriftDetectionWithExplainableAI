@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 from icecream import ic
 
-from protree import TDataBatch, TPrototypes, TTarget
-from protree.explainers.tree_distance import IExplainer
-from protree.explainers.utils import _type_to_np_dtype
-from protree.utils import parse_batch, parse_prototypes, flatten_prototypes
+from src.recurrence.protree import TDataBatch, TPrototypes, TTarget
+from src.recurrence.protree.explainers.tree_distance import IExplainer
+from src.recurrence.protree.explainers.utils import _type_to_np_dtype
+from src.recurrence.protree.utils import parse_batch, parse_prototypes, flatten_prototypes
 
 
 def get_euclidean_predictions(x: TDataBatch, prototypes: TPrototypes) -> np.ndarray:

@@ -7,9 +7,9 @@ from typing import Literal, get_args, TypeAlias
 import pandas as pd
 from sklearn.preprocessing import OrdinalEncoder, MinMaxScaler
 
-from protree.data.utils import BinaryScaler
-from protree.meta import RANDOM_SEED
-from protree.transformations import MultilabelHotEncoder
+from src.datasets.protree_data.utils import BinaryScaler
+from src.recurrence.protree.meta import RANDOM_SEED
+from src.recurrence.protree.transformations import MultilabelHotEncoder
 
 DEFAULT_DATA_DIR = os.environ.get("DEFAULT_DATA_DIR", "./data")
 

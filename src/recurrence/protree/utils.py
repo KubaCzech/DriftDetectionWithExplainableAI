@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from protree import TDataBatch, TTarget, TPrototypes
+from src.recurrence.protree import TDataBatch, TTarget, TPrototypes
 
 
 def pprint_dict(dict_: dict, indent_level: int = 0) -> None:

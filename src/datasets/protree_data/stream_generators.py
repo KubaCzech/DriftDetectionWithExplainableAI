@@ -6,8 +6,8 @@ from typing import TypeAlias, Literal
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 
-from protree import TDataBatch, TTarget
-from protree.meta import RANDOM_SEED
+from src.recurrence.protree import TDataBatch, TTarget
+from src.recurrence.protree.meta import RANDOM_SEED
 
 TStreamGenerator: TypeAlias = Literal["sine", "plane", "random_tree", "rbf", "mixed", "sea", "stagger"]
 
@@ -20,7 +20,7 @@ class StreamGeneratorFactory:
         if name in globals():
             return globals()[f"{name}"](drift_position=drift_position, drift_duration=drift_duration, seed=seed)
         else:
-            import protree.data.river_generators as river_generators
+            import src.datasets.protree_data.river_generators as river_generators
 
             return getattr(river_generators, name)(drift_position=drift_position, drift_duration=drift_duration, seed=seed)
 

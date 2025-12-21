@@ -8,10 +8,10 @@ import pandas as pd
 from river.forest import ARFClassifier
 from sklearn.ensemble import RandomForestClassifier as _SKLearnRandomForestClassifier
 
-from protree import TModel, TDataPoint, TDataBatch, TTarget, TPrototypes
-from protree.explainers.utils import parse_input, _type_to_np_dtype, predict_leaf_one
-from protree.metrics.classification import balanced_accuracy
-from protree.utils import iloc, get_x_belonging_to_cls, flatten_prototypes, parse_prototypes
+from src.recurrence.protree import TModel, TDataPoint, TDataBatch, TTarget, TPrototypes
+from src.recurrence.protree.explainers.utils import parse_input, _type_to_np_dtype, predict_leaf_one
+from src.recurrence.protree.metrics.classification import balanced_accuracy
+from src.recurrence.protree.utils import iloc, get_x_belonging_to_cls, flatten_prototypes, parse_prototypes
 
 
 class IModelAdapter(ABC):

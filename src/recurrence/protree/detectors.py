@@ -8,8 +8,8 @@ from river.base import DriftDetector
 from river.forest import ARFClassifier
 from sklearn.ensemble import RandomForestClassifier
 
-from protree import TPrototypes, TDataBatch, TTarget
-from protree.explainers import TExplainer, APete
+from src.recurrence.protree import TPrototypes, TDataBatch, TTarget
+from src.recurrence.protree.explainers import TExplainer, APete
 
 
 class RaceP(DriftDetector):
@@ -122,15 +122,15 @@ class RaceP(DriftDetector):
 
     def _compute_metric(self) -> float | dict[int | str, float]:
         if self.measure in ["mutual_information", "rand_index", "completeness", "fowlkes_mallows"]:
-            import protree.metrics.compare
+            import src.recurrence.protree.metrics.compare
 
             self._direction = "decrease"
 
-            metric = getattr(protree.metrics.compare, self.measure)
+            metric = getattr(src.recurrence.protree.metrics.compare, self.measure)
             return self._compute_cluster_metric(metric)
 
         elif self.measure == "prototype_reassignment_impact":
-            from protree.metrics.compare import prototype_reassignment_impact
+            from src.recurrence.protree.metrics.compare import prototype_reassignment_impact
 
             self._direction = "increase"
             if self.distance == "tree":
@@ -142,12 +142,12 @@ class RaceP(DriftDetector):
             self._direction = "increase"
 
             if self.strategy == "class":
-                from protree.metrics.compare import classwise_mean_minimal_distance
+                from src.recurrence.protree.metrics.compare import classwise_mean_minimal_distance
 
                 return self._compute_spatial_metric(classwise_mean_minimal_distance)
 
             elif self.strategy == "total":
-                from protree.metrics.compare import mean_minimal_distance
+                from src.recurrence.protree.metrics.compare import mean_minimal_distance
 
                 return self._compute_spatial_metric(mean_minimal_distance)
 
@@ -155,12 +155,12 @@ class RaceP(DriftDetector):
             self._direction = "increase"
 
             if self.strategy == "class":
-                from protree.metrics.compare import centroids_displacements
+                from src.recurrence.protree.metrics.compare import centroids_displacements
 
                 return self._compute_spatial_metric(centroids_displacements)
 
             elif self.strategy == "total":
-                from protree.metrics.compare import mean_centroid_displacement
+                from src.recurrence.protree.metrics.compare import mean_centroid_displacement
 
                 return self._compute_spatial_metric(mean_centroid_displacement)
 

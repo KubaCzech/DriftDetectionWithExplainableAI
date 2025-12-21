@@ -3,9 +3,9 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from protree import TPrototypes, TDataBatch, TTarget
-from protree.explainers.tree_distance import IExplainer
-from protree.metrics.classification import balanced_accuracy
+from src.recurrence.protree import TPrototypes, TDataBatch, TTarget
+from src.recurrence.protree.explainers.tree_distance import IExplainer
+from src.recurrence.protree.metrics.classification import balanced_accuracy
 
 
 def fidelity_with_model(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch) -> float:
@@ -15,7 +15,7 @@ def fidelity_with_model(prototypes: TPrototypes, explainer: IExplainer, x: TData
 
 
 def contribution(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch) -> float:
-    from protree.metrics.individual import individual_contribution
+    from src.recurrence.protree.metrics.individual import individual_contribution
 
     diversity = 0
     n_prototypes = 0
@@ -40,12 +40,12 @@ def _dist(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch, y: TTar
 
 
 def mean_in_distribution(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch, y: TTarget) -> float:
-    from protree.metrics.individual import individual_in_distribution
+    from src.recurrence.protree.metrics.individual import individual_in_distribution
     return _dist(prototypes, explainer, x, y, individual_in_distribution)
 
 
 def mean_out_distribution(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch, y: TTarget) -> float:
-    from protree.metrics.individual import individual_out_distribution
+    from src.recurrence.protree.metrics.individual import individual_out_distribution
     return _dist(prototypes, explainer, x, y, individual_out_distribution)
 
 
@@ -60,7 +60,7 @@ def vector_entropy_hubness(prototypes: TPrototypes, explainer: IExplainer, x: TD
     from numpy import log2
     from scipy.stats import entropy
 
-    from protree.metrics.individual import hubness
+    from src.recurrence.protree.metrics.individual import hubness
 
     y = explainer.model.get_model_predictions(x)
 
@@ -76,7 +76,7 @@ def vector_entropy_hubness(prototypes: TPrototypes, explainer: IExplainer, x: TD
 
 
 def vector_consistent_votes(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch) -> dict[str | bool | int, float]:
-    from protree.metrics.individual import consistent_votes
+    from src.recurrence.protree.metrics.individual import consistent_votes
 
     consistency = {cls: [] for cls in prototypes}
     for cls in prototypes:
@@ -86,7 +86,7 @@ def vector_consistent_votes(prototypes: TPrototypes, explainer: IExplainer, x: T
 
 
 def vector_voting_frequency(prototypes: TPrototypes, explainer: IExplainer, x: TDataBatch) -> dict[str | bool | int, float]:
-    from protree.metrics.individual import voting_frequency
+    from src.recurrence.protree.metrics.individual import voting_frequency
 
     votes = {cls: [] for cls in prototypes}
     for cls in prototypes:
@@ -97,7 +97,7 @@ def vector_voting_frequency(prototypes: TPrototypes, explainer: IExplainer, x: T
 
 def vector_in_distribution(prototypes: TPrototypes, explainer: IExplainer,
                            x: TDataBatch, y: TTarget) -> dict[str | bool | int, float]:
-    from protree.metrics.individual import individual_in_distribution
+    from src.recurrence.protree.metrics.individual import individual_in_distribution
 
     in_distribution = {cls: [] for cls in prototypes}
     for cls in prototypes:
@@ -108,7 +108,7 @@ def vector_in_distribution(prototypes: TPrototypes, explainer: IExplainer,
 
 def vector_out_distribution(prototypes: TPrototypes, explainer: IExplainer,
                             x: TDataBatch, y: TTarget) -> dict[str | bool | int, float]:
-    from protree.metrics.individual import individual_out_distribution
+    from src.recurrence.protree.metrics.individual import individual_out_distribution
 
     out_distribution = {cls.item() if isinstance(cls, np.ndarray) else cls: [] for cls in prototypes}
     for cls in prototypes:

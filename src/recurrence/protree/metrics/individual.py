@@ -3,9 +3,9 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 
-from protree import TPrototypes, TTarget, TDataBatch
-from protree.explainers.tree_distance import IExplainer
-from protree.utils import get_x_belonging_to_cls, get_re_idx, flatten_prototypes, get_x_not_belonging_to_cls
+from src.recurrence.protree import TPrototypes, TTarget, TDataBatch
+from src.recurrence.protree.explainers.tree_distance import IExplainer
+from src.recurrence.protree.utils import get_x_belonging_to_cls, get_re_idx, flatten_prototypes, get_x_not_belonging_to_cls
 
 
 def individual_contribution(
@@ -15,7 +15,7 @@ def individual_contribution(
         explainer: IExplainer,
         x: TDataBatch
 ) -> float:
-    from protree.metrics.group import fidelity_with_model
+    from src.recurrence.protree.metrics.group import fidelity_with_model
 
     prototypes_without = deepcopy(prototypes)
     if isinstance(prototypes[cls], pd.DataFrame):
