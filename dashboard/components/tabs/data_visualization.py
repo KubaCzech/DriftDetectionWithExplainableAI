@@ -80,15 +80,13 @@ def _render_visualization_plots(all_figs):
             st.pyplot(fig)
 
 
-def _calculate_statistics_styled(X_before, X_after, feature_names):
+def _calculate_statistics_styled(X_before, y_before, X_after, y_after, feature_names):
     """Calculates descriptive statistics and returns styled(or plain) df."""
     df_before = pd.DataFrame(X_before, columns=feature_names)
-    df_before['label'] = 0
     df_after = pd.DataFrame(X_after, columns=feature_names)
-    df_after['label'] = 0
 
-    detector = DescriptiveStatisticsDriftDetector()
-    stats_combined = detector.calculate_stats_before_after(df_before, df_after, label_col='label')
+    detector = DescriptiveStatisticsDriftDetector(df_before, y_before, df_after, y_after)
+    stats_combined = detector.calculate_stats_before_after()
 
     # Reformat for display
     # Transpose so rows are (Period, Feature, Stat)
@@ -181,7 +179,7 @@ def render_data_visualization_tab(X, y, X_before, y_before, X_after, y_after,
     # --- Descriptive Statistics ---
     st.markdown("---")
     with st.expander("🔢 Descriptive Statistics (Detailed table)", expanded=False):
-        stats_display = _calculate_statistics_styled(X_before, X_after, feature_names)
+        stats_display = _calculate_statistics_styled(X_before, y_before, X_after, y_after, feature_names)
         if hasattr(stats_display, 'format') or isinstance(stats_display, (pd.DataFrame, pd.io.formats.style.Styler)):
             # If explicit width is necessary, st.dataframe handles Styler objects too
             st.dataframe(stats_display, width="stretch")
