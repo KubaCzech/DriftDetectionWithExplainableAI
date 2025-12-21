@@ -30,7 +30,8 @@ dependencies = [
     "tensorflow",
     "seaborn",
     "hdbscan",
-    "icecream"
+    "icecream",
+    "plotly"
 ]
 
 [project.optional-dependencies]
