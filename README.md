@@ -59,7 +59,7 @@ To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
 
-*   Python 3.8 or higher
+*   Python 3.10-3.12
 *   pip
 
 ### Installation
