@@ -300,7 +300,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
         )
 
         # Display plot
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # Display statistics
         st.markdown("---")

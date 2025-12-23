@@ -437,6 +437,12 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                 # Display comparison plot
                 st.subheader("Prototype Comparison")
 
+                max_displayed_prototypes = st.slider("Maximum number of displayed prototypes",
+                                min_value = 1,
+                                max_value = 30,
+                                value = 10,
+                                key="max_displayed_prototypes")
+
                 fig = plt.figure(figsize=(14, 8))
 
                 # Get global min/max
@@ -474,7 +480,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                         x, y, prototypes, explainer = storage.get_window_data(window_nr)
 
                         if class_name in prototypes:
-                            for prototype in prototypes[class_name]:
+                            for prototype in prototypes[class_name][:max_displayed_prototypes]:
                                 items = sorted(prototype.items(), key=lambda x: x[0])
                                 feature_names = [str(k) for k, _ in items]
                                 feature_values = [v for _, v in items]
