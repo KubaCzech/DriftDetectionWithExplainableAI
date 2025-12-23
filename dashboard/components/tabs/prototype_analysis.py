@@ -140,6 +140,24 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                     current_explainer = APete(model=model, alpha=0.01)
                     current_prototypes = current_explainer.select_prototypes(x_dicts, y_list)
 
+                    # In case a class has 0 or 1 prototypes, run prototype selection just for this class to fix this
+                    for class_name in set(y_block):
+                        class_prototypes = current_prototypes[class_name]
+                        if len(class_prototypes) in [0, 1]:
+                            current_explainer = APete(model=model, alpha=0.50) # change alpha threshold to make less prototypes
+
+                            # create prototypes for the class with missing prototypes
+                            x_block_missing_class = []
+                            for x, y in zip(x_dicts, y_list):
+                                if y == class_name:
+                                    x_block_missing_class.append(x)
+
+                            y_block_missing_class = tuple([class_name]*len(x_block_missing_class))
+                            x_block_missing_class = tuple(x_block_missing_class)
+
+                            missing_prototypes = current_explainer.select_prototypes(x_block_missing_class, y_block_missing_class)
+                            current_prototypes[class_name] = missing_prototypes[class_name]
+
                     # Store window data
                     storage.store_window(
                         iteration=i,
@@ -505,7 +523,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                     stats_data.append(stats)
 
                 df_stats = pd.DataFrame(stats_data)
-                st.dataframe(df_stats, use_container_width=True)
+                st.dataframe(df_stats, width='stretch')
 
     # ============================================================================
     # TAB 4: LOCAL ANALYSIS
@@ -741,7 +759,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                             })
 
                         st.write("**Feature Statistics Across Prototypes:**")
-                        st.dataframe(pd.DataFrame(stats_rows), use_container_width=True)
+                        st.dataframe(pd.DataFrame(stats_rows), width='stretch')
 
             # Distance to all other windows
             st.subheader("Distance to All Windows")
