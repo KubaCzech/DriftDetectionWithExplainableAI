@@ -34,24 +34,6 @@ class DecisionBoundaryDriftAnalyzer:
         """
         Compute decision boundary analysis using SSNP for dimensionality reduction
         and a classifier for the decision boundary. Handles both pre and post drift windows.
-
-        Parameters
-        ----------
-        model_class : class
-            Classifier class (default: MLPModel -> MLPClassifier)
-        model_params : dict
-            Parameters for the classifier
-        grid_size : int
-            Resolution of the 2D grid
-        ssnp_epochs : int
-            Epochs for SSNP training
-        ssnp_patience : int
-            Patience for SSNP early stopping
-
-        Returns
-        -------
-        dict
-            Dictionary containing results for 'pre' and 'post' windows, plus the SSNP model.
         """
 
         # Normalize Data (Fit on Pre, Transform both)
@@ -80,21 +62,26 @@ class DecisionBoundaryDriftAnalyzer:
         model_params['random_state'] = self.random_state
 
         # Helper to train and predict grid
-        def process_window(X_train, y_train, X_2d_train):
+        def process_window(X_train, y_train, X_2d_train, grid_bounds=None):
             # Train Classifier on High-Dim Data
             clf = model_class(**model_params)
             clf.fit(X_train, y_train)
 
-            # Create Grid in 2D Latent Space
-            xmin, xmax = np.min(X_2d_train[:, 0]), np.max(X_2d_train[:, 0])
-            ymin, ymax = np.min(X_2d_train[:, 1]), np.max(X_2d_train[:, 1])
+            # Define Grid Bounds (if not provided, calculate from train data)
+            if grid_bounds is None:
+                xmin, xmax = np.min(X_2d_train[:, 0]), np.max(X_2d_train[:, 0])
+                ymin, ymax = np.min(X_2d_train[:, 1]), np.max(X_2d_train[:, 1])
+                # Add some margin
+                x_margin = (xmax - xmin) * 0.1
+                y_margin = (ymax - ymin) * 0.1
+                bounds = (xmin - x_margin, xmax + x_margin, ymin - y_margin, ymax + y_margin)
+            else:
+                bounds = grid_bounds
+            
+            xmin, xmax, ymin, ymax = bounds
 
-            # Add some margin
-            x_margin = (xmax - xmin) * 0.1
-            y_margin = (ymax - ymin) * 0.1
-
-            x_intrvls = np.linspace(xmin - x_margin, xmax + x_margin, num=grid_size)
-            y_intrvls = np.linspace(ymin - y_margin, ymax + y_margin, num=grid_size)
+            x_intrvls = np.linspace(xmin, xmax, num=grid_size)
+            y_intrvls = np.linspace(ymin, ymax, num=grid_size)
 
             xx, yy = np.meshgrid(x_intrvls, y_intrvls)
             pts = np.c_[xx.ravel(), yy.ravel()]
@@ -106,19 +93,23 @@ class DecisionBoundaryDriftAnalyzer:
 
             probs_list = []
             labels_list = []
+            high_dim_list = []
 
             for i in range(0, n_pts, batch_size):
                 batch_pts = pts[i:i+batch_size]
                 batch_high_dim = ssnp.inverse_transform(batch_pts)
-
+                
+                # Keep high dim points if needed (e.g. for disagreement)
+                # Note: this consumes memory, but needed for disagreement grid analysis
+                # We won't store it in the window result to save RAM, unless needed.
+                
                 # Predict
                 batch_probs = clf.predict_proba(batch_high_dim)
-                # Assuming binary or multi-class.
                 batch_labels = clf.predict(batch_high_dim)
+                
                 if hasattr(batch_probs, "max"):
                     batch_alpha = batch_probs.max(axis=1)
                 else:
-                    # Fallback
                     batch_alpha = np.ones(len(batch_labels))
 
                 probs_list.append(batch_alpha)
@@ -138,23 +129,41 @@ class DecisionBoundaryDriftAnalyzer:
                 'X_2d': X_2d_train,
                 'grid_probs': prob_grid,
                 'grid_labels': label_grid,
-                'grid_bounds': (xmin - x_margin, xmax + x_margin, ymin - y_margin, ymax + y_margin)
+                'grid_bounds': bounds
             }
 
         # 4. Process Pre and Post
+        # We determine a unified grid bound based on BOTH pre and post 2D projections
+        # to ensure the visualizations are comparable or cover the drift.
+        # However, usually we center on Post for disagreement. 
+        # Let's stick to Post bounds for the disagreement map.
+        
         result_pre = process_window(X_before_scaled, self.y_before, X_before_2d)
-
-        # For Post, we use the SAME SSNP projector (already trained on Pre),
-        # but we train a NEW classifier on the Post data.
+        
+        # Use Post bounds for Post window
         result_post = process_window(X_after_scaled, self.y_after, X_after_2d)
 
-        # 5. Compute Disagreement Analysis (Drift Logic)
-        # We want to see where the OLD model disagrees with the NEW model on the NEW data.
+        # 5. Compute Disagreement Analysis (SDBM Strategy)
+        # We generate a grid specifically on the Post window bounds
+        # and compute disagreement on THIS grid to train the explainer tree.
+        
+        # Re-generate grid points for the disagreement analysis (High-D Manifold)
+        b = result_post['grid_bounds']
+        x_intrvls = np.linspace(b[0], b[1], num=grid_size)
+        y_intrvls = np.linspace(b[2], b[3], num=grid_size)
+        xx, yy = np.meshgrid(x_intrvls, y_intrvls)
+        pts_2d = np.c_[xx.ravel(), yy.ravel()]
+        
+        # Inverse transform entire grid to High-D (Scaled)
+        # We do this in one go or batches. For 300x300 = 90k, one go is fine for tabular data.
+        X_grid_high_scaled = ssnp.inverse_transform(pts_2d)
+        
         disagreement_results = compute_disagreement_analysis(
             clf_pre=result_pre['clf'],
             clf_post=result_post['clf'],
-            X_eval_raw=self.X_after,     # Raw for readable rules
-            X_eval_scaled=X_after_scaled,  # Scaled for prediction consistency
+            X_eval_raw=self.X_after,       # Used ONLY for unscaling map
+            X_eval_scaled=X_after_scaled,  # Used for drift rate calc on real data
+            X_grid_high_scaled=X_grid_high_scaled, # Used for training the Viz Tree (Manifold)
             feature_names=feature_names
         )
 
