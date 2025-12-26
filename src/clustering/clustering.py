@@ -665,16 +665,15 @@ class ClusterBasedDriftDetector:
         ----------
         stats_shifts : dict
             Nested dictionary of statistical shift values in the form
-            ``{class: {feature: {statistic: value | 'N/A'}}}``.
+            {class: {feature: {statistic: value | 'N/A'}}}.
 
         Returns
         -------
         dict
-            Nested dictionary with the same structure as `stats_shifts`, where each
+            Nested dictionary with the same structure as stats_shifts, where each
             statistic is mapped to:
-            - ``True`` if ``abs(value) > self.thr_desc_stats``,
-            - ``False`` if not,
-            - ``None`` if the input value was ``'N/A'``.
+            - True if shift exceeds the threshold or the value was N/A',
+            - False if not.
         """
         return {
             cl: {
