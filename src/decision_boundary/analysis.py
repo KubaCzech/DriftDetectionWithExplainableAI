@@ -100,8 +100,6 @@ class DecisionBoundaryDriftAnalyzer:
                 batch_high_dim = ssnp.inverse_transform(batch_pts)
                 
                 # Keep high dim points if needed (e.g. for disagreement)
-                # Note: this consumes memory, but needed for disagreement grid analysis
-                # We won't store it in the window result to save RAM, unless needed.
                 
                 # Predict
                 batch_probs = clf.predict_proba(batch_high_dim)
@@ -135,15 +133,13 @@ class DecisionBoundaryDriftAnalyzer:
         # 4. Process Pre and Post
         # We determine a unified grid bound based on BOTH pre and post 2D projections
         # to ensure the visualizations are comparable or cover the drift.
-        # However, usually we center on Post for disagreement. 
-        # Let's stick to Post bounds for the disagreement map.
         
         result_pre = process_window(X_before_scaled, self.y_before, X_before_2d)
         
         # Use Post bounds for Post window
         result_post = process_window(X_after_scaled, self.y_after, X_after_2d)
 
-        # 5. Compute Disagreement Analysis (SDBM Strategy)
+        # 5. Compute Disagreement Analysis 
         # We generate a grid specifically on the Post window bounds
         # and compute disagreement on THIS grid to train the explainer tree.
         
@@ -155,15 +151,14 @@ class DecisionBoundaryDriftAnalyzer:
         pts_2d = np.c_[xx.ravel(), yy.ravel()]
         
         # Inverse transform entire grid to High-D (Scaled)
-        # We do this in one go or batches. For 300x300 = 90k, one go is fine for tabular data.
         X_grid_high_scaled = ssnp.inverse_transform(pts_2d)
         
         disagreement_results = compute_disagreement_analysis(
             clf_pre=result_pre['clf'],
             clf_post=result_post['clf'],
-            X_eval_raw=self.X_after,       # Used ONLY for unscaling map
+            X_eval_raw=self.X_after,       # Used for unscaling map
             X_eval_scaled=X_after_scaled,  # Used for drift rate calc on real data
-            X_grid_high_scaled=X_grid_high_scaled, # Used for training the Viz Tree (Manifold)
+            X_grid_high_scaled=X_grid_high_scaled, # Used for training the Viz Tree 
             feature_names=feature_names
         )
 

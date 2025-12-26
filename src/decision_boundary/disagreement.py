@@ -62,20 +62,21 @@ def _format_rule_bounds(path_tuples, feature_mins, feature_maxs):
 
 def _recurse_rules(
     node, path_tuples, tree_, tree_classes, feature_names, rules_data, drift_leaves, 
-    feature_mins, feature_maxs, unscalers, total_samples
+    feature_mins, feature_maxs, unscalers, 
+    real_leaf_counts, total_real_samples, total_grid_samples
 ):
     # Check if leaf node
     if tree_.feature[node] == -2:
-        val = tree_.value[node][0]
-        node_total = val.sum()
+        # We use tree_.value (weighted) to determine if this is a "Drift" region
+        val_weighted = tree_.value[node][0]
+        node_weight_total = val_weighted.sum()
 
-        # Identify class 1 probability (Drift)
         target_class = 1
         class_prob = 0.0
         if len(tree_classes) > 1:
             if target_class in tree_classes:
                 idx_1 = np.where(tree_classes == target_class)[0][0]
-                class_prob = val[idx_1] / node_total
+                class_prob = val_weighted[idx_1] / node_weight_total
         else:
             class_prob = 1.0 if tree_classes[0] == target_class else 0.0
 
@@ -83,14 +84,21 @@ def _recurse_rules(
         if class_prob > 0.5:
             readable_rule = _format_rule_bounds(path_tuples, feature_mins, feature_maxs)
             
-            # Coverage is relative to the Manifold (Grid), which represents the Visual Area
-            coverage = node_total / total_samples
+            # --- REAL DATA METRICS ---
+            # Count how many actual data points fell into this leaf
+            n_real = real_leaf_counts.get(node, 0)
+            cov_real = n_real / total_real_samples if total_real_samples > 0 else 0.0
+
+            # --- VISUAL GRID METRICS ---
+            n_grid = tree_.n_node_samples[node]
+            cov_grid = n_grid / total_grid_samples if total_grid_samples > 0 else 0.0
 
             rules_data.append({
                 'Rule': readable_rule,
                 'Drift Conf.': f"{class_prob:.1%}",
-                'Samples (Grid)': int(node_total),
-                'Coverage (Visual)': coverage,
+                'Samples': int(n_real),          # Actual Data Points
+                'Coverage': f"{cov_real:.1%}",   # Real Data Coverage
+                'Visual Area': f"{cov_grid:.1%}", # Size on the plot
                 'Leaf_ID': node
             })
             drift_leaves.append(node)
@@ -110,12 +118,14 @@ def _recurse_rules(
     _recurse_rules(
         tree_.children_left[node], path_tuples + [(name, "<=", threshold_raw)],
         tree_, tree_classes, feature_names, rules_data, drift_leaves, 
-        feature_mins, feature_maxs, unscalers, total_samples
+        feature_mins, feature_maxs, unscalers, 
+        real_leaf_counts, total_real_samples, total_grid_samples
     )
     _recurse_rules(
         tree_.children_right[node], path_tuples + [(name, ">", threshold_raw)],
         tree_, tree_classes, feature_names, rules_data, drift_leaves, 
-        feature_mins, feature_maxs, unscalers, total_samples
+        feature_mins, feature_maxs, unscalers, 
+        real_leaf_counts, total_real_samples, total_grid_samples
     )
 
 
@@ -130,11 +140,22 @@ def get_disagreement_table(tree, feature_names, X_raw=None, X_scaled=None):
     if X_raw is not None and X_scaled is not None:
         unscalers = _get_unscaler_map(feature_names, X_raw, X_scaled)
 
-    total_samples = tree_.n_node_samples[0]
+    # 1. Calculate Grid Totals (Training Data for Tree)
+    total_grid_samples = tree_.n_node_samples[0]
+
+    # 2. Calculate Real Data Distribution (Evaluation Data)
+    real_leaf_counts = {}
+    total_real_samples = 0
+    if X_scaled is not None:
+        leaf_indices = tree.apply(X_scaled)
+        unique_leaves, counts = np.unique(leaf_indices, return_counts=True)
+        real_leaf_counts = dict(zip(unique_leaves, counts))
+        total_real_samples = len(X_scaled)
 
     _recurse_rules(
         0, [], tree_, tree_classes, feature_names, 
-        rules_data, drift_leaves, feature_mins, feature_maxs, unscalers, total_samples
+        rules_data, drift_leaves, feature_mins, feature_maxs, unscalers, 
+        real_leaf_counts, total_real_samples, total_grid_samples
     )
 
     if not rules_data:
@@ -142,21 +163,20 @@ def get_disagreement_table(tree, feature_names, X_raw=None, X_scaled=None):
 
     df = pd.DataFrame(rules_data)
 
-    # --- ASSIGN CONSISTENT RULE LABELS ---
-    unique_leaves = sorted(df['Leaf_ID'].unique())
-    leaf_to_label = {leaf: f"Rule {i+1}" for i, leaf in enumerate(unique_leaves)}
-    df['Rule Label'] = df['Leaf_ID'].map(leaf_to_label)
+    # 1. Sort by Real Data Coverage (descending), then Visual Area
+    df['_sort_cov'] = df['Coverage'].apply(lambda x: float(x.strip('%')))
+    df = df.sort_values(by=['_sort_cov', 'Visual Area'], ascending=False).drop(columns=['_sort_cov'])
     
-    # Sort by Coverage
-    df = df.sort_values(by='Coverage (Visual)', ascending=False)
-    
-    # Format coverage
-    df['Coverage'] = df['Coverage (Visual)'].apply(lambda x: f"{x:.1%}")
+    # 2. Assign Rule Labels based on this sorted order
+    # The top row becomes "Rule 1", second is "Rule 2", etc.
+    df['Rule Label'] = [f"Rule {i+1}" for i in range(len(df))]
     
     # Reorder columns
-    cols = ['Rule Label', 'Rule', 'Drift Conf.', 'Samples (Grid)', 'Coverage', 'Leaf_ID']
+    cols = ['Rule Label', 'Rule', 'Drift Conf.', 'Samples', 'Coverage', 'Visual Area', 'Leaf_ID']
     df = df[cols]
     
+    # Return the leaf IDs in the EXACT same order as the table
+    # This ensures the Visualization (which iterates this list) matches the Table
     return df, df['Leaf_ID'].tolist()
 
 
@@ -185,8 +205,7 @@ def compute_disagreement_analysis(clf_pre, clf_post, X_eval_raw, X_eval_scaled, 
             'viz_tree': None
         }
         
-    # 2. Train Visualization Tree on the GRID (Manifold) if available
-    # This ensures the tree explains the PLOT, not just the data.
+    # 2. Train Visualization Tree 
     if X_grid_high_scaled is not None:
         grid_pred_pre = clf_pre.predict(X_grid_high_scaled)
         grid_pred_post = clf_post.predict(X_grid_high_scaled)
@@ -208,9 +227,7 @@ def compute_disagreement_analysis(clf_pre, clf_post, X_eval_raw, X_eval_scaled, 
     )
     viz_tree.fit(X_train_tree, y_train_tree)
 
-    # 3. Generate Rules
-    # We pass X_eval_raw and X_eval_scaled ONLY to calculate the unscaling map 
-    # (so the text rules match the raw data units).
+    # 3. Generate Rules  
     df_rules, drift_leaf_ids = get_disagreement_table(
         viz_tree, 
         feature_names, 
