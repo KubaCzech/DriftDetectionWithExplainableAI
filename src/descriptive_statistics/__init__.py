@@ -1,3 +1,2 @@
-from .descriptive_statistics import DescriptiveStatisticsDriftDetector, StatisticsType  # noqa: F401
-
-# import visualizations
+from descriptive_statistics import DescriptiveStatisticsDriftDetector, StatisticsType
+from visualization import PlotOptions, plot_boxplot, plot_histogram, plot_kde, plot_ecdf, plot_violin, plot_qq
