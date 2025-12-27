@@ -167,7 +167,7 @@ class DataDimensionsReducer:
         self.reducer = self._create_reducer()
         self._is_fitted = False
 
-    def _create_reducer(self) -> TransformerMixin:
+    def _create_reducer(self) -> Any:
         if self.reducer_type == ReducerType.PCA:
             return PCA(n_components=self.n_components)
         elif self.reducer_type == ReducerType.ICA:
