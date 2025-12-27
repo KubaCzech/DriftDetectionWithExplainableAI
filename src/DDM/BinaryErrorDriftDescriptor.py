@@ -28,6 +28,7 @@ class BinaryErrorDriftDescriptor():
     When warning grace period is equal to n, there can be n-1 non-warning iterations between
     warning iterations such that the algorithm assumes the chain of warnings was not broken.
     The method with which the start of the drift is determined depends on lookback_method.
+    The method with which the end of the drift is determined depends on lookforward_method.
 
     The detected drifts are described using  DritDescription object.
     When describing a drift 3 statistics are noted:
