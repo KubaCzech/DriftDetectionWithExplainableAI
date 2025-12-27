@@ -1,13 +1,15 @@
 import numpy as np
 import pandas as pd
 
+from typing import Union, Any
+
 from enum import Enum
 from umap import UMAP
 
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.manifold import TSNE, LocallyLinearEmbedding, MDS
-from sklearn.decomposition import FastICA, FactorAnalysis
+from sklearn.decomposition import FastICA, FactorAnalysis, PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
 
