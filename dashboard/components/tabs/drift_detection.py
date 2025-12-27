@@ -19,6 +19,7 @@ def generate_error_stream(X_np, y_np, model):
 
     # Initialize model
     model.partial_fit(X_np[0].reshape(1, -1), [y_np[0]], classes=classes)
+    error_stream.append(1)  # Add the first sample as if it was an error
 
     for i in range(1, len(X_np)):
         x_i = X_np[i].reshape(1, -1)
@@ -48,6 +49,7 @@ def run_drift_detection(
     warning_grace_period,
     rate_calculation_sample_size,
     lookback_method='gradient',
+    lookforward_method='peak',
     confidence_level=None
 ):
     # Create detector
@@ -66,7 +68,8 @@ def run_drift_detection(
         warning_grace_period=warning_grace_period,
         rate_calculation_sample_size=rate_calculation_sample_size,
         ddm=detector,
-        lookback_method=lookback_method
+        lookback_method=lookback_method,
+        lookforward_method=lookforward_method
     )
 
     drift_descriptions = []
@@ -78,6 +81,9 @@ def run_drift_detection(
             drift = drift_descriptor.last_detected_drift
             drift.detected_at = i
             drift_descriptions.append(drift)
+
+    # Post-process to find actual drift ends
+    drift_descriptions = drift_descriptor.post_process_drift_ends(drift_descriptions)
 
     return drift_descriptions
 
@@ -146,12 +152,22 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
 
         lookback_method = st.selectbox(
             "Drift Start Detection Method",
-            ["threshold", "gradient", "cusum"],
+            ["cusum", "threshold", "gradient"],
             help="Method for detecting actual drift start point:\n"
+                 "- CUSUM: Cumulative sum change detection\n"
                  "- Threshold: Sustained error rate increase\n"
-                 "- Gradient: Error rate slope analysis\n"
-                 "- CUSUM: Cumulative sum change detection",
+                 "- Gradient: Error rate slope analysis",
             key="ddm_lookback_method"
+        )
+
+        lookforward_method = st.selectbox(
+            "Drift End Detection Method",
+            ["peak", "recovery", "none"],
+            help="Method for detecting actual drift end point:\n"
+                 "- Peak: Find maximum error rate after detection\n"
+                 "- Recovery: Detect when error rate starts decreasing\n"
+                 "- None: Use detection point as end",
+            key="ddm_lookforward_method"
         )
 
     st.markdown("---")
@@ -235,6 +251,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                     warning_grace_period,
                     rate_calculation_sample_size,
                     lookback_method=lookback_method,
+                    lookforward_method=lookforward_method,
                     confidence_level=confidence
                 )
 
@@ -275,15 +292,21 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
             hovertemplate='Index: %{x}<br>Error Rate: %{y:.3f}<extra></extra>'
         ))
 
-        # Add drift annotations using ACTUAL drift start
+        # Add drift annotations using ACTUAL drift start and end
         for idx, drift in enumerate(drift_descriptions):
-            # Use the actual drift start index if available
+            # Use the actual drift start index
             if hasattr(drift, 'drift_start_index') and drift.drift_start_index is not None:
                 start = drift.drift_start_index
             else:
                 start = max(0, drift.detected_at - drift.drift_duration)
 
-            end = drift.detected_at
+            # Use the actual drift end index (peak or recovery point)
+            if hasattr(drift, 'drift_end_index') and drift.drift_end_index is not None:
+                end = drift.drift_end_index
+            else:
+                end = drift.detected_at
+
+            detection = drift.detected_at
 
             # Make sure they're within the error_rate bounds
             start_plot = max(st.session_state.ddm_sample_size_at_rate_creation,
@@ -294,10 +317,12 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
             # Calculate error_rate array indices
             start_idx = start - st.session_state.ddm_sample_size_at_rate_creation
             end_idx = end - st.session_state.ddm_sample_size_at_rate_creation
+            detection_idx = detection - st.session_state.ddm_sample_size_at_rate_creation
             start_idx = max(0, min(start_idx, len(error_rate) - 1))
             end_idx = max(0, min(end_idx, len(error_rate) - 1))
+            detection_idx = max(0, min(detection_idx, len(error_rate) - 1))
 
-            # Add drift region as shaded area
+            # Add drift region as shaded area (from start to end)
             fig.add_vrect(
                 x0=start_plot,
                 x1=end_plot,
@@ -306,7 +331,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                 line_width=0,
             )
 
-            # Add drift line
+            # Add drift line from start to end
             fig.add_trace(go.Scatter(
                 x=[start_plot, end_plot],
                 y=[error_rate[start_idx], error_rate[end_idx]],
@@ -317,10 +342,10 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                 hovertemplate=(
                     f'<b>Drift {idx+1}</b><br>'
                     f'Start Index: {start}<br>'
-                    f'End Index: {end}<br>'
+                    f'Peak/End Index: {end}<br>'
                     f'Duration: {drift.drift_duration}<br>'
                     f'Error Rate at Start: {error_rate[start_idx]:.3f}<br>'
-                    f'Error Rate at Detection: {error_rate[end_idx]:.3f}<br>'
+                    f'Error Rate at Peak: {error_rate[end_idx]:.3f}<br>'
                     f'<extra></extra>'
                 )
             ))
@@ -360,8 +385,10 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
             if drift_descriptions:
                 avg_duration = np.mean([d.drift_duration for d in drift_descriptions])
                 st.metric("Average Drift Duration", f"{avg_duration:.1f}")
+                # Use peak error rate if available
                 avg_error_change = np.mean([
-                    d.error_rate_at_detection - d.error_rate_at_warning
+                    (d.error_rate_at_peak if hasattr(d, 'error_rate_at_peak') and d.error_rate_at_peak is not None
+                        else d.error_rate_at_detection) - d.error_rate_at_warning
                     for d in drift_descriptions
                 ])
                 st.metric("Avg Error Rate Change", f"{avg_error_change:.3f}")
@@ -390,11 +417,16 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
             st.subheader("🔍 Detailed Drift Information")
 
             for idx, drift in enumerate(drift_descriptions):
-                # Determine actual start index
+                # Determine actual start and end indices
                 if hasattr(drift, 'drift_start_index') and drift.drift_start_index is not None:
                     actual_start = drift.drift_start_index
                 else:
                     actual_start = drift.detected_at - drift.drift_duration
+
+                if hasattr(drift, 'drift_end_index') and drift.drift_end_index is not None:
+                    actual_end = drift.drift_end_index
+                else:
+                    actual_end = drift.detected_at
 
                 with st.expander(f"Drift {idx+1} - Detected at index {drift.detected_at}"):
                     col1, col2, col3 = st.columns(3)
@@ -402,17 +434,25 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                     with col1:
                         st.metric("Duration", drift.drift_duration)
                         st.metric("Start Index", actual_start)
-                        st.metric("End Index", drift.detected_at)
+                        st.metric("Peak/End Index", actual_end)
+                        if actual_end != drift.detected_at:
+                            st.metric("Detection Index", drift.detected_at)
 
                     with col2:
-                        st.metric("Error Rate at Start", f"{error_rate[actual_start]:.3f}")
-                        st.metric("Error Rate at Detection", f"{error_rate[drift.detected_at]:.3f}")
+                        st.metric("Error Rate at Start", f"{drift.error_rate_at_warning:.3f}")
+                        st.metric("Error Rate at Detection", f"{drift.error_rate_at_detection:.3f}")
+                        if hasattr(drift, 'error_rate_at_peak') and drift.error_rate_at_peak is not None:
+                            st.metric("Error Rate at Peak", f"{drift.error_rate_at_peak:.3f}")
 
                     with col3:
-                        error_change = error_rate[drift.detected_at] - error_rate[actual_start]
-                        st.metric("Error Rate Change", f"{error_change:.3f}")
-                        change_pct = (error_change / error_rate[actual_start] *
-                                      100) if error_rate[actual_start] > 0 else 0
+                        # Calculate change from start to peak/end
+                        peak_error = (drift.error_rate_at_peak if hasattr(drift, 'error_rate_at_peak')
+                                      and drift.error_rate_at_peak is not None
+                                      else drift.error_rate_at_detection)
+                        error_change = peak_error - drift.error_rate_at_warning
+                        st.metric("Total Error Rate Change", f"{error_change:.3f}")
+                        change_pct = (error_change / drift.error_rate_at_warning *
+                                      100) if drift.error_rate_at_warning > 0 else 0
                         st.metric("Change Percentage", f"{change_pct:.1f}%")
         else:
             st.info("No drifts detected with current configuration. Try adjusting the parameters.")
