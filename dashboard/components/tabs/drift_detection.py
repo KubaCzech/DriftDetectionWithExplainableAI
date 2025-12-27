@@ -47,6 +47,7 @@ def run_drift_detection(
     detector_type,
     warning_grace_period,
     rate_calculation_sample_size,
+    lookback_method='gradient',
     confidence_level=None
 ):
     # Create detector
@@ -64,7 +65,8 @@ def run_drift_detection(
     drift_descriptor = BinaryErrorDriftDescriptor(
         warning_grace_period=warning_grace_period,
         rate_calculation_sample_size=rate_calculation_sample_size,
-        ddm=detector
+        ddm=detector,
+        lookback_method=lookback_method
     )
 
     drift_descriptions = []
@@ -97,7 +99,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
         Number of samples per window (not used directly but kept for consistency)
     """
 
-    st.header("🔍 DDM Analysis")
+    st.header("DDM Analysis")
     st.markdown("Binary Error Drift Detection using Online Learning")
 
     col1, col2 = st.columns(2)
@@ -142,6 +144,16 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
             key="ddm_rate_size"
         )
 
+        lookback_method = st.selectbox(
+            "Drift Start Detection Method",
+            ["threshold", "gradient", "cusum"],
+            help="Method for detecting actual drift start point:\n"
+                 "- Threshold: Sustained error rate increase\n"
+                 "- Gradient: Error rate slope analysis\n"
+                 "- CUSUM: Cumulative sum change detection",
+            key="ddm_lookback_method"
+        )
+
     st.markdown("---")
 
     # Convert data to numpy once
@@ -153,7 +165,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
 
     # Button to generate error stream (only if not already done)
     if need_error_stream:
-        if st.button("🎯 Generate Error Stream", type="primary", key="ddm_generate"):
+        if st.button("Generate Error Stream", type="primary", key="ddm_generate"):
             try:
                 status_text = st.empty()
                 status_text.text("Training model and generating error stream...")
@@ -179,6 +191,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                 st.session_state.ddm_error_stream = error_stream
                 st.session_state.ddm_predictions = predictions
                 st.session_state.ddm_error_rate = error_rate
+                st.session_state.ddm_sample_size_at_rate_creation = rate_calculation_sample_size
 
                 status_text.text("✅ Error stream generated!")
                 st.success("Error stream generated! Now you can run drift detection with different detectors.")
@@ -191,11 +204,12 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
     else:
         st.info("✓ Error stream already generated. You can now run drift detection with different parameters.")
 
-        if st.button("🔄 Regenerate Error Stream", key="ddm_regenerate"):
+        if st.button("Regenerate Error Stream", key="ddm_regenerate"):
             # Clear the cached error stream
             del st.session_state.ddm_error_stream
             del st.session_state.ddm_predictions
             del st.session_state.ddm_error_rate
+            del st.session_state.ddm_sample_size_at_rate_creation
             if 'ddm_drift_descriptions' in st.session_state:
                 del st.session_state.ddm_drift_descriptions
             if 'ddm_processing_complete' in st.session_state:
@@ -205,7 +219,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
     # Run drift detection button (only if error stream exists)
     if not need_error_stream:
         st.markdown("---")
-        if st.button("🚀 Run Drift Detection", type="primary", key="ddm_run"):
+        if st.button("Run Drift Detection", type="primary", key="ddm_run"):
             try:
                 status_text = st.empty()
                 status_text.text("Running drift detection...")
@@ -220,6 +234,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                     detector_type,
                     warning_grace_period,
                     rate_calculation_sample_size,
+                    lookback_method=lookback_method,
                     confidence_level=confidence
                 )
 
@@ -245,13 +260,14 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
         predictions = st.session_state.ddm_predictions
 
         # Create interactive plot with Plotly
-        st.subheader("📊 Error Rate Over Time")
+        st.subheader("Error Rate Over Time")
 
         fig = go.Figure()
 
         # Add error rate line
         fig.add_trace(go.Scatter(
-            x=list(range(len(error_rate))),
+            x=list(range(st.session_state.ddm_sample_size_at_rate_creation,
+                         st.session_state.ddm_sample_size_at_rate_creation + len(error_rate))),
             y=error_rate,
             mode='lines',
             name='Error Rate',
@@ -259,33 +275,59 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
             hovertemplate='Index: %{x}<br>Error Rate: %{y:.3f}<extra></extra>'
         ))
 
-        # Add drift annotations
+        # Add drift annotations using ACTUAL drift start
         for idx, drift in enumerate(drift_descriptions):
-            start = max(0, drift.detected_at - drift.drift_duration)
-            end = min(len(error_rate) - 1, drift.detected_at)
+            # Use the actual drift start index if available
+            if hasattr(drift, 'drift_start_index') and drift.drift_start_index is not None:
+                start = drift.drift_start_index
+            else:
+                start = max(0, drift.detected_at - drift.drift_duration)
+
+            end = drift.detected_at
+
+            # Make sure they're within the error_rate bounds
+            start_plot = max(st.session_state.ddm_sample_size_at_rate_creation,
+                             min(start, st.session_state.ddm_sample_size_at_rate_creation + len(error_rate) - 1))
+            end_plot = max(st.session_state.ddm_sample_size_at_rate_creation,
+                           min(end, st.session_state.ddm_sample_size_at_rate_creation + len(error_rate) - 1))
+
+            # Calculate error_rate array indices
+            start_idx = start - st.session_state.ddm_sample_size_at_rate_creation
+            end_idx = end - st.session_state.ddm_sample_size_at_rate_creation
+            start_idx = max(0, min(start_idx, len(error_rate) - 1))
+            end_idx = max(0, min(end_idx, len(error_rate) - 1))
+
+            # Add drift region as shaded area
+            fig.add_vrect(
+                x0=start_plot,
+                x1=end_plot,
+                fillcolor="rgba(255, 107, 53, 0.2)",
+                layer="below",
+                line_width=0,
+            )
 
             # Add drift line
             fig.add_trace(go.Scatter(
-                x=[start, end],
-                y=[drift.error_rate_at_warning, drift.error_rate_at_detection],
+                x=[start_plot, end_plot],
+                y=[error_rate[start_idx], error_rate[end_idx]],
                 mode='lines+markers',
                 name=f'Drift {idx+1}',
                 line=dict(color='#FF6B35', width=3, dash='dash'),
-                marker=dict(size=10, color='#FF6B35'),
+                marker=dict(size=10, color='#FF6B35', symbol=['circle', 'x']),
                 hovertemplate=(
                     f'<b>Drift {idx+1}</b><br>'
                     f'Start Index: {start}<br>'
                     f'End Index: {end}<br>'
                     f'Duration: {drift.drift_duration}<br>'
-                    f'Error Rate at Warning: {drift.error_rate_at_warning:.3f}<br>'
-                    f'Error Rate at Detection: {drift.error_rate_at_detection:.3f}<br>'
+                    f'Error Rate at Start: {error_rate[start_idx]:.3f}<br>'
+                    f'Error Rate at Detection: {error_rate[end_idx]:.3f}<br>'
                     f'<extra></extra>'
                 )
             ))
 
         # Update layout
         fig.update_layout(
-            title=f'Drift Detection using {detector_type}',
+            title=f'Drift Detection using {detector_type} (Drift Start Detection: {lookback_method})',
             xaxis_title='Data Point Index',
             yaxis_title='Error Rate',
             hovermode='closest',
@@ -304,7 +346,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
 
         # Display statistics
         st.markdown("---")
-        st.subheader("📈 Detection Statistics")
+        st.subheader("Detection Statistics")
 
         col1, col2, col3 = st.columns(3)
 
@@ -348,23 +390,29 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
             st.subheader("🔍 Detailed Drift Information")
 
             for idx, drift in enumerate(drift_descriptions):
+                # Determine actual start index
+                if hasattr(drift, 'drift_start_index') and drift.drift_start_index is not None:
+                    actual_start = drift.drift_start_index
+                else:
+                    actual_start = drift.detected_at - drift.drift_duration
+
                 with st.expander(f"Drift {idx+1} - Detected at index {drift.detected_at}"):
                     col1, col2, col3 = st.columns(3)
 
                     with col1:
                         st.metric("Duration", drift.drift_duration)
-                        st.metric("Start Index", drift.detected_at - drift.drift_duration)
+                        st.metric("Start Index", actual_start)
                         st.metric("End Index", drift.detected_at)
 
                     with col2:
-                        st.metric("Error Rate at Warning", f"{drift.error_rate_at_warning:.3f}")
-                        st.metric("Error Rate at Detection", f"{drift.error_rate_at_detection:.3f}")
+                        st.metric("Error Rate at Start", f"{error_rate[actual_start]:.3f}")
+                        st.metric("Error Rate at Detection", f"{error_rate[drift.detected_at]:.3f}")
 
                     with col3:
-                        error_change = drift.error_rate_at_detection - drift.error_rate_at_warning
+                        error_change = error_rate[drift.detected_at] - error_rate[actual_start]
                         st.metric("Error Rate Change", f"{error_change:.3f}")
-                        change_pct = (error_change / drift.error_rate_at_warning *
-                                      100) if drift.error_rate_at_warning > 0 else 0
+                        change_pct = (error_change / error_rate[actual_start] *
+                                      100) if error_rate[actual_start] > 0 else 0
                         st.metric("Change Percentage", f"{change_pct:.1f}%")
         else:
             st.info("No drifts detected with current configuration. Try adjusting the parameters.")
