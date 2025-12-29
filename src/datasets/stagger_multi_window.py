@@ -1,16 +1,16 @@
-from .protree_data.river_generators import Rbf
+from .protree_data.river_generators import Stagger
 from .base import BaseDataset
 import pandas as pd
 
 
-class RbfMultiWindowDataset(BaseDataset):
+class StaggerMultiWindowDataset(BaseDataset):
     @property
     def name(self) -> str:
-        return "rbf_multi_window"
+        return "stagger_multi_window"
 
     @property
     def display_name(self) -> str:
-        return "RBF Multi-Window"
+        return "Stagger Multi-Window"
 
     def get_params(self) -> dict:
         params = super().get_params()
@@ -18,8 +18,7 @@ class RbfMultiWindowDataset(BaseDataset):
             "num_windows": 100,
             "drift_positions": [28000, 52000, 70000],
             "drift_duration": 1,
-            "n_informative": 5,
-            "n_centroids": 11
+            "classification_function": 0
         })
         return params
 
@@ -51,31 +50,22 @@ class RbfMultiWindowDataset(BaseDataset):
                 "help": "Duration of each drift transition in samples."
             },
             {
-                "name": "n_informative",
+                "name": "classification_function",
                 "type": "int",
-                "label": "Number of Informative Features",
-                "default": 5,
-                "min_value": 1,
+                "label": "Classification Function",
+                "default": 0,
+                "min_value": 0,
                 "step": 1,
-                "help": "Number of informative features in the dataset."
-            },
-            {
-                "name": "n_centroids",
-                "type": "int",
-                "label": "Number of Centroids",
-                "default": 11,
-                "min_value": 2,
-                "step": 1,
-                "help": "Number of centroids for RBF generation."
+                "help": "Classification function to use (should be 0, 1, or 2). "
+                "Values outside this range will be reduced using modulo 3."
             }
         ]
 
     def generate(self, num_windows=100, window_length=1000,
                  drift_positions=None, drift_duration=1,
-                 n_informative=5, n_centroids=11,
-                 random_seed=42, **kwargs):
+                 classification_function=0, random_seed=42, **kwargs):
         """
-        Generate synthetic data stream using protree's Rbf generator.
+        Generate synthetic data stream using protree's Stagger generator.
 
         Parameters
         ----------
@@ -87,10 +77,8 @@ class RbfMultiWindowDataset(BaseDataset):
             List of sample positions where drifts occur, or comma-separated string
         drift_duration : int
             Duration of drift transition in samples
-        n_informative : int
-            Number of informative features
-        n_centroids : int
-            Number of centroids
+        classification_function : int
+            Classification function (0, 1, or 2)
         random_seed : int
             Random seed for reproducibility
         """
@@ -104,13 +92,15 @@ class RbfMultiWindowDataset(BaseDataset):
         elif drift_positions is None:
             drift_positions = []
 
-        # Create Rbf generator
-        ds = Rbf(
+        # Ensure classification_function is in valid range using modulo
+        classification_function = classification_function % 3
+
+        # Create Stagger generator
+        ds = Stagger(
             drift_position=drift_positions if drift_positions else 500,
             drift_duration=drift_duration,
-            seed=random_seed,
-            n_informative=n_informative,
-            n_centroids=n_centroids
+            classification_function=classification_function,
+            seed=random_seed
         )
 
         # Generate all windows

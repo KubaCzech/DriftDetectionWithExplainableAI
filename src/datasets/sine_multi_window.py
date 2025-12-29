@@ -1,16 +1,16 @@
-from .protree_data.river_generators import Rbf
+from .protree_data.stream_generators import Sine
 from .base import BaseDataset
 import pandas as pd
 
 
-class RbfMultiWindowDataset(BaseDataset):
+class SineMultiWindowDataset(BaseDataset):
     @property
     def name(self) -> str:
-        return "rbf_multi_window"
+        return "sine_multi_window"
 
     @property
     def display_name(self) -> str:
-        return "RBF Multi-Window"
+        return "Sine Multi-Window"
 
     def get_params(self) -> dict:
         params = super().get_params()
@@ -18,8 +18,8 @@ class RbfMultiWindowDataset(BaseDataset):
             "num_windows": 100,
             "drift_positions": [28000, 52000, 70000],
             "drift_duration": 1,
-            "n_informative": 5,
-            "n_centroids": 11
+            "informative_attr_0": 3,
+            "informative_attr_1": 2
         })
         return params
 
@@ -51,31 +51,31 @@ class RbfMultiWindowDataset(BaseDataset):
                 "help": "Duration of each drift transition in samples."
             },
             {
-                "name": "n_informative",
+                "name": "informative_attr_0",
                 "type": "int",
-                "label": "Number of Informative Features",
-                "default": 5,
-                "min_value": 1,
+                "label": "Informative Attribute 0",
+                "default": 3,
+                "min_value": 0,
                 "step": 1,
-                "help": "Number of informative features in the dataset."
+                "help": "First informative attribute index."
             },
             {
-                "name": "n_centroids",
+                "name": "informative_attr_1",
                 "type": "int",
-                "label": "Number of Centroids",
-                "default": 11,
-                "min_value": 2,
+                "label": "Informative Attribute 1",
+                "default": 2,
+                "min_value": 0,
                 "step": 1,
-                "help": "Number of centroids for RBF generation."
+                "help": "Second informative attribute index."
             }
         ]
 
     def generate(self, num_windows=100, window_length=1000,
                  drift_positions=None, drift_duration=1,
-                 n_informative=5, n_centroids=11,
+                 informative_attr_0=3, informative_attr_1=2,
                  random_seed=42, **kwargs):
         """
-        Generate synthetic data stream using protree's Rbf generator.
+        Generate synthetic data stream using protree's Sine generator.
 
         Parameters
         ----------
@@ -87,10 +87,10 @@ class RbfMultiWindowDataset(BaseDataset):
             List of sample positions where drifts occur, or comma-separated string
         drift_duration : int
             Duration of drift transition in samples
-        n_informative : int
-            Number of informative features
-        n_centroids : int
-            Number of centroids
+        informative_attr_0 : int
+            First informative attribute
+        informative_attr_1 : int
+            Second informative attribute
         random_seed : int
             Random seed for reproducibility
         """
@@ -104,13 +104,12 @@ class RbfMultiWindowDataset(BaseDataset):
         elif drift_positions is None:
             drift_positions = []
 
-        # Create Rbf generator
-        ds = Rbf(
+        # Create Sine generator
+        ds = Sine(
             drift_position=drift_positions if drift_positions else 500,
             drift_duration=drift_duration,
             seed=random_seed,
-            n_informative=n_informative,
-            n_centroids=n_centroids
+            informative_attrs=(informative_attr_0, informative_attr_1)
         )
 
         # Generate all windows

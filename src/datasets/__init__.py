@@ -4,6 +4,12 @@ from .hyperplane_drift import HyperplaneDriftDataset
 from .controlled_concept_drift import ControlledConceptDriftDataset
 from .sdbm_rbf_drift import SDBMRBFDriftDataset
 from .rbf_multi_window import RbfMultiWindowDataset
+from .sine_multi_window import SineMultiWindowDataset
+from .mixed_multi_window import MixedMultiWindowDataset
+from .plane_multi_window import PlaneMultiWindowDataset
+from .random_tree_multi_window import RandomTreeMultiWindowDataset
+from .sea_multi_window import SeaMultiWindowDataset
+from .stagger_multi_window import StaggerMultiWindowDataset
 
 from .river_dataset import RiverDataset, RiverDatasetType
 from .dataset_registry import DatasetRegistry
@@ -18,6 +24,12 @@ def load_datasets():
         # RandomRBFDriftDataset(),
         SDBMRBFDriftDataset(),
         RbfMultiWindowDataset(),
+        SineMultiWindowDataset(),
+        MixedMultiWindowDataset(),
+        PlaneMultiWindowDataset(),
+        RandomTreeMultiWindowDataset(),
+        SeaMultiWindowDataset(),
+        StaggerMultiWindowDataset(),
         # CSVDataset(),
         RiverDataset(RiverDatasetType.ELECTRICITY.value),
         # RiverDataset(RiverDatasetType.AIRLIENES.value),

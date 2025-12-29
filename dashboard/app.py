@@ -78,9 +78,8 @@ def generate_data(dataset_name, window_length_val, **kwargs):
     gen_params = dataset.get_params()
     gen_params.update(kwargs)
 
-    # Add window_length only if it's in the dataset's params
-    if "window_length" in gen_params:
-        gen_params["window_length"] = window_length_val
+    # Always add window_length
+    gen_params["window_length"] = window_length_val
 
     # Convert window-based parameters to samples if present
     if "n_windows_before" in gen_params:
