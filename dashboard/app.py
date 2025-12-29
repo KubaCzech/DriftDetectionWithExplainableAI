@@ -60,7 +60,6 @@ with col_info:
 datasource_config = render_sidebar_datasource_config()
 
 window_length = datasource_config["window_length"]
-num_windows = datasource_config["num_windows"]
 dataset_key = datasource_config["dataset_key"]
 dataset_params = datasource_config["dataset_params"]
 selected_model_class = datasource_config["selected_model_class"]
@@ -69,7 +68,7 @@ model_params = datasource_config["model_params"]
 
 # --- Data Generation ---
 @st.cache_data
-def generate_data(dataset_name, window_length_val, num_windows_val, **kwargs):
+def generate_data(dataset_name, window_length_val, **kwargs):
     """Cached function to generate data."""
     dataset = DATASETS.get(dataset_name)
     if not dataset:
@@ -79,9 +78,9 @@ def generate_data(dataset_name, window_length_val, num_windows_val, **kwargs):
     gen_params = dataset.get_params()
     gen_params.update(kwargs)
 
-    # Add num_windows and window_length to params
-    gen_params["num_windows"] = num_windows_val
-    gen_params["window_length"] = window_length_val
+    # Add window_length only if it's in the dataset's params
+    if "window_length" in gen_params:
+        gen_params["window_length"] = window_length_val
 
     # Convert window-based parameters to samples if present
     if "n_windows_before" in gen_params:
@@ -99,7 +98,6 @@ def generate_data(dataset_name, window_length_val, num_windows_val, **kwargs):
 X, y = generate_data(
     dataset_key,
     window_length,
-    num_windows,
     **dataset_params
 )
 

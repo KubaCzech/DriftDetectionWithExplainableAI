@@ -173,16 +173,7 @@ def render_sidebar_datasource_config():
             help="Length of the analysis window in samples."
         )
 
-        num_windows = st.number_input(
-            "Number of Windows",
-            min_value=2,
-            value=100,
-            step=1,
-            help="Total number of windows to generate (for multi-window datasets)."
-        )
-
         st.session_state.window_length = window_length  # Store for modal usage
-        st.session_state.num_windows = num_windows  # Store for dataset generation
 
         # Dataset Selection
         dataset_key, selected_dataset, dataset_params = _render_dataset_selection()
@@ -192,7 +183,6 @@ def render_sidebar_datasource_config():
 
     return {
         "window_length": window_length,
-        "num_windows": num_windows,
         "dataset_key": dataset_key,
         "dataset_params": dataset_params,
         "selected_model_class": selected_model_class,

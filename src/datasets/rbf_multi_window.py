@@ -15,6 +15,7 @@ class RbfMultiWindowDataset(BaseDataset):
     def get_params(self) -> dict:
         params = super().get_params()
         params.update({
+            "num_windows": 100,
             "drift_positions": [28000, 52000, 70000],
             "drift_duration": 1,
             "n_informative": 5,
@@ -24,6 +25,15 @@ class RbfMultiWindowDataset(BaseDataset):
 
     def get_settings_schema(self) -> list[dict]:
         return [
+            {
+                "name": "num_windows",
+                "type": "int",
+                "label": "Number of Windows",
+                "default": 100,
+                "min_value": 2,
+                "step": 1,
+                "help": "Total number of windows to generate."
+            },
             {
                 "name": "drift_positions",
                 "type": "text",
