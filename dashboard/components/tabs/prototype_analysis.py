@@ -33,11 +33,11 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
 
     # Create tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 Data Processing",
-        "🌍 Global View",
-        "⚖️ Comparison",
-        "🔬 Local Analysis",
-        "🗺️ Distance Matrix"
+        "Data Processing",
+        "Global View",
+        "Window Comparison",
+        "Local Analysis",
+        "Distance Matrix"
     ])
 
     # ============================================================================
@@ -86,7 +86,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
 
         # Process button
         st.markdown("---")
-        if st.button("🚀 Process Data", type="primary", key="prototype_process"):
+        if st.button("Process Data", type="primary", key="prototype_process"):
             try:
                 # Progress tracking
                 progress_bar = st.progress(0)
@@ -144,9 +144,10 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                     for class_name in set(y_block):
                         class_prototypes = current_prototypes[class_name]
                         if len(class_prototypes) in [0, 1]:
-                            current_explainer = APete(model=model, alpha=0.50) # change alpha threshold to make less prototypes
+                            # Change alpha threshold to make less prototypes
+                            current_explainer = APete(model=model, alpha=0.50)
 
-                            # create prototypes for the class with missing prototypes
+                            # Create prototypes for the class with missing prototypes
                             x_block_missing_class = []
                             for x, y in zip(x_dicts, y_list):
                                 if y == class_name:
@@ -155,7 +156,8 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                             y_block_missing_class = tuple([class_name]*len(x_block_missing_class))
                             x_block_missing_class = tuple(x_block_missing_class)
 
-                            missing_prototypes = current_explainer.select_prototypes(x_block_missing_class, y_block_missing_class)
+                            missing_prototypes = current_explainer.select_prototypes(x_block_missing_class,
+                                                                                     y_block_missing_class)
                             current_prototypes[class_name] = missing_prototypes[class_name]
 
                     # Store window data
@@ -226,7 +228,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             drift_locations = st.session_state.prototype_drift_locations
 
             # Global statistics
-            st.subheader("📈 Global Statistics")
+            st.subheader("Global Statistics")
 
             col1, col2, col3, col4 = st.columns(4)
 
@@ -248,7 +250,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                 st.success("✓ No drifts detected - stream appears stable")
 
             # Additional statistics
-            st.subheader("📊 Stream Statistics")
+            st.subheader("Stream Statistics")
 
             # Collect data across all windows
             total_samples = 0
@@ -293,7 +295,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             st.markdown("---")
 
             # Class distribution over time
-            st.subheader("📊 Class Distribution Over Time")
+            st.subheader("Class Distribution Over Time")
 
             class_distributions = []
             all_classes = set()
@@ -334,7 +336,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             plt.close()
 
             # Prototype counts over time
-            st.subheader("🎯 Prototype Counts Over Time")
+            st.subheader("Prototype Counts Over Time")
 
             prototype_counts = []
             for i in storage.get_all_iterations():
@@ -363,7 +365,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             plt.close()
 
             # Concept timeline
-            st.subheader("🎨 Concept Timeline")
+            st.subheader("Concept Timeline")
 
             fig, ax = plt.subplots(figsize=(14, 2))
 
@@ -438,10 +440,10 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                 st.subheader("Prototype Comparison")
 
                 max_displayed_prototypes = st.slider("Maximum number of displayed prototypes",
-                                min_value = 1,
-                                max_value = 30,
-                                value = 10,
-                                key="max_displayed_prototypes")
+                                                     min_value=1,
+                                                     max_value=30,
+                                                     value=10,
+                                                     key="max_displayed_prototypes")
 
                 fig = plt.figure(figsize=(14, 8))
 
@@ -770,7 +772,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             # Distance to all other windows
             st.subheader("Distance to All Windows")
 
-            k_median = st.slider("Median Filter Width", 1, 11, 3, 2,
+            k_median = st.slider("Median Filter Width", 1, 11, 1, 2,
                                  key="local_median_filter")
 
             fig, ax = plt.subplots(figsize=(12, 4))
