@@ -1,18 +1,21 @@
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
 import traceback
+import pandas as pd
+import streamlit as st
+import matplotlib.pyplot as plt
+
 from src.clustering.clustering import ClusterBasedDriftDetector
-from src.clustering.visualization import plot_drift_clustered
+from src.clustering.visualization import plot_clusters_by_class
 
 
 def _display_intro():
     st.header("Clustering Analysis")
-    st.markdown("""
+    st.markdown(
+        """
     This tab uses cluster-based methods to detect and analyze concept drift.
     It compares the data distribution and cluster structures between two windows:
     **Before Drift** and **After Drift**.
-    """)
+    """
+    )
 
 
 def _display_drift_status(drift_flag):
@@ -42,29 +45,25 @@ def _display_drift_details(details):
         column_config={
             "Class": st.column_config.TextColumn("Class"),
             "Cluster Count Drift": st.column_config.CheckboxColumn(
-                "Cluster Count Drift",
-                help="True if the number of clusters changed",
-                disabled=True
+                "Cluster Count Drift", help="True if the number of clusters changed", disabled=True
             ),
             "Centroid Shift Drift": st.column_config.CheckboxColumn(
-                "Centroid Shift Drift",
-                help="True if cluster centroids shifted significantly",
-                disabled=True
-            )
+                "Centroid Shift Drift", help="True if cluster centroids shifted significantly", disabled=True
+            ),
         },
         width="stretch",
-        hide_index=True
+        hide_index=True,
     )
 
 
-def _display_cluster_plot(X_before, X_after, detector):
+def _display_cluster_plot(X_before, X_after, y_before, y_after, detector):
     st.subheader("Cluster Visualization")
 
     labels_old = detector.cluster_labels_old
     labels_new = detector.cluster_labels_new
 
     if labels_old is not None and labels_new is not None:
-        plot_drift_clustered(X_before, X_after, labels_old, labels_new, show=False)
+        plot_clusters_by_class(X_before, X_after, y_before, y_after, labels_old, labels_new)
         fig = plt.gcf()
         st.pyplot(fig)
         plt.close(fig)
@@ -98,7 +97,7 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
 
             _display_drift_status(drift_flag)
             _display_drift_details(details)
-            _display_cluster_plot(X_before, X_after, detector)
+            _display_cluster_plot(X_before, X_after, y_before, y_after, detector)
 
         except Exception as e:
             st.error(f"An error occurred during drift detection: {e}")
