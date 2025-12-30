@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from typing import Sequence, Union
-from matplotlib.colors import ListedColormap
+from functools import wraps
+from typing import Sequence, Union, Callable
+from src.common import DataDimensionsReducer, ReducerType
 
 colors = [
     "#1f77b4",  # blue
@@ -18,43 +19,68 @@ colors = [
     "#17becf",  # cyan
 ]
 
-default_cmap = ListedColormap(colors)
-
 color_map = {i: colors[i] for i in range(len(colors))}
 
 
-def plot_drift(X_before, y_before, X_after, y_after, show=True, in_subplot=False):
-    plt.figure(figsize=(12, 5))
+def lol():
+    """
+    Reduce the dimensionality of the dataset to n_components.
 
-    # Ensure numpy arrays
-    if hasattr(X_before, "values"):
-        X_before = X_before.values
-    if hasattr(y_before, "values"):
-        y_before = y_before.values
-    if hasattr(X_after, "values"):
-        X_after = X_after.values
-    if hasattr(y_after, "values"):
-        y_after = y_after.values
+    Parameters
+    ----------
+    X : pd.DataFrame
+        The input data to be reduced.
+    n_components : int, default=2
+        The number of dimensions to reduce to.
+    reducer : ReducerType, default=PCA
+        The type of dimensionality reduction to apply.
 
-    # Before drift
-    plt.subplot(1, 2, 1)
-    plt.scatter(X_before[:, 0], X_before[:, 1], c=y_before, cmap="coolwarm", s=20, alpha=0.7)
-    plt.title('Before')
-    plt.xlabel("Component 1")
-    plt.ylabel("Component 2")
-
-    # After drift
-    plt.subplot(1, 2, 2)
-    plt.scatter(X_after[:, 0], X_after[:, 1], c=y_after, cmap="coolwarm", s=20, alpha=0.7)
-    plt.title('After')
-    plt.xlabel("Component 1")
-    plt.ylabel("Component 2")
-
-    plt.tight_layout()
-    plt.show()
+    Returns
+    -------
+    pd.DataFrame
+        The dimensionally reduced data.
+    """
+    pass
 
 
-def plot_clusters(X: pd.DataFrame, labels: Sequence[Union[float, int]], title: str) -> None:
+def reduce_dimensions(
+    n_components: int = 2,
+    reducer: ReducerType = ReducerType.PCA,
+) -> Callable:
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            ddr = None  # lazy init
+
+            def reduce_df(X):
+                nonlocal ddr
+                if not isinstance(X, pd.DataFrame):
+                    return X
+
+                if X.shape[1] <= n_components:
+                    return X
+
+                if ddr is None:
+                    ddr = DataDimensionsReducer(reducer_type=reducer, n_components=n_components)
+                    return ddr.fit_transform(X, return_df=True)
+
+                return ddr.transform(X, return_df=True)
+
+            # positional args
+            new_args = [reduce_df(arg) for arg in args]
+
+            # keyword args
+            for k, v in kwargs.items():
+                kwargs[k] = reduce_df(v)
+
+            return func(*new_args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _plot_clusters(X: pd.DataFrame, labels: Sequence[Union[float, int]], title: str) -> None:
     """
     Plot clusters with different colors for 2D data.
 
@@ -70,6 +96,7 @@ def plot_clusters(X: pd.DataFrame, labels: Sequence[Union[float, int]], title: s
     Notes
     -----
     Global color_map is used to ensure consistent coloring across plots.
+    Function used internally by other plotting functions.
     """
     if hasattr(X, "values"):
         X = X.values
@@ -92,6 +119,7 @@ def plot_clusters(X: pd.DataFrame, labels: Sequence[Union[float, int]], title: s
     plt.legend()
 
 
+@reduce_dimensions()
 def plot_drift_clustered(
     X_before: pd.DataFrame,
     X_after: pd.DataFrame,
@@ -147,46 +175,18 @@ def plot_drift_clustered(
 
     # First data block
     plt.subplot(1, 2, 1)
-    plot_clusters(X_before, labels_before, "Before Drift")
+    _plot_clusters(X_before, labels_before, "Before Drift")
 
     # Second data block
     plt.subplot(1, 2, 2)
-    plot_clusters(X_after, labels_after, "After Drift")
+    _plot_clusters(X_after, labels_after, "After Drift")
 
     if show:
         plt.tight_layout()
         plt.show()
 
 
-# IMO do wyrzucenia, bo malo informatywna
-def plot_final_comparison(X_before, X_after, y_before, y_after, labels_before, labels_after):
-    # Plot 4 subplots: clustered data before, clustered data after, drift before, drift after
-    # matplotlib does not support nested subplots, so we need to create a 2x2 grid and plot in each cell
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-
-    # Top-left: before drift
-    plt.sca(axes[0, 0])
-    plot_drift(X_before, y_before, X_after, y_after, show=False)
-
-    # Top-right: after drift
-    plt.sca(axes[0, 1])
-    # Note: plot_drift_clustered might need adjustment if called in loop, but here it's specific
-    # Effectively we should refactor plot_drift_clustered to support 'ax' argument for better matplotlib usage
-    # But sticking to existing logic with plt.sca and in_subplot=True assumes it plots to current axes.
-    plot_drift_clustered(X_before, X_after, labels_before, labels_after, color_map=color_map, in_subplot=True)
-
-    # Bottom-left: clustered before only
-    plt.sca(axes[1, 0])
-    plot_clusters(X_before, labels_before, "Clusters Before", color_map)
-
-    # Bottom-right: clustered after only
-    plt.sca(axes[1, 1])
-    plot_clusters(X_after, labels_after, "Clusters After", color_map)
-
-    plt.tight_layout()
-    plt.show()
-
-
+@reduce_dimensions()
 def plot_clusters_by_class(
     X_before: pd.DataFrame,
     X_after: pd.DataFrame,
@@ -232,21 +232,22 @@ def plot_clusters_by_class(
         plt.sca(ax_before)
 
         mask_before = np.array(y_before) == cl
-        plot_clusters(X_before[mask_before], cluster_labels_before[mask_before], title=f"Before Drift – Class {cl}")
+        _plot_clusters(X_before[mask_before], cluster_labels_before[mask_before], title=f"Before Drift – Class {cl}")
 
         # second data block
         ax_after = axes[row, 1]
         plt.sca(ax_after)
 
         mask_after = np.array(y_after) == cl
-        plot_clusters(X_after[mask_after], cluster_labels_after[mask_after], title=f"After Drift – Class {cl}")
+        _plot_clusters(X_after[mask_after], cluster_labels_after[mask_after], title=f"After Drift – Class {cl}")
 
     plt.tight_layout()
     plt.show()
 
 
+@reduce_dimensions()
 def plot_centers_shift(
-    X_old: pd.DataFrame, X_new: pd.DataFrame, cluster_labels_old: Sequence[int], cluster_labels_new: Sequence[int]
+    X_before: pd.DataFrame, X_after: pd.DataFrame, cluster_labels_old: Sequence[int], cluster_labels_new: Sequence[int]
 ) -> None:
     """
     Plot shifts of cluster centroids between two data blocks for 2D data.
@@ -280,10 +281,10 @@ def plot_centers_shift(
         center_new = None
 
         if label in unique_labels_old:
-            center_old = X_old[cluster_labels_old == label].mean().values
+            center_old = X_before[cluster_labels_old == label].mean().values
 
         if label in unique_labels_new:
-            center_new = X_new[cluster_labels_new == label].mean().values
+            center_new = X_after[cluster_labels_new == label].mean().values
 
         # cluster shifted
         if center_old is not None and center_new is not None:
@@ -306,8 +307,8 @@ def plot_centers_shift(
             plt.scatter(*center_new, marker="o", color=color_map[label], s=60)
 
     plt.title("Cluster centroid shifts")
-    plt.xlabel(X_old.columns[0])
-    plt.ylabel(X_old.columns[1])
+    plt.xlabel(X_before.columns[0])
+    plt.ylabel(X_before.columns[1])
     plt.grid(True)
     plt.legend()
     plt.show()
