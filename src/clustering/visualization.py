@@ -18,6 +18,7 @@ colors = [
     "#bcbd22",  # yellow-green
     "#17becf",  # cyan
 ]
+# TODO: expand color list to 20
 
 color_map = {i: colors[i] for i in range(len(colors))}
 
@@ -123,10 +124,11 @@ def _plot_clusters(X: pd.DataFrame, labels: Sequence[Union[float, int]], title: 
 def plot_drift_clustered(
     X_before: pd.DataFrame,
     X_after: pd.DataFrame,
+    _y_before: Sequence[Union[int, float]],
+    _y_after: Sequence[Union[int, float]],
     labels_before: Sequence[Union[int, float]],
     labels_after: Sequence[Union[int, float]],
-    show: bool = True,
-    in_subplot: bool = False,
+    show: bool = False,
 ) -> None:
     """
     Plot clusters from first and second data block to visualize drift for 2D data.
@@ -141,13 +143,8 @@ def plot_drift_clustered(
         Cluster labels for first data block.
     labels_after: Sequence[int or float]
         Cluster labels for second data block.
-    show: bool, default=True
-        Whether to display the plot immediately.
-    in_subplot: bool, default=False
-        Whether the function is called within a subplot context.
     """
-    if not in_subplot:
-        plt.figure(figsize=(12, 5))
+    plt.figure(figsize=(12, 5))
 
     # Normalize inputs
     if hasattr(labels_before, "values"):
@@ -160,19 +157,6 @@ def plot_drift_clustered(
     if labels_after.dtype.kind == 'f':
         labels_after = labels_after.astype(int)
 
-    # # Dynamic color map generation if not provided
-    # if color_map is None:
-    #     unique_before = np.unique(labels_before)
-    #     unique_after = np.unique(labels_after)
-    #     all_labels = sorted(list(set(unique_before) | set(unique_after)))
-
-    #     if len(all_labels) <= len(colors):
-    #         color_map = {label: colors[i] for i, label in enumerate(all_labels)}
-    #     else:
-    #         # Use tab20 for more distinct colors if many clusters
-    #         cmap = plt.cm.get_cmap('tab20')
-    #         color_map = {label: cmap(i / len(all_labels)) for i, label in enumerate(all_labels)}
-
     # First data block
     plt.subplot(1, 2, 1)
     _plot_clusters(X_before, labels_before, "Before Drift")
@@ -181,8 +165,8 @@ def plot_drift_clustered(
     plt.subplot(1, 2, 2)
     _plot_clusters(X_after, labels_after, "After Drift")
 
+    plt.tight_layout()
     if show:
-        plt.tight_layout()
         plt.show()
 
 
@@ -194,6 +178,7 @@ def plot_clusters_by_class(
     y_after: Sequence[int],
     cluster_labels_before: Sequence[int],
     cluster_labels_after: Sequence[int],
+    show: bool = False,
 ) -> None:
     """
     Plot clusters separated by class labels to visualize drift per class (not overall) for 2D data.
@@ -242,12 +227,19 @@ def plot_clusters_by_class(
         _plot_clusters(X_after[mask_after], cluster_labels_after[mask_after], title=f"After Drift – Class {cl}")
 
     plt.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
 
 
 @reduce_dimensions()
 def plot_centers_shift(
-    X_before: pd.DataFrame, X_after: pd.DataFrame, cluster_labels_old: Sequence[int], cluster_labels_new: Sequence[int]
+    X_before: pd.DataFrame,
+    X_after: pd.DataFrame,
+    _y_before: Sequence[Union[int, float]],
+    _y_after: Sequence[Union[int, float]],
+    cluster_labels_old: Sequence[int],
+    cluster_labels_new: Sequence[int],
+    show: bool = False,
 ) -> None:
     """
     Plot shifts of cluster centroids between two data blocks for 2D data.
@@ -268,7 +260,8 @@ def plot_centers_shift(
 
     all_labels = sorted(list(unique_labels_old.union(unique_labels_new)))
 
-    plt.figure(figsize=(8, 6))
+    # TODO: zmienic rozmiar
+    plt.figure(figsize=(8, 8))
 
     plt.scatter([], [], marker='x', color='black', label='Center (before)')
     plt.scatter([], [], marker='o', color='black', label='Center (after)')
@@ -311,4 +304,5 @@ def plot_centers_shift(
     plt.ylabel(X_before.columns[1])
     plt.grid(True)
     plt.legend()
-    plt.show()
+    if show:
+        plt.show()
