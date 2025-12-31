@@ -505,6 +505,7 @@ class ClusterBasedDriftDetector:
             details[cl]['centroid_shift'] = any(
                 v > self.thr_centroid_shift
                 for v in {i: self.cluster_shifts[i] for i in cl_old.intersection(cl_new)}.values()
+                if isinstance(v, float)
             )
 
             idx = set(self.cluster_labels_old[self.y_old == cl]).union(set(self.cluster_labels_new[self.y_new == cl]))
@@ -553,7 +554,7 @@ class ClusterBasedDriftDetector:
                 shift = 'disappeared'
             else:
                 shift = np.linalg.norm(center_new - center_old)
-                shifts[i] = shift
+            shifts[i] = shift
         self.cluster_shifts = shifts
 
     def compute_desc_stats_for_clusters(self) -> pd.DataFrame:
@@ -595,13 +596,21 @@ class ClusterBasedDriftDetector:
         stats_old = compute_cluster_stats(self.X_old, self.cluster_labels_old)
         stats_new = compute_cluster_stats(self.X_new, self.cluster_labels_new)
 
-        stats_old.columns = pd.MultiIndex.from_tuples([('old', f, stat) for f, stat in stats_old.columns])
-        stats_new.columns = pd.MultiIndex.from_tuples([('new', f, stat) for f, stat in stats_new.columns])
+        stats_old.columns = pd.MultiIndex.from_tuples([('before', f, stat) for f, stat in stats_old.columns])
+        stats_new.columns = pd.MultiIndex.from_tuples([('after', f, stat) for f, stat in stats_new.columns])
 
         stats_combined = pd.concat([stats_old, stats_new], axis=1)
+        stats_combined.fillna('-', inplace=True)
 
-        stats_combined = stats_combined.sort_index(axis=1, level=[0, 1, 2])
-
+        stats_combined.columns = stats_combined.columns.set_levels(
+            pd.CategoricalIndex(
+                stats_combined.columns.levels[0],
+                categories=["before", "after"],
+                ordered=True,
+            ),
+            level=0,
+        )
+        stats_combined = stats_combined.sort_index(axis=1)
         return stats_combined
 
     def compare_desc_stats_for_clusters(self, stats_combined: pd.DataFrame) -> dict:
@@ -635,8 +644,8 @@ class ClusterBasedDriftDetector:
                 stats_available = row_df.columns.levels[2]
 
                 for stat in stats_available:
-                    col_old = ('old', feature, stat)
-                    col_new = ('new', feature, stat)
+                    col_old = ('before', feature, stat)
+                    col_new = ('after', feature, stat)
 
                     if col_old not in row_df.columns or col_new not in row_df.columns:
                         details[cluster][feature][stat] = 'N/A'
@@ -645,7 +654,7 @@ class ClusterBasedDriftDetector:
                     old_value = row_df[col_old].iloc[0]
                     new_value = row_df[col_new].iloc[0]
 
-                    if pd.isna(old_value) or pd.isna(new_value):
+                    if old_value == '-' or new_value == '-':
                         details[cluster][feature][stat] = 'N/A'
                         continue
 
