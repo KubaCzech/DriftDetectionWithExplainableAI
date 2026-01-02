@@ -342,6 +342,17 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
             else:
                 end = drift.detected_at
 
+            # Update end to the index with maximum error rate
+            start_idx = start - st.session_state.ddm_sample_size_at_rate_creation
+            end_idx = end - st.session_state.ddm_sample_size_at_rate_creation
+            start_idx = max(0, min(start_idx, len(error_rate) - 1))
+            end_idx = max(0, min(end_idx, len(error_rate) - 1))
+
+            if start_idx <= end_idx:
+                max_idx_in_range = start_idx + np.argmax(error_rate[start_idx:end_idx + 1])
+                end = max_idx_in_range + st.session_state.ddm_sample_size_at_rate_creation
+                drift.drift_end_index = end
+
             detection = drift.detected_at
 
             # Make sure they're within the error_rate bounds
@@ -464,6 +475,17 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
                     actual_end = drift.drift_end_index
                 else:
                     actual_end = drift.detected_at
+
+                # Update end to the index with maximum error rate
+                start_idx = actual_start - st.session_state.ddm_sample_size_at_rate_creation
+                end_idx = actual_end - st.session_state.ddm_sample_size_at_rate_creation
+                start_idx = max(0, min(start_idx, len(error_rate) - 1))
+                end_idx = max(0, min(end_idx, len(error_rate) - 1))
+
+                if start_idx <= end_idx:
+                    max_idx_in_range = start_idx + np.argmax(error_rate[start_idx:end_idx + 1])
+                    actual_end = max_idx_in_range + st.session_state.ddm_sample_size_at_rate_creation
+                    drift.drift_end_index = actual_end
 
                 with st.expander(f"Drift {idx+1} - Detected at index {actual_start}"):
                     col1, col2, col3 = st.columns(3)
