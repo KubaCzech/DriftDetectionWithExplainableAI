@@ -428,7 +428,7 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                 else:
                     actual_end = drift.detected_at
 
-                with st.expander(f"Drift {idx+1} - Detected at index {drift.detected_at}"):
+                with st.expander(f"Drift {idx+1} - Detected at index {actual_start}"):
                     col1, col2, col3 = st.columns(3)
 
                     with col1:
