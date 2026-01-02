@@ -203,7 +203,9 @@ if active_tab == tabs[0]:
                                   window_before_start, window_after_start, window_length)
 
 elif active_tab == tabs[1]:
-    render_drift_detection_tab(X, y, window_length)
+    render_drift_detection_tab(X, y, window_length,
+                               model_class=selected_model_class,
+                               model_params=model_params)
 
 elif active_tab == tabs[2]:
     render_decision_boundary_tab(X_before, y_before, X_after, y_after,

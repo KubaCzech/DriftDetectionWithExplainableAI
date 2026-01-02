@@ -88,11 +88,11 @@ def run_drift_detection(
     return drift_descriptions
 
 
-def render_drift_detection_tab(X, y, window_length):  # noqa: C901
+def render_drift_detection_tab(X, y, window_length, model_class=None, model_params=None):  # noqa: C901
     """
     Main entry point for DDM (Drift Detection Method) Analysis tab.
 
-    Uses online learning with River's MLPClassifier to track prediction errors
+    Uses online learning with the selected model to track prediction errors
     and detect concept drift using binary drift detectors.
 
     Parameters
@@ -103,10 +103,31 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
         Target labels for the entire dataset
     window_length : int
         Number of samples per window (not used directly but kept for consistency)
+    model_class : class, optional
+        The model class to use for drift detection (must support partial_fit)
+    model_params : dict, optional
+        Parameters to initialize the model with
     """
 
     st.header("DDM Analysis")
     st.markdown("Binary Error Drift Detection using Online Learning")
+
+    # Show which model is being used
+    if model_class is not None:
+        model_wrapper = model_class(**(model_params or {}))
+        model_name = model_wrapper.display_name
+
+        # Check if model supports partial_fit
+        test_model = model_wrapper.get_model()
+        if not hasattr(test_model, 'partial_fit'):
+            st.warning(f"⚠️ **{model_name}** does not support online learning (partial_fit). "
+                       "This tab requires models that can learn incrementally. "
+                       "Please select MLP Classifier for drift detection analysis.")
+            st.stop()
+        else:
+            st.info(f"Using **{model_name}** for drift detection analysis.")
+    else:
+        st.info("Using **MLP Classifier (default)** for drift detection analysis.")
 
     col1, col2 = st.columns(2)
 
@@ -187,12 +208,26 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                 status_text = st.empty()
                 status_text.text("Training model and generating error stream...")
 
-                # Initialize model
-                model = MLPClassifier(
-                    hidden_layer_sizes=(10,),
-                    max_iter=1,
-                    random_state=42
-                )
+                # Initialize model - use selected model or default to MLP
+                if model_class is not None:
+                    # Create a fresh instance of the model with the provided parameters
+                    model_params = model_params or {}
+                    # Get the underlying sklearn model for online learning
+                    model_wrapper = model_class(**model_params)
+                    model = model_wrapper.get_model()
+                else:
+                    # Fallback to default MLP
+                    model = MLPClassifier(
+                        hidden_layer_sizes=(10,),
+                        max_iter=1,
+                        random_state=42
+                    )
+
+                # Verify model supports partial_fit
+                if not hasattr(model, 'partial_fit'):
+                    st.error("Selected model does not support online learning (partial_fit). "
+                             "Please select a different model or use the default MLP.")
+                    st.stop()
 
                 # Generate error stream using helper function
                 error_stream, predictions = generate_error_stream(X_np, y_np, model)
