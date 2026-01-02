@@ -462,7 +462,7 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
         # Detailed drift information
         if drift_descriptions:
             st.markdown("---")
-            st.subheader("🔍 Detailed Drift Information")
+            st.subheader("Detailed Drift Information")
 
             for idx, drift in enumerate(drift_descriptions):
                 # Determine actual start and end indices
@@ -496,8 +496,8 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
                         st.metric("Peak/End Index", actual_end)
 
                     with col2:
-                        st.metric("Error Rate at Start", f"{error_rate[actual_start
-                                                            - st.session_state.ddm_sample_size_at_rate_creation]:.3f}")
+                        st.metric("Error Rate at Start",
+                                  f"{error_rate[actual_start - st.session_state.ddm_sample_size_at_rate_creation]:.3f}")
                         error_rate_at_peak = error_rate[actual_end - st.session_state.ddm_sample_size_at_rate_creation]
                         st.metric("Error Rate at Peak", f"{error_rate_at_peak:.3f}")
 
