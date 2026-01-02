@@ -377,39 +377,40 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
 
         with col1:
             st.metric("Total Data Points", len(error_stream))
-            st.metric("Drifts Detected", len(drift_descriptions))
             overall_accuracy = 1 - np.mean(error_stream)
             st.metric("Overall Accuracy", f"{overall_accuracy:.3f}")
 
         with col2:
+            st.metric("Drifts Detected", len(drift_descriptions))
+
             if drift_descriptions:
                 avg_duration = np.mean([d.drift_duration for d in drift_descriptions])
                 st.metric("Average Drift Duration", f"{avg_duration:.1f}")
-                # Use peak error rate if available
+            else:
+                st.metric("Average Drift Duration", "N/A")
+
+        with col3:
+            if drift_descriptions:
+                # Find average error change
                 avg_error_change = np.mean([
-                    (d.error_rate_at_peak if hasattr(d, 'error_rate_at_peak') and d.error_rate_at_peak is not None
-                        else d.error_rate_at_detection) - d.error_rate_at_warning
+                    (error_rate[d.drift_end_index - st.session_state.ddm_sample_size_at_rate_creation] if
+                     hasattr(d, 'drift_end_index') and d.drift_end_index is not None
+                        else error_rate[d.drift_end_index - st.session_state.ddm_sample_size_at_rate_creation])
+                    - (error_rate[d.drift_start_index - st.session_state.ddm_sample_size_at_rate_creation]
+                        if hasattr(d, 'drift_start_index') and d.drift_start_index is not None
+                        else error_rate[d.drift_start_index - st.session_state.ddm_sample_size_at_rate_creation])
                     for d in drift_descriptions
                 ])
                 st.metric("Avg Error Rate Change", f"{avg_error_change:.3f}")
             else:
-                st.metric("Average Drift Duration", "N/A")
                 st.metric("Avg Error Rate Change", "N/A")
 
-        with col3:
             if drift_descriptions:
                 min_duration = min([d.drift_duration for d in drift_descriptions])
                 max_duration = max([d.drift_duration for d in drift_descriptions])
                 st.metric("Min/Max Duration", f"{min_duration} / {max_duration}")
             else:
                 st.metric("Min/Max Duration", "N/A")
-
-            # Calculate accuracy in first and last quarters
-            quarter = len(error_stream) // 4
-            if quarter > 0:
-                first_quarter_acc = 1 - np.mean(error_stream[:quarter])
-                last_quarter_acc = 1 - np.mean(error_stream[-quarter:])
-                st.metric("First/Last Quarter Acc", f"{first_quarter_acc:.3f} / {last_quarter_acc:.3f}")
 
         # Detailed drift information
         if drift_descriptions:
@@ -435,24 +436,23 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
                         st.metric("Duration", drift.drift_duration)
                         st.metric("Start Index", actual_start)
                         st.metric("Peak/End Index", actual_end)
-                        if actual_end != drift.detected_at:
-                            st.metric("Detection Index", drift.detected_at)
 
                     with col2:
-                        st.metric("Error Rate at Start", f"{drift.error_rate_at_warning:.3f}")
-                        st.metric("Error Rate at Detection", f"{drift.error_rate_at_detection:.3f}")
-                        if hasattr(drift, 'error_rate_at_peak') and drift.error_rate_at_peak is not None:
-                            st.metric("Error Rate at Peak", f"{drift.error_rate_at_peak:.3f}")
+                        st.metric("Error Rate at Start", f"{error_rate[actual_start
+                                                            - st.session_state.ddm_sample_size_at_rate_creation]:.3f}")
+                        error_rate_at_peak = error_rate[actual_end - st.session_state.ddm_sample_size_at_rate_creation]
+                        st.metric("Error Rate at Peak", f"{error_rate_at_peak:.3f}")
 
                     with col3:
                         # Calculate change from start to peak/end
-                        peak_error = (drift.error_rate_at_peak if hasattr(drift, 'error_rate_at_peak')
-                                      and drift.error_rate_at_peak is not None
-                                      else drift.error_rate_at_detection)
-                        error_change = peak_error - drift.error_rate_at_warning
+                        peak_error = error_rate[actual_end - st.session_state.ddm_sample_size_at_rate_creation]
+                        error_change = peak_error - error_rate[actual_start
+                                                               - st.session_state.ddm_sample_size_at_rate_creation]
                         st.metric("Total Error Rate Change", f"{error_change:.3f}")
-                        change_pct = (error_change / drift.error_rate_at_warning *
-                                      100) if drift.error_rate_at_warning > 0 else 0
+                        change_pct = (error_change / error_rate[actual_start
+                                                                - st.session_state.ddm_sample_size_at_rate_creation] *
+                                      100) if error_rate[actual_start
+                                                         - st.session_state.ddm_sample_size_at_rate_creation] > 0 else 0
                         st.metric("Change Percentage", f"{change_pct:.1f}%")
         else:
             st.info("No drifts detected with current configuration. Try adjusting the parameters.")
