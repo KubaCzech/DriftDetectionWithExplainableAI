@@ -42,7 +42,7 @@ class BinaryErrorDriftDescriptor():
         self.warning_grace_period = warning_grace_period
         self.rate_calculation_sample_size = rate_calculation_sample_size
         self.ddm = ddm
-        self.lookback_method = lookback_method  # 'cusum', 'threshold', or 'gradient'
+        self.lookback_method = lookback_method  # 'cusum', 'threshold', 'gradient', or 'none
         self.lookforward_method = lookforward_method  # 'peak', 'recovery', or 'none'
 
         self.warning_grace_period_left = warning_grace_period
@@ -265,7 +265,7 @@ class BinaryErrorDriftDescriptor():
                 drift_start_idx = self.find_drift_start_threshold(detection_idx)
             elif self.lookback_method == 'gradient':
                 drift_start_idx = self.find_drift_start_gradient(detection_idx)
-            else:
+            else:  # 'none'
                 drift_start_idx = max(0, detection_idx - len(self.error_history))
 
             # Calculate error rates at drift start and detection

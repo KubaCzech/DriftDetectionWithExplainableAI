@@ -152,11 +152,12 @@ def render_drift_detection_tab(X, y, window_length):  # noqa: C901
 
         lookback_method = st.selectbox(
             "Drift Start Detection Method",
-            ["cusum", "threshold", "gradient"],
+            ["cusum", "threshold", "gradient", "none"],
             help="Method for detecting actual drift start point:\n"
                  "- CUSUM: Cumulative sum change detection\n"
                  "- Threshold: Sustained error rate increase\n"
-                 "- Gradient: Error rate slope analysis",
+                 "- Gradient: Error rate slope analysis\n"
+                 "- None: Use warning point as start",
             key="ddm_lookback_method"
         )
 
