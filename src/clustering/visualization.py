@@ -17,37 +17,52 @@ colors = [
     "#7f7f7f",  # gray
     "#bcbd22",  # yellow-green
     "#17becf",  # cyan
+    "#aec7e8",  # light blue
+    "#ffbb78",  # light orange
+    "#98df8a",  # light green
+    "#ff9896",  # light red
+    "#c5b0d5",  # light purple
+    "#c49c94",  # light brown
+    "#f7b6d2",  # light pink
+    "#c7c7c7",  # light gray
+    "#dbdb8d",  # light yellow-green
+    "#9edae5",  # light cyan
 ]
-# TODO: expand color list to 20
 
 color_map = {i: colors[i] for i in range(len(colors))}
-
-
-def lol():
-    """
-    Reduce the dimensionality of the dataset to n_components.
-
-    Parameters
-    ----------
-    X : pd.DataFrame
-        The input data to be reduced.
-    n_components : int, default=2
-        The number of dimensions to reduce to.
-    reducer : ReducerType, default=PCA
-        The type of dimensionality reduction to apply.
-
-    Returns
-    -------
-    pd.DataFrame
-        The dimensionally reduced data.
-    """
-    pass
 
 
 def reduce_dimensions(
     n_components: int = 2,
     reducer: ReducerType = ReducerType.PCA,
 ) -> Callable:
+    """
+    Decorator to automatically reduce the dimensionality of pandas DataFrame arguments
+    passed to the decorated function.
+
+    The decorator:
+    - Detects positional and keyword arguments of type `pd.DataFrame`
+    - Reduces the number of columns to `n_components` if the DataFrame has more columns
+    - Uses a single shared reducer (lazy initialization)
+    - Applies `fit_transform` on the first occurrence of a DataFrame, then `transform` for subsequent ones
+
+    Non-DataFrame arguments are passed through unchanged.
+
+    Parameters
+    ----------
+    n_components : int, default=2
+        Target number of dimensions (columns) after reduction.
+        If the DataFrame has columns less than or equal to `n_components`, no reduction is performed.
+
+    reducer : ReducerType, default=ReducerType.PCA
+        Type of dimensionality reduction algorithm used by `DataDimensionsReducer` (e.g., PCA, UMAP, t-SNE).
+
+    Returns
+    -------
+    Callable
+        A decorator that automatically transforms DataFrame arguments before calling the function.
+    """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -135,14 +150,21 @@ def plot_drift_clustered(
 
     Parameters
     ----------
-    X_before: pd.DataFrame
+    X_before : pd.DataFrame
         Feature values from first data block.
-    X_after: pd.DataFrame
+    X_after : pd.DataFrame
         Feature values from second data block.
-    labels_before: Sequence[int or float]
+    _y_before : Sequence[Union[int, float]]
+        Class labels for first data block.
+    _y_after : Sequence[Union[int, float]]
+        Class labels for first second block.
+    labels_before : Sequence[int or float]
         Cluster labels for first data block.
-    labels_after: Sequence[int or float]
+    labels_after : Sequence[int or float]
         Cluster labels for second data block.
+    show : bool, default=False
+        If True, display the plot immediately. Otherwise, the plot can be
+        further modified or returned for later display.
     """
     plt.figure(figsize=(12, 5))
 
@@ -174,10 +196,10 @@ def plot_drift_clustered(
 def plot_clusters_by_class(
     X_before: pd.DataFrame,
     X_after: pd.DataFrame,
-    y_before: Sequence[int],
-    y_after: Sequence[int],
-    cluster_labels_before: Sequence[int],
-    cluster_labels_after: Sequence[int],
+    y_before: Sequence[Union[int, float]],
+    y_after: Sequence[Union[int, float]],
+    cluster_labels_before: Sequence[Union[int, float]],
+    cluster_labels_after: Sequence[Union[int, float]],
     show: bool = False,
 ) -> None:
     """
@@ -185,18 +207,21 @@ def plot_clusters_by_class(
 
     Parameters
     ----------
-    X_before: pd.DataFrame
+    X_before : pd.DataFrame
         Feature values from first data block.
-    X_after: pd.DataFrame
+    X_after : pd.DataFrame
         Feature values from second data block.
-    y_before: Sequence
+    y_before : Sequence[int or float]
         Class labels for first data block.
-    y_after: Sequence
+    y_after : Sequence[int or float]
         Class labels for second data block.
-    cluster_labels_before: Sequence[int]
+    cluster_labels_before : Sequence[int or float]
         Cluster labels for first data block.
-    cluster_labels_after: Sequence[int]
+    cluster_labels_after : Sequence[int or float]
         Cluster labels for second data block.
+    show : bool, default=False
+        If True, display the plot immediately. Otherwise, the plot can be
+        further modified or returned for later display.
 
     Notes
     -----
@@ -237,8 +262,8 @@ def plot_centers_shift(
     X_after: pd.DataFrame,
     _y_before: Sequence[Union[int, float]],
     _y_after: Sequence[Union[int, float]],
-    cluster_labels_old: Sequence[int],
-    cluster_labels_new: Sequence[int],
+    cluster_labels_old: Sequence[Union[int, float]],
+    cluster_labels_new: Sequence[Union[int, float]],
     show: bool = False,
 ) -> None:
     """
@@ -246,14 +271,21 @@ def plot_centers_shift(
 
     Parameters
     ----------
-    X_old: pd.DataFrame
+    X_before : pd.DataFrame
         Feature values from first data block.
-    X_new: pd.DataFrame
+    X_after : pd.DataFrame
         Feature values from second data block.
-    cluster_labels_old: Sequence[int]
+    y_before : Sequence[int or float]
+        Class labels for first data block.
+    y_after : Sequence[int or float]
+        Class labels for second data block.
+    cluster_labels_before : Sequence[int or float]
         Cluster labels for first data block.
-    cluster_labels_new: Sequence[int]
+    cluster_labels_after : Sequence[int or float]
         Cluster labels for second data block.
+    show : bool, default=False
+        If True, display the plot immediately. Otherwise, the plot can be
+        further modified or returned for later display.
     """
     unique_labels_old = set(cluster_labels_old)
     unique_labels_new = set(cluster_labels_new)
@@ -263,6 +295,7 @@ def plot_centers_shift(
     # TODO: zmienic rozmiar
     plt.figure(figsize=(8, 8))
 
+    # For legend purposes
     plt.scatter([], [], marker='x', color='black', label='Center (before)')
     plt.scatter([], [], marker='o', color='black', label='Center (after)')
 
