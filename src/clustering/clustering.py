@@ -1,11 +1,12 @@
+import warnings
 import numpy as np
 import pandas as pd
-import warnings
+
+from typing import Optional, Union
+from src.common import DataScaler, ScalingType
 
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
-
-from typing import Optional, Union
 
 from pyclustering.cluster.xmeans import xmeans, kmeans_plusplus_initializer  # type: ignore
 
@@ -14,6 +15,8 @@ if not hasattr(np, "warnings"):
 
 
 class ClusterBasedDriftDetector:
+    # TODO: zastanowic sie czy to na pewno dobry sposob na liczenie thresholdu w thr_centroid_shift
+    # TODO: implementacja nowej metryki
     """
     Cluster-based data drift detector using X-Means clustering.
 
@@ -48,9 +51,10 @@ class ClusterBasedDriftDetector:
         Minimal difference in number of clusters between data blocks to acknowledge
         the drift.
     thr_centroid_shift : float
-        Measure of how much the cluster must be shifted so it does not appear that the
-        cluster was shifted, but instead that the old cluster disappeared and a new one
-        appeared.
+        Minimal difference in shift between clusters to acknowledge the drift.
+    thr_centroid_disappear : float
+        Measure how many standard deviations the cluster must be shifted so it does not appear that the
+        cluster was shifted, but instead that the old cluster disappeared and a new one appeared.
     thr_desc_stats : float
         Minimal relative change between corresponding clusters' descriptive statistics
         to acknowledge the drift.
@@ -126,6 +130,7 @@ class ClusterBasedDriftDetector:
 
     thr_clusters: int
     thr_centroid_shift: float
+    thr_centroid_disappear: float
     thr_desc_stats: float
 
     centers_old: Union[Optional[dict], np.ndarray]
@@ -152,10 +157,16 @@ class ClusterBasedDriftDetector:
         k_init: int = 2,
         k_max: int = 10,
         thr_clusters: int = 1,
-        thr_centroid_shift: float = 0.3,
+        thr_centroid_shift: float = 0.2,
+        thr_centroid_disappear: float = 0.4,
         thr_desc_stats: float = 0.2,
         random_state=None,
-    ) -> None:  # Handle data conversion if pandas
+    ) -> None:
+        ds = DataScaler(ScalingType.Standard)
+        X_before = ds.fit_transform(X_before.copy(), return_df=True)
+        X_after = ds.transform(X_after.copy(), return_df=True)
+
+        # Handle data conversion
         if hasattr(X_before, "values"):
             X_before = X_before.values
         if hasattr(y_before, "values"):
@@ -164,6 +175,8 @@ class ClusterBasedDriftDetector:
             X_after = X_after.values
         if hasattr(y_after, "values"):
             y_after = y_after.values
+
+        assert thr_centroid_disappear > thr_centroid_shift, "#TODO"
 
         self.X_old = X_before
         self.y_old = y_before
@@ -174,7 +187,8 @@ class ClusterBasedDriftDetector:
         self.k_max = k_max
 
         self.thr_clusters = thr_clusters
-        self.thr_centroid_shift = thr_centroid_shift
+        self.thr_centroid_shift = thr_centroid_shift * (self.X_old.shape[1])
+        self.thr_centroid_disappear = thr_centroid_disappear * (self.X_old.shape[1] + 1)
         self.thr_desc_stats = thr_desc_stats
 
         self.centers_old, self.centers_new = (None, None)
@@ -322,7 +336,6 @@ class ClusterBasedDriftDetector:
         return final_labels
 
     def _map_new_clusters_to_old(self) -> tuple[dict, list, list]:
-        # TODO : implement self.thr_centr_shift
         """
         Map new clusters' assignment to old clusters' assignment based on centroid distances
         using the Hungarian algorithm (it may happen that clusters before and after have the
@@ -344,9 +357,10 @@ class ClusterBasedDriftDetector:
         n_old = len(self.centers_old)
         n_new = len(self.centers_new)
 
-        dist = cdist(self.centers_old, self.centers_new)
+        dist = cdist(self.centers_old, self.centers_new, metric="euclidean")
+        dist[dist > self.thr_centroid_disappear] = 1e10  # cluster moved above the threshold
 
-        # padding, jeśli liczba klastrów się zmieniła
+        # padding if number of clusters changed
         size = max(n_old, n_new)
         padded = np.full((size, size), 1e9)
         padded[:n_old, :n_new] = dist
@@ -360,7 +374,11 @@ class ClusterBasedDriftDetector:
 
         for r, c in zip(row_ind, col_ind):
             if r < n_old and c < n_new:
-                mapping[c] = r
+                if dist[r, c] < 1e10:
+                    mapping[c] = r
+                else:
+                    disappeared.append(r)
+                    appeared.append(c)
             elif r < n_old and c >= n_new:
                 disappeared.append(r)
             elif r >= n_old and c < n_new:
@@ -448,7 +466,6 @@ class ClusterBasedDriftDetector:
 
         return clusters_old, clusters_new, mapp
 
-    # TODO
     def detect(self) -> tuple[bool, dict]:
         """
         Detect drift between two data blocks using X-Means clustering for each class separately.
@@ -503,9 +520,9 @@ class ClusterBasedDriftDetector:
                 >= self.thr_clusters
             )
             details[cl]['centroid_shift'] = any(
-                v > self.thr_centroid_shift
+                v['euclidean_distance'] > self.thr_centroid_shift
                 for v in {i: self.cluster_shifts[i] for i in cl_old.intersection(cl_new)}.values()
-                if isinstance(v, float)
+                if isinstance(v, dict)
             )
 
             idx = set(self.cluster_labels_old[self.y_old == cl]).union(set(self.cluster_labels_new[self.y_new == cl]))
@@ -553,7 +570,11 @@ class ClusterBasedDriftDetector:
             elif center_new is None:
                 shift = 'disappeared'
             else:
-                shift = np.linalg.norm(center_new - center_old)
+                delta = center_new - center_old
+                shift = {
+                    'distance_per_feature': center_new - center_old,
+                    'euclidean_distance': np.linalg.norm(delta),
+                }
             shifts[i] = shift
         self.cluster_shifts = shifts
 
