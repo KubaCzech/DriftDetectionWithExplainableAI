@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import plotly.graph_objects as go
 
 from src.recurrence.methods import (
     cluster_windows,
@@ -367,31 +368,62 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             # Concept timeline
             st.subheader("Concept Timeline")
 
-            fig, ax = plt.subplots(figsize=(14, 2))
+            x = list(range(len(labels)))
+            y = [0] * len(labels)
 
-            # Create color map
+            # Color mapping
             unique_labels = sorted(set(labels))
-            colors = plt.cm.tab10(np.linspace(0, 1, len(unique_labels)))
-            color_map = {label: colors[i] if label != -1 else 'black'
-                         for i, label in enumerate(unique_labels)}
+            colors = [
+                "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+                "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+            ]
+            color_map = {
+                label: colors[i % len(colors)] if label != -1 else "black"
+                for i, label in enumerate(unique_labels)
+            }
 
-            # Plot colored bars
-            for i, label in enumerate(labels):
-                ax.barh(0, 1, left=i, color=color_map[label], edgecolor='none')
+            bar_colors = [color_map[label] for label in labels]
 
-            # Mark drift locations
+            hover_text = [
+                f"Window: {i}<br>Label: {label}"
+                for i, label in enumerate(labels)
+            ]
+
+            fig = go.Figure()
+
+            # Main bars
+            fig.add_trace(
+                go.Bar(
+                    x=x,
+                    y=[1] * len(x),
+                    base=0,
+                    marker=dict(color=bar_colors),
+                    hovertext=hover_text,
+                    hoverinfo="text",
+                    showlegend=False
+                )
+            )
+
+            # Drift lines
             for drift in drift_locations:
-                ax.axvline(x=drift, color='red', linestyle='-', linewidth=3, alpha=0.8)
-                ax.text(drift, 0.63, 'DRIFT', rotation=90,
-                        verticalalignment='center', color='black', fontsize=10, fontweight='bold')
+                fig.add_vline(
+                    x=drift-0.5,
+                    line_width=3,
+                    line_color="red",
+                    opacity=0.8,
+                    annotation_text="DRIFT",
+                    annotation_position="top"
+                )
 
-            ax.set_xlim(0, len(labels))
-            ax.set_ylim(-0.5, 0.8)
-            ax.set_xlabel('Window')
-            ax.set_yticks([])
-            ax.set_title('Concept Clustering Timeline (Black = Outliers, Red Lines = Detected Drifts)')
-            st.pyplot(fig)
-            plt.close()
+            fig.update_layout(
+                height=250,
+                xaxis=dict(title="Window", range=[0, len(labels)]),
+                yaxis=dict(visible=False),
+                title="Concept Clustering Timeline (Black = Outliers, Red Lines = Detected Drifts)",
+                bargap=0,
+            )
+
+            st.plotly_chart(fig, width='stretch')
 
             # Legend for clusters
             st.markdown("**Cluster Labels:**")
