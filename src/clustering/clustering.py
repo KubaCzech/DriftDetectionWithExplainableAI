@@ -2,7 +2,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from typing import Optional, Union
+from typing import Optional, Union, Sequence
 from src.common import DataScaler, ScalingType
 
 from scipy.spatial.distance import cdist
@@ -16,7 +16,7 @@ if not hasattr(np, "warnings"):
 
 class ClusterBasedDriftDetector:
     # TODO: zastanowic sie czy to na pewno dobry sposob na liczenie thresholdu w thr_centroid_shift
-    # TODO: implementacja nowej metryki
+    # TODO: sprawdzic dokumentacje i typowanie
     """
     Cluster-based data drift detector using X-Means clustering.
 
@@ -132,6 +132,11 @@ class ClusterBasedDriftDetector:
     thr_centroid_shift: float
     thr_centroid_disappear: float
     thr_desc_stats: float
+    thr_avg_distance_to_center_change: float
+
+    decision_thr: float
+
+    weights: list[float]
 
     centers_old: Union[Optional[dict], np.ndarray]
     centers_new: Union[Optional[dict], np.ndarray]
@@ -160,6 +165,9 @@ class ClusterBasedDriftDetector:
         thr_centroid_shift: float = 0.2,
         thr_centroid_disappear: float = 0.4,
         thr_desc_stats: float = 0.2,
+        thr_avg_distance_to_center_change: float = 0.1,
+        decision_thr: float = 0.4,
+        weights: Sequence[float] = [0.4, 0.25, 0.15, 0.2],
         random_state=None,
     ) -> None:
         ds = DataScaler(ScalingType.Standard)
@@ -176,7 +184,9 @@ class ClusterBasedDriftDetector:
         if hasattr(y_after, "values"):
             y_after = y_after.values
 
-        assert thr_centroid_disappear > thr_centroid_shift, "#TODO"
+        assert (
+            thr_centroid_disappear > thr_centroid_shift
+        ), "Threshold of cluster to disappear must be higher than maximum allowed shift of centroids between data blocks"
 
         self.X_old = X_before
         self.y_old = y_before
@@ -190,6 +200,12 @@ class ClusterBasedDriftDetector:
         self.thr_centroid_shift = thr_centroid_shift * (self.X_old.shape[1])
         self.thr_centroid_disappear = thr_centroid_disappear * (self.X_old.shape[1] + 1)
         self.thr_desc_stats = thr_desc_stats
+        self.thr_avg_distance_to_center_change = thr_avg_distance_to_center_change
+
+        self.decision_thr = decision_thr
+
+        assert len(weights) == 4, "Number of weights must be 4"
+        self.weights = np.array(weights) / np.sum(weights)
 
         self.centers_old, self.centers_new = (None, None)
         self.cluster_labels_old, self.cluster_labels_new = (None, None)
@@ -508,6 +524,9 @@ class ClusterBasedDriftDetector:
         self.stats_shifts = self.compare_desc_stats_for_clusters(self.stats_combined)
         details_stats_shifts = self.assess_statistics_shifts(self.stats_shifts)
 
+        # 4. Avg distance to center
+        self.calculate_avg_distance_from_centroid()
+
         for cl in classes:
             mask_old = self.y_old == cl
             cl_old = set(self.cluster_labels_old[mask_old])
@@ -516,9 +535,10 @@ class ClusterBasedDriftDetector:
             cl_new = set(self.cluster_labels_new[mask_new])
 
             details[cl]['nr_of_clusters'] = (
-                abs(len(set(self.cluster_labels_new[mask_new])) - len(set(self.cluster_labels_old[mask_old])))
+                len(set(self.cluster_labels_new[mask_new]) ^ set(self.cluster_labels_old[mask_old]))
                 >= self.thr_clusters
             )
+
             details[cl]['centroid_shift'] = any(
                 v['euclidean_distance'] > self.thr_centroid_shift
                 for v in {i: self.cluster_shifts[i] for i in cl_old.intersection(cl_new)}.values()
@@ -528,17 +548,14 @@ class ClusterBasedDriftDetector:
             idx = set(self.cluster_labels_old[self.y_old == cl]).union(set(self.cluster_labels_new[self.y_new == cl]))
             details[cl]['desc_stats_changes'] = {k: details_stats_shifts[k] for k in idx if k in details_stats_shifts}
 
-        drift_flag = any([details[cl]['nr_of_clusters'] or details[cl]['centroid_shift'] for cl in classes]) or any(
-            stat is True
-            for klass in details.values()
-            for cluster in klass['desc_stats_changes'].values()
-            for feature in cluster.values()
-            for stat in feature.values()
-        )
+            details[cl]['avg_distance_to_center'] = {
+                k: bool(self.avg_distance_shift[k] > 0.3) for k in idx if self.avg_distance_shift[k] is not None
+            }
 
-        self.drift_flag = drift_flag
         self.drift_details = details
-        return drift_flag, details
+        self.generate_drift_flag()
+
+        return self.drift_flag, self.drift_details
 
     def calculate_centroid_shifts(self) -> None:
         """
@@ -712,3 +729,81 @@ class ClusterBasedDriftDetector:
             }
             for cl, features in stats_shifts.items()
         }
+
+    def calculate_avg_distance_from_centroid(self) -> None:
+        assert self.centers_old is not None
+        assert self.centers_new is not None
+
+        def calculcate_avg_distance(X, centers, labels):
+            mean_distances = {}
+            for cluster_id, center in centers.items():
+                if center is None:
+                    mean_distances[cluster_id] = None
+                else:
+                    mask = labels == cluster_id
+                    points = X[mask]
+
+                    distances = np.linalg.norm(points - center, axis=1)
+                    mean_distances[cluster_id] = distances.mean()
+
+            return mean_distances
+
+        self.avg_distance_old = calculcate_avg_distance(self.X_old, self.centers_old, self.cluster_labels_old)
+        self.avg_distance_new = calculcate_avg_distance(self.X_new, self.centers_new, self.cluster_labels_new)
+
+        self.avg_distance_shift = {
+            i: (
+                (self.avg_distance_new[i] - self.avg_distance_old[i]) / self.avg_distance_old[i]
+                if self.avg_distance_old[i] is not None and self.avg_distance_new[i] is not None
+                else None
+            )
+            for i in self.avg_distance_old.keys()
+        }
+
+    def generate_drift_flag(self):
+        trues = np.array(
+            [
+                sum(self.drift_details[cl]['nr_of_clusters'] is True for cl in set(self.y_old).union(set(self.y_new))),
+                sum(
+                    stat is True
+                    for klass in self.drift_details.values()
+                    for cluster in klass['desc_stats_changes'].values()
+                    for feature in cluster.values()
+                    for stat in feature.values()
+                ),
+                sum(self.drift_details[cl]['centroid_shift'] is True for cl in set(self.y_old).union(set(self.y_new))),
+                sum(
+                    [
+                        self.drift_details[cl]['avg_distance_to_center'][label] is True
+                        for cl in set(self.y_old).union(set(self.y_new))
+                        for label in self.drift_details[cl]['avg_distance_to_center'].keys()
+                    ]
+                ),
+            ]
+        )
+
+        falses = np.array(
+            [
+                sum(self.drift_details[cl]['nr_of_clusters'] is False for cl in set(self.y_old).union(set(self.y_new))),
+                sum(
+                    stat is False
+                    for klass in self.drift_details.values()
+                    for cluster in klass['desc_stats_changes'].values()
+                    for feature in cluster.values()
+                    for stat in feature.values()
+                ),
+                sum(self.drift_details[cl]['centroid_shift'] is False for cl in set(self.y_old).union(set(self.y_new))),
+                sum(
+                    [
+                        self.drift_details[cl]['avg_distance_to_center'][label] is False
+                        for cl in set(self.y_old).union(set(self.y_new))
+                        for label in self.drift_details[cl]['avg_distance_to_center'].keys()
+                    ]
+                ),
+            ]
+        )
+        print(trues)
+        print(falses)
+
+        self.strength_of_drift = sum(((trues - falses) / (trues + falses)) * self.weights)
+        self.drift_flag = bool(self.strength_of_drift > self.decision_thr)
