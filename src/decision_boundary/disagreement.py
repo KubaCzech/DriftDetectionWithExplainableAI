@@ -98,8 +98,7 @@ def _recurse_rules(
                 'Drift Conf.': f"{class_prob:.1%}",
                 'Samples': int(n_real),          # Actual Data Points
                 'Coverage': f"{cov_real:.1%}",   # Real Data Coverage
-                'Visual Area': f"{cov_grid:.1%}", # Size on the plot
-                'Leaf_ID': node
+                'Visual Area': f"{cov_grid:.1%}" # Size on the plot
             })
             drift_leaves.append(node)
         return
