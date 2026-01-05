@@ -159,7 +159,8 @@ class DecisionBoundaryDriftAnalyzer:
             X_eval_raw=self.X_after,       # Used for unscaling map
             X_eval_scaled=X_after_scaled,  # Used for drift rate calc on real data
             X_grid_high_scaled=X_grid_high_scaled, # Used for training the Viz Tree 
-            feature_names=feature_names
+            feature_names=feature_names,
+            scaler=scaler
         )
 
         return {

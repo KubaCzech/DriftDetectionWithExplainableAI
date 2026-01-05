@@ -18,6 +18,29 @@ def _get_feature_bounds(feature_names, X_data=None):
                 feature_maxs[col] = X_data[:, i].max()
     return feature_mins, feature_maxs
 
+
+def _get_unscaler_map_from_scaler(feature_names, scaler):
+    """
+    Extracts linear unscaling parameters (m, c) directly from a fitted MinMaxScaler.
+    Formula: X_raw = X_scaled * (1/scale_) - (min_/scale_)
+    So: m = 1/scale_, c = -min_/scale_
+    """
+    unscalers = {}
+    
+    # Safety check if scaler is fitted
+    if not hasattr(scaler, 'scale_') or not hasattr(scaler, 'min_'):
+        return {}
+        
+    # Vectorized calculation of slope (m) and intercept (c)
+    m_vec = 1.0 / scaler.scale_
+    c_vec = -scaler.min_ / scaler.scale_
+    
+    for i, name in enumerate(feature_names):
+        if i < len(m_vec):
+            unscalers[name] = (m_vec[i], c_vec[i])
+            
+    return unscalers
+
 def _get_unscaler_map(feature_names, X_raw, X_scaled):
     unscalers = {}
     def get_col(X, idx, name):
@@ -98,7 +121,8 @@ def _recurse_rules(
                 'Drift Conf.': f"{class_prob:.1%}",
                 'Samples': int(n_real),          # Actual Data Points
                 'Coverage': f"{cov_real:.1%}",   # Real Data Coverage
-                'Visual Area': f"{cov_grid:.1%}" # Size on the plot
+                'Visual Area': f"{cov_grid:.1%}", # Size on the plot
+                'Leaf_ID': node
             })
             drift_leaves.append(node)
         return
@@ -128,7 +152,7 @@ def _recurse_rules(
     )
 
 
-def get_disagreement_table(tree, feature_names, X_raw=None, X_scaled=None):
+def get_disagreement_table(tree, feature_names, X_raw=None, X_scaled=None,scaler=None):
     tree_ = tree.tree_
     tree_classes = tree.classes_
     rules_data = []
@@ -136,7 +160,11 @@ def get_disagreement_table(tree, feature_names, X_raw=None, X_scaled=None):
 
     feature_mins, feature_maxs = _get_feature_bounds(feature_names, X_raw)
     unscalers = {}
-    if X_raw is not None and X_scaled is not None:
+    # Priority 1: Use the exact Scaler object if provided
+    if scaler is not None:
+        unscalers = _get_unscaler_map_from_scaler(feature_names, scaler)
+    # Priority 2: Fallback to empirical estimation (Polyfit)
+    elif X_raw is not None and X_scaled is not None:
         unscalers = _get_unscaler_map(feature_names, X_raw, X_scaled)
 
     # 1. Calculate Grid Totals (Training Data for Tree)
@@ -179,7 +207,7 @@ def get_disagreement_table(tree, feature_names, X_raw=None, X_scaled=None):
     return df, df['Leaf_ID'].tolist()
 
 
-def compute_disagreement_analysis(clf_pre, clf_post, X_eval_raw, X_eval_scaled, X_grid_high_scaled=None, feature_names=None):
+def compute_disagreement_analysis(clf_pre, clf_post, X_eval_raw, X_eval_scaled, X_grid_high_scaled=None, feature_names=None,scaler=None):
     """
     Computes disagreement using the Inverse-Projected Grid (SDBM approach) to ensure
     visual consistency between the table and the plot.
@@ -231,7 +259,8 @@ def compute_disagreement_analysis(clf_pre, clf_post, X_eval_raw, X_eval_scaled, 
         viz_tree, 
         feature_names, 
         X_raw=X_eval_raw, 
-        X_scaled=X_eval_scaled
+        X_scaled=X_eval_scaled,
+        scaler=scaler  
     )
 
     return {
