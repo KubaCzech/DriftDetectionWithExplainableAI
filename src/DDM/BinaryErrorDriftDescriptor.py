@@ -268,6 +268,9 @@ class BinaryErrorDriftDescriptor():
             else:  # 'none'
                 drift_start_idx = max(0, detection_idx - len(self.error_history))
 
+            # Ensure the found starting point is not later than without correction.
+            drift_start_idx = min(drift_start_idx, detection_idx - len(self.error_history))
+
             # Calculate error rates at drift start and detection
             window_size = self.rate_calculation_sample_size
 

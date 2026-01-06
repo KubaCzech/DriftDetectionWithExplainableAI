@@ -342,6 +342,9 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
             else:
                 end = drift.detected_at
 
+            start += st.session_state.ddm_sample_size_at_rate_creation
+            end += st.session_state.ddm_sample_size_at_rate_creation
+
             # Update end to the index with maximum error rate
             start_idx = start - st.session_state.ddm_sample_size_at_rate_creation
             end_idx = end - st.session_state.ddm_sample_size_at_rate_creation
@@ -352,6 +355,9 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
                 max_idx_in_range = start_idx + np.argmax(error_rate[start_idx:end_idx + 1])
                 end = max_idx_in_range + st.session_state.ddm_sample_size_at_rate_creation
                 drift.drift_end_index = end
+
+            # correct the duration based
+            drift.drift_duration = end - start
 
             detection = drift.detected_at
 
@@ -390,7 +396,7 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
                     f'<b>Drift {idx+1}</b><br>'
                     f'Start Index: {start}<br>'
                     f'Peak/End Index: {end}<br>'
-                    f'Duration: {drift.drift_duration}<br>'
+                    f'Duration: {end - start}<br>'
                     f'Error Rate at Start: {error_rate[start_idx]:.3f}<br>'
                     f'Error Rate at Peak: {error_rate[end_idx]:.3f}<br>'
                     f'<extra></extra>'
@@ -399,7 +405,7 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
 
         # Update layout
         fig.update_layout(
-            title=f'Drift Detection using {detector_type} (Drift Start Detection: {lookback_method})',
+            title=f'Drift Detection using {detector_type}',
             xaxis_title='Data Point Index',
             yaxis_title='Error Rate',
             hovermode='closest',
@@ -475,6 +481,9 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
                     actual_end = drift.drift_end_index
                 else:
                     actual_end = drift.detected_at
+
+                actual_start += st.session_state.ddm_sample_size_at_rate_creation
+                actual_end += st.session_state.ddm_sample_size_at_rate_creation
 
                 # Update end to the index with maximum error rate
                 start_idx = actual_start - st.session_state.ddm_sample_size_at_rate_creation
