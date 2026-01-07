@@ -868,12 +868,23 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             # Distance to all other windows
             st.subheader("Distance to All Windows")
 
+            measure_local = st.selectbox(
+                "Distance Measure",
+                options=[
+                    "centroid_displacement",
+                    "prototype_reassignment_impact"
+                ],
+                index=0,  # centroid_displacement is default
+                help="Metric used to compare prototype sets between windows",
+                key="prototype_measure_local"
+            )
+
             k_median = st.slider("Median Filter Width", 1, 11, 1, 2,
                                  key="local_median_filter")
 
             fig, ax = plt.subplots(figsize=(12, 4))
             data_to_plot = storage.compare_window_to_all(selected_window,
-                                                         measure='centroid_displacement')
+                                                         measure=measure_local)
             data_to_plot = [float(x) for x in data_to_plot]
             if k_median > 1:
                 data_to_plot = median_mask(data_to_plot, k_median)
