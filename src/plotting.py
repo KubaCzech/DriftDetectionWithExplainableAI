@@ -106,8 +106,7 @@ def _plot_scatter(ax, data_dict, valid_indices):
 
 def plot_feature_target_relationship(X, n_features, feature_names,
                                      X_before, X_after,
-                                     mask_before_c0, mask_before_c1,
-                                     mask_after_c0, mask_after_c1,
+                                     y_before, y_after,
                                      class_colors,
                                      title='Feature vs Target Relationship',
                                      viz_type='violin'):
@@ -117,12 +116,14 @@ def plot_feature_target_relationship(X, n_features, feature_names,
     Layout:
         One subplot per feature.
         Inside each subplot, distributions are stacked horizontally:
-        - Class 0 (Before vs After)
-        - Class 1 (Before vs After)
+        - For each class: (Before vs After)
     """
-    # Create taller subplots to accommodate 4 stacked distributions per feature
+    unique_classes = sorted(np.unique(np.concatenate([y_before, y_after])))
+    n_classes = len(unique_classes)
+
+    # Create taller subplots to accommodate stacked distributions per feature
     fig, axes = plt.subplots(n_features, 1,
-                             figsize=(10, 3.5 * n_features),
+                             figsize=(10, (1.5 * n_classes + 0.5) * n_features),
                              squeeze=False)
 
     if title:
@@ -132,46 +133,27 @@ def plot_feature_target_relationship(X, n_features, feature_names,
         ax = axes[i, 0]
         feat_name = feature_names[i]
 
-        c0 = class_colors[0]
-        c1 = class_colors[1]
+        plot_data = []
+        for idx, cls in enumerate(unique_classes):
+            color = class_colors[cls]
+            base_pos = idx * 2.5  # Space groups apart
 
-        # Define data structure for the comparison plot
-        # We group by Class (0 then 1), and within class by Window (1 then 2)
-        # Alpha is used to distinguish Before (Faded/Past) vs After (Solid/Present)
-
-        plot_data = [
-            # --- Class 0 Group ---
-            {
-                'label': 'Class 0\n(Before)',
-                'values': X_before[mask_before_c0, i],
-                'color': c0,
+            # --- Before ---
+            plot_data.append({
+                'label': f'Class {cls}\n(Before)',
+                'values': X_before[y_before == cls, i],
+                'color': color,
                 'alpha': 0.3,      # Faded
-                'position': 0
-            },
-            {
-                'label': 'Class 0\n(After)',
-                'values': X_after[mask_after_c0, i],
-                'color': c0,
+                'position': base_pos
+            })
+            # --- After ---
+            plot_data.append({
+                'label': f'Class {cls}\n(After)',
+                'values': X_after[y_after == cls, i],
+                'color': color,
                 'alpha': 0.8,      # Solid
-                'position': 1
-            },
-
-            # --- Class 1 Group (Spaced apart) ---
-            {
-                'label': 'Class 1\n(Before)',
-                'values': X_before[mask_before_c1, i],
-                'color': c1,
-                'alpha': 0.3,      # Faded
-                'position': 2.5    # Gap of 1.5 units
-            },
-            {
-                'label': 'Class 1\n(After)',
-                'values': X_after[mask_after_c1, i],
-                'color': c1,
-                'alpha': 0.8,      # Solid
-                'position': 3.5
-            }
-        ]
+                'position': base_pos + 1
+            })
 
         _plot_distribution_comparison(ax, viz_type, plot_data, feat_name)
         ax.set_title(f'{feat_name} Distributions', fontsize=12)
@@ -191,9 +173,13 @@ def plot_class_distribution(class_dist_before, class_dist_after, class_colors,
     if title:
         fig.suptitle(title, fontsize=16, fontweight='bold', y=1.0)
 
+    classes = sorted(class_colors.keys())
+    labels = [f'Class {c}' for c in classes]
+    colors = [class_colors[c] for c in classes]
+
     # Class distributions - Before
-    ax_class_before.bar(['Class 0', 'Class 1'], class_dist_before,
-                        color=[class_colors[0], class_colors[1]],
+    ax_class_before.bar(labels, [class_dist_before.get(c, 0) for c in classes],
+                        color=colors,
                         alpha=0.7, edgecolor='black')
     ax_class_before.set_ylabel('Proportion')
     ax_class_before.set_title('Before')
@@ -201,13 +187,18 @@ def plot_class_distribution(class_dist_before, class_dist_after, class_colors,
     ax_class_before.grid(True, alpha=0.3, axis='y')
 
     # Class distributions - After
-    ax_class_after.bar(['Class 0', 'Class 1'], class_dist_after,
-                       color=[class_colors[0], class_colors[1]],
+    ax_class_after.bar(labels, [class_dist_after.get(c, 0) for c in classes],
+                       color=colors,
                        alpha=0.7, edgecolor='black')
     ax_class_after.set_ylabel('Proportion')
     ax_class_after.set_title('After')
     ax_class_after.set_ylim([0, 1])
     ax_class_after.grid(True, alpha=0.3, axis='y')
+
+    plt.tight_layout()
+    # Increased top margin
+    fig.subplots_adjust(top=0.88)
+    return fig
 
     plt.tight_layout()
     # Increased top margin
@@ -224,16 +215,15 @@ def plot_feature_space(n_features, feature_names, X_before, X_after,
     fig, (ax_fs_before, ax_fs_after) = plt.subplots(1, 2, figsize=(14, 7))
     fs_title_suffix = ""
 
+    unique_classes = sorted(class_colors.keys())
+
     if n_features == 1:
         # 1D plot (Histogram)
-        ax_fs_before.hist(X_before[y_before == 0], bins=30, alpha=0.5,
-                          label='Class 0', color=class_colors[0])
-        ax_fs_before.hist(X_before[y_before == 1], bins=30, alpha=0.5,
-                          label='Class 1', color=class_colors[1])
-        ax_fs_after.hist(X_after[y_after == 0], bins=30, alpha=0.5,
-                         label='Class 0', color=class_colors[0])
-        ax_fs_after.hist(X_after[y_after == 1], bins=30, alpha=0.5,
-                         label='Class 1', color=class_colors[1])
+        for cls in unique_classes:
+            ax_fs_before.hist(X_before[y_before == cls], bins=30, alpha=0.5,
+                              label=f'Class {cls}', color=class_colors[cls])
+            ax_fs_after.hist(X_after[y_after == cls], bins=30, alpha=0.5,
+                             label=f'Class {cls}', color=class_colors[cls])
         ax_fs_before.set_xlabel(feature_names[0])
         ax_fs_after.set_xlabel(feature_names[0])
         ax_fs_before.set_ylabel('Frequency')
@@ -241,22 +231,15 @@ def plot_feature_space(n_features, feature_names, X_before, X_after,
 
     elif n_features == 2:
         # 2D plot
-        ax_fs_before.scatter(X_before[y_before == 0, 0],
-                             X_before[y_before == 0, 1],
-                             alpha=0.5, s=20, label='Class 0',
-                             color=class_colors[0])
-        ax_fs_before.scatter(X_before[y_before == 1, 0],
-                             X_before[y_before == 1, 1],
-                             alpha=0.5, s=20, label='Class 1',
-                             color=class_colors[1])
-        ax_fs_after.scatter(X_after[y_after == 0, 0],
-                            X_after[y_after == 0, 1],
-                            alpha=0.5, s=20, label='Class 0',
-                            color=class_colors[0])
-        ax_fs_after.scatter(X_after[y_after == 1, 0],
-                            X_after[y_after == 1, 1],
-                            alpha=0.5, s=20, label='Class 1',
-                            color=class_colors[1])
+        for cls in unique_classes:
+            ax_fs_before.scatter(X_before[y_before == cls, 0],
+                                 X_before[y_before == cls, 1],
+                                 alpha=0.5, s=20, label=f'Class {cls}',
+                                 color=class_colors[cls])
+            ax_fs_after.scatter(X_after[y_after == cls, 0],
+                                X_after[y_after == cls, 1],
+                                alpha=0.5, s=20, label=f'Class {cls}',
+                                color=class_colors[cls])
         ax_fs_before.set_xlabel(feature_names[0])
         ax_fs_before.set_ylabel(feature_names[1])
         ax_fs_after.set_xlabel(feature_names[0])
@@ -272,25 +255,15 @@ def plot_feature_space(n_features, feature_names, X_before, X_after,
         X_2d_before = X_2d[:len(X_before)]
         X_2d_after = X_2d[len(X_before):]
 
-        y_before_pca = y_before
-        y_after_pca = y_after
-
-        ax_fs_before.scatter(X_2d_before[y_before_pca == 0, 0],
-                             X_2d_before[y_before_pca == 0, 1],
-                             alpha=0.5, s=20, label='Class 0',
-                             color=class_colors[0])
-        ax_fs_before.scatter(X_2d_before[y_before_pca == 1, 0],
-                             X_2d_before[y_before_pca == 1, 1],
-                             alpha=0.5, s=20, label='Class 1',
-                             color=class_colors[1])
-        ax_fs_after.scatter(X_2d_after[y_after_pca == 0, 0],
-                            X_2d_after[y_after_pca == 0, 1],
-                            alpha=0.5, s=20, label='Class 0',
-                            color=class_colors[0])
-        ax_fs_after.scatter(X_2d_after[y_after_pca == 1, 0],
-                            X_2d_after[y_after_pca == 1, 1],
-                            alpha=0.5, s=20, label='Class 1',
-                            color=class_colors[1])
+        for cls in unique_classes:
+            ax_fs_before.scatter(X_2d_before[y_before == cls, 0],
+                                 X_2d_before[y_before == cls, 1],
+                                 alpha=0.5, s=20, label=f'Class {cls}',
+                                 color=class_colors[cls])
+            ax_fs_after.scatter(X_2d_after[y_after == cls, 0],
+                                X_2d_after[y_after == cls, 1],
+                                alpha=0.5, s=20, label=f'Class {cls}',
+                                color=class_colors[cls])
         ax_fs_before.set_xlabel('Principal Component 1')
         ax_fs_before.set_ylabel('Principal Component 2')
         ax_fs_after.set_xlabel('Principal Component 1')
@@ -371,25 +344,30 @@ def visualize_data_stream(X, y, window_before_start, window_after_start,
     # time_steps_before = np.arange(start_before, start_before + len(X_before))
     # time_steps_after = np.arange(start_after, start_after + len(X_after))
 
+    # Identify unique classes
+    unique_classes = np.unique(np.concatenate([y_before, y_after]))
+
     # Calculate class distributions
-    class_dist_before = [np.mean(y_before == 0), np.mean(y_before == 1)]
-    class_dist_after = [np.mean(y_after == 0), np.mean(y_after == 1)]
+    class_dist_before = {cls: np.mean(y_before == cls) for cls in unique_classes}
+    class_dist_after = {cls: np.mean(y_after == cls) for cls in unique_classes}
 
-    # Colors for the two classes
-    class_colors = {0: '#FF6B6B', 1: '#4ECDC4'}
-
-    # Create masks for different periods and classes
-    mask_before_c0 = (y_before == 0)
-    mask_before_c1 = (y_before == 1)
-    mask_after_c0 = (y_after == 0)
-    mask_after_c1 = (y_after == 1)
+    # Colors for the classes
+    # If more than 2 classes, use a colormap
+    if len(unique_classes) <= 2:
+        class_colors = {0: '#FF6B6B', 1: '#4ECDC4'}
+        # Handle cases where classes are not 0 and 1
+        class_colors = {cls: class_colors.get(i, plt.cm.tab10(i))
+                        for i, cls in enumerate(sorted(unique_classes))}
+    else:
+        cmap = plt.cm.get_cmap('tab10')
+        class_colors = {cls: cmap(i % 10) for i, cls in enumerate(sorted(unique_classes))}
 
     figs = []
 
     # 1. Feature vs Target Relationship
     figs.append(plot_feature_target_relationship(
         X, n_features, feature_names, X_before, X_after,
-        mask_before_c0, mask_before_c1, mask_after_c0, mask_after_c1,
+        y_before, y_after,
         class_colors,
         title=title_feat_target,
         viz_type=viz_type
