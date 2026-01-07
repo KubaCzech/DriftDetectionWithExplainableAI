@@ -15,7 +15,8 @@ if not hasattr(np, "warnings"):
 
 
 class ClusterBasedDriftDetector:
-    # TODO: zastanowic sie czy to na pewno dobry sposob na liczenie thresholdu w thr_centroid_shift
+    # TODO: dokumentacja
+    # TODO: przetestowac z MinMax-em
     """
     Cluster-based data drift detector using X-Means clustering.
 
@@ -36,47 +37,61 @@ class ClusterBasedDriftDetector:
 
     Parameters
     ----------
-    data_old : tuple of (pd.DataFrame, np.ndarray)
-        Old dataset represented as a tuple (X_old, y_old), where X_old
-        is the feature matrix and y_old contains class labels.
-    data_new : tuple of (pd.DataFrame, np.ndarray)
-        New dataset represented as a tuple (X_new, y_new), where X_new
-        is the feature matrix and y_new contains class labels.
-    k_init : int
+    X_before : pd.Dataframe
+        ...
+    y_before : pd.Series or pd.ndarray
+        ...
+    X_after : pd.Dataframe
+        ...
+    y_after : pd.Series or np.ndarray
+        ...
+
+    k_init : int, default=2
         Minimal number of clusters that must be present in each iteration of X-means.
-        By default set to 2.
-    k_max : int
+    k_max : int, default=10
         Maximal number of clusters that can be present in each iteration of X-means.
-        By default set to 10.
-    thr_clusters : int
+    thr_clusters : int, default=1
         Minimal difference in number of clusters between data blocks to acknowledge
         the drift.
-    thr_centroid_shift : float
+    thr_centroid_shift : float, default = 0.2
         Minimal difference in shift between clusters to acknowledge the drift.
-    thr_centroid_disappear : float
-        Measure how many standard deviations the cluster must be shifted so it does not appear that the
-        cluster was shifted, but instead that the old cluster disappeared and a new one appeared.
-    thr_desc_stats : float
+    thr_centroid_disappear : float, default = 0.4
+        Measure how much the cluster must be shifted (in case of euclidean distance) so
+        it does not appear that the cluster was shifted, but instead that the old cluster
+        disappeared and a new one appeared.
+    thr_desc_stats : float, default = 0.2
         Minimal relative change between corresponding clusters' descriptive statistics
         to acknowledge the drift.
+    thr_avg_distance_to_center_change : float, default = 0.1
+        Minimal change of average euclidean distance between data points and center of
+        cluster to acknowledge the drift.
+
+    decision_thr : float, default=0.5
+        Minimal value of weighted average needed to be achieved to return information that
+        drift occured.
+
+    weights : Sequence[float], default=[0.4, 0.25, 0.15, 0.1]
+        Values of weights used for calculating weighted average. Normalized, so that the sum
+        of all is equal 1.0. Size of weights must be equal to 4.
+    random_state : int
+        Value of numpy random state to ensure determinism.
+
 
     Attributes
     ----------
-    X_old : pd.DataFrame
+    X_old : np.ndarray
         Feature matrix of the old dataset.
     y_old : np.ndarray
         Class labels of the old dataset.
-    X_new : pd.DataFrame
+    X_new : np.ndarray
         Feature matrix of the new dataset.
     y_new : np.ndarray
         Class labels of the new dataset.
 
     k_init : int
         Minimal number of clusters that must be present in each iteration of X-means.
-        By default set to 2.
     k_max : int
         Maximal number of clusters that can be present in each iteration of X-means.
-        By default set to 10.
 
     thr_clusters : int
         Minimal difference in number of clusters between data blocks to acknowledge
@@ -160,19 +175,19 @@ class ClusterBasedDriftDetector:
     def __init__(
         self,
         X_before: pd.DataFrame,
-        y_before: np.ndarray,
+        y_before: Union[np.ndarray, pd.Series],
         X_after: pd.DataFrame,
-        y_after: np.ndarray,
+        y_after: Union[np.ndarray, pd.Series],
         k_init: int = 2,
         k_max: int = 10,
         thr_clusters: int = 1,
         thr_centroid_shift: float = 0.2,
-        thr_centroid_disappear: float = 0.4,
+        thr_centroid_disappear: float = 0.5,
         thr_desc_stats: float = 0.2,
         thr_avg_distance_to_center_change: float = 0.1,
         decision_thr: float = 0.5,
-        weights: Sequence[float] = [0.4, 0.25, 0.15, 0.2],
-        random_state=None,
+        weights: Sequence[float] = [0.4, 0.25, 0.25, 0.1],
+        random_state=42,
     ) -> None:
         ds = DataScaler(ScalingType.Standard)
         X_before = ds.fit_transform(X_before.copy(), return_df=True)
@@ -201,8 +216,8 @@ class ClusterBasedDriftDetector:
         self.k_max = k_max
 
         self.thr_clusters = thr_clusters
-        self.thr_centroid_shift = thr_centroid_shift * (self.X_old.shape[1])
-        self.thr_centroid_disappear = thr_centroid_disappear * (self.X_old.shape[1] + 1)
+        self.thr_centroid_shift = thr_centroid_shift * np.sqrt(self.X_old.shape[1])
+        self.thr_centroid_disappear = thr_centroid_disappear * np.sqrt(self.X_old.shape[1])
         self.thr_desc_stats = thr_desc_stats
         self.thr_avg_distance_to_center_change = thr_avg_distance_to_center_change
 
@@ -552,17 +567,26 @@ class ClusterBasedDriftDetector:
                 >= self.thr_clusters
             )
 
-            details[cl]['centroid_shift'] = any(
-                v['euclidean_distance'] > self.thr_centroid_shift
-                for v in {i: self.cluster_shifts[i] for i in cl_old.intersection(cl_new)}.values()
-                if isinstance(v, dict)
-            )
-
             idx = set(self.cluster_labels_old[self.y_old == cl]).union(set(self.cluster_labels_new[self.y_new == cl]))
+
+            details[cl]['centroid_shift'] = {
+                k: (
+                    bool(self.cluster_shifts[k]['euclidean_distance'] > self.thr_centroid_shift)
+                    if isinstance(self.cluster_shifts[k], dict)
+                    else True
+                )
+                for k in idx
+            }
+
             details[cl]['desc_stats_changes'] = {k: details_stats_shifts[k] for k in idx if k in details_stats_shifts}
 
             details[cl]['avg_distance_to_center'] = {
-                k: bool(self.avg_distance_shift[k] > 0.3) for k in idx if self.avg_distance_shift[k] is not None
+                k: (
+                    bool(self.avg_distance_shift[k] > self.thr_avg_distance_to_center_change)
+                    if self.avg_distance_shift[k] is not None
+                    else True
+                )
+                for k in idx
             }
 
         self.drift_details = details
@@ -778,6 +802,7 @@ class ClusterBasedDriftDetector:
         }
 
     def generate_drift_flag(self) -> None:
+        eps = 1e-10
         trues = np.array(
             [
                 sum(self.drift_details[cl]['nr_of_clusters'] is True for cl in set(self.y_old).union(set(self.y_new))),
@@ -788,7 +813,13 @@ class ClusterBasedDriftDetector:
                     for feature in cluster.values()
                     for stat in feature.values()
                 ),
-                sum(self.drift_details[cl]['centroid_shift'] is True for cl in set(self.y_old).union(set(self.y_new))),
+                sum(
+                    [
+                        self.drift_details[cl]['centroid_shift'][label] is True
+                        for cl in set(self.y_old).union(set(self.y_new))
+                        for label in self.drift_details[cl]['centroid_shift'].keys()
+                    ]
+                ),
                 sum(
                     [
                         self.drift_details[cl]['avg_distance_to_center'][label] is True
@@ -809,7 +840,13 @@ class ClusterBasedDriftDetector:
                     for feature in cluster.values()
                     for stat in feature.values()
                 ),
-                sum(self.drift_details[cl]['centroid_shift'] is False for cl in set(self.y_old).union(set(self.y_new))),
+                sum(
+                    [
+                        self.drift_details[cl]['centroid_shift'][label] is False
+                        for cl in set(self.y_old).union(set(self.y_new))
+                        for label in self.drift_details[cl]['centroid_shift'].keys()
+                    ]
+                ),
                 sum(
                     [
                         self.drift_details[cl]['avg_distance_to_center'][label] is False
@@ -822,5 +859,5 @@ class ClusterBasedDriftDetector:
         print(trues)
         print(falses)
 
-        self.strength_of_drift = (trues / (trues + falses)) @ self.weights
+        self.strength_of_drift = (trues / (trues + falses + eps)) @ self.weights
         self.drift_flag = bool(self.strength_of_drift > self.decision_thr)
