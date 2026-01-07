@@ -76,7 +76,9 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                     "prototype_reassignment_impact"
                 ],
                 index=0,  # centroid_displacement is default
-                help="Metric used to compare prototype sets between windows",
+                help="Metric used to compare windows:\n"
+                     "- centroid_displacement: Recommended\n"
+                     "- prototype_reassignment_impact: Better, but slower",
                 key="prototype_measure"
             )
 
@@ -875,7 +877,9 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                     "prototype_reassignment_impact"
                 ],
                 index=0,  # centroid_displacement is default
-                help="Metric used to compare prototype sets between windows",
+                help="Metric used to compare windows:\n"
+                     "- centroid_displacement: Recommended\n"
+                     "- prototype_reassignment_impact: Better, but slower",
                 key="prototype_measure_local"
             )
 
