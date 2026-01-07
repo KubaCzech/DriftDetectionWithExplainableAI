@@ -67,6 +67,21 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                 st.warning("Warning: Number of windows is low. Consider decreasing window length for better resolution.")
 
         with col2:
+            st.subheader("Distance Calculation")
+
+            measure = st.selectbox(
+                "Distance Measure",
+                options=[
+                    "centroid_displacement",
+                    "prototype_reassignment_impact"
+                ],
+                index=0,  # centroid_displacement is default
+                help="Metric used to compare prototype sets between windows",
+                key="prototype_measure"
+            )
+
+            st.markdown("---")
+
             st.subheader("Clustering Configuration")
             median_filter_width = st.number_input(
                 "Median Filter Width",
@@ -175,7 +190,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
 
                 # Compute distance matrix
                 status_text.text("Computing distance matrix...")
-                matrix = storage.compute_distance_matrix(measure="centroid_displacement")
+                matrix = storage.compute_distance_matrix(measure=measure)
                 progress_bar.progress(2 * num_windows / (num_windows * 3))
 
                 # Cluster windows
@@ -214,6 +229,55 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
         # Show current status
         if st.session_state.prototype_processing_complete:
             st.info("✓ Data processed and ready for analysis. Navigate to other tabs to explore!")
+
+            # Recompute Matrix button
+            st.markdown("---")
+            st.subheader("Recompute Distance Matrix and Clustering")
+            st.write("Use the parameters above to recompute the distance matrix and re-cluster",
+                     "windows without retraining the model on the same data.")
+
+            if st.button("Recompute", type="secondary", key="prototype_recompute"):
+                try:
+                    storage = st.session_state.prototype_storage
+
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+
+                    # Recompute distance matrix with current parameters
+                    status_text.text("Recomputing distance matrix...")
+                    matrix = storage.compute_distance_matrix(measure=measure)
+                    progress_bar.progress(0.5)
+
+                    # Re-cluster windows
+                    status_text.text("Re-clustering windows...")
+                    labels = cluster_windows(
+                        matrix,
+                        fix_outliers=fix_outliers,
+                        median_mask_width=median_filter_width
+                    )
+
+                    # Detect drifts
+                    drift_locations = get_drift_from_clusters(labels)
+
+                    # Update session state
+                    st.session_state.prototype_matrix = matrix
+                    st.session_state.prototype_labels = labels
+                    st.session_state.prototype_drift_locations = drift_locations
+
+                    progress_bar.progress(1.0)
+                    status_text.text("✅ Recomputation complete!")
+
+                    st.success(f"""
+                    Recomputation Complete!
+                    - Used measure: {measure}
+                    - Detected {len(drift_locations)} drifts at windows: {drift_locations}
+                    - Found {len(set(labels[labels != -1]))} distinct concepts
+                    """)
+
+                except Exception as e:
+                    st.error(f"Error during recomputation: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
 
     # ============================================================================
     # TAB 2: GLOBAL VIEW
