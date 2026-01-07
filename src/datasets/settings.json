@@ -29,6 +29,16 @@
       "drift_width": 1
     }
   },
+  "rbf_drift": {
+    "Default": {
+      "default": true,
+      "n_features": 4,
+      "gamma": 30.0,
+      "noise": 0.0,
+      "cluster_std": 0.05,
+      "drift_width": 1
+    }
+  },
   "sea_drift": {
     "Default": {
       "default": true

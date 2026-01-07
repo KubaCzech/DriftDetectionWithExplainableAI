@@ -26,7 +26,7 @@ The framework consists of several key modules designed to handle different aspec
 generate synthetic datasets with controlled drift scenarios to benchmark detection methods.
 *   **SEA Drift**: Simulates abrupt drift in a simple decision boundary.
 *   **Hyperplane Drift**: Rotates a decision hyperplane over time.
-*   **SDBM RBF Drift**: Generates complex drift scenarios using Radial Basis Functions.
+*   **RBF Drift**: Generates complex drift scenarios using Radial Basis Functions.
 *   **Linear Weight Inversion Drift**: customizable scenarios to test specific hypotheses.
 
 ### 2. Drift Detection

@@ -5,14 +5,14 @@ import pandas as pd
 from sklearn.metrics.pairwise import rbf_kernel
 
 
-class SDBMRBFDriftDataset(BaseDataset):
+class RBFDriftDataset(BaseDataset):
     @property
     def name(self) -> str:
-        return "sdbm_rbf_drift"
+        return "rbf_drift"
 
     @property
     def display_name(self) -> str:
-        return "SDBM RBF Drift"
+        return "RBF Drift"
 
     def get_params(self) -> dict:
         params = super().get_params()

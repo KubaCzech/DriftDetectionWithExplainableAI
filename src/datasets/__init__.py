@@ -2,7 +2,7 @@ from .base import BaseDataset
 from .sea_drift import SeaDriftDataset
 from .hyperplane_drift import HyperplaneDriftDataset
 from .linear_weight_inversion_drift import LinearWeightInversionDriftDataset
-from .sdbm_rbf_drift import SDBMRBFDriftDataset
+from .rbf_drift import RBFDriftDataset
 from .rbf_multi_window import RbfMultiWindowDataset
 from .sine_multi_window import SineMultiWindowDataset
 from .mixed_multi_window import MixedMultiWindowDataset
@@ -22,7 +22,7 @@ def load_datasets():
         HyperplaneDriftDataset(),
         LinearWeightInversionDriftDataset(),
         # RandomRBFDriftDataset(),
-        SDBMRBFDriftDataset(),
+        RBFDriftDataset(),
         RbfMultiWindowDataset(),
         SineMultiWindowDataset(),
         MixedMultiWindowDataset(),

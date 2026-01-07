@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 's
 
 from datasets.hyperplane_drift import HyperplaneDriftDataset  # noqa: E402
 from datasets.linear_weight_inversion_drift import LinearWeightInversionDriftDataset  # noqa: E402
-from datasets.sdbm_rbf_drift import SDBMRBFDriftDataset  # noqa: E402
+from datasets.rbf_drift import RBFDriftDataset  # noqa: E402
 from datasets.sea_drift import SeaDriftDataset  # noqa: E402
 
 
@@ -31,9 +31,9 @@ class TestSyntheticDatasets(unittest.TestCase):
         X, y = ds.generate(n_samples_before=self.n_before, n_samples_after=self.n_after, drift_width=200)
         self._verify_shape(X, y, 3)
 
-    def test_sdbm_drift_generation(self):
-        """Test SDBM RBF Drift dataset generation."""
-        ds = SDBMRBFDriftDataset()
+    def test_rbf_drift_generation(self):
+        """Test RBF Drift dataset generation."""
+        ds = RBFDriftDataset()
         X, y = ds.generate(n_samples_before=self.n_before, n_samples_after=self.n_after, drift_width=200)
         self._verify_shape(X, y, 4)  # Default n_features=4
 
@@ -60,7 +60,7 @@ class TestSyntheticDatasets(unittest.TestCase):
         """
         datasets = [
             (SeaDriftDataset(), {'n_features': 3}),
-            (SDBMRBFDriftDataset(), {}),
+            (RBFDriftDataset(), {}),
             (LinearWeightInversionDriftDataset(), {'n_features': 11}),
             (HyperplaneDriftDataset(), {'n_features': 5, 'n_drift_features': 2})
         ]
@@ -81,7 +81,7 @@ class TestSyntheticDatasets(unittest.TestCase):
         """Test that random_seed ensures reproducibility."""
         datasets = [
             (SeaDriftDataset(), {'n_features': 3}),
-            (SDBMRBFDriftDataset(), {}),
+            (RBFDriftDataset(), {}),
             (LinearWeightInversionDriftDataset(), {'n_features': 11}),
             (HyperplaneDriftDataset(), {'n_features': 5, 'n_drift_features': 2})
         ]
