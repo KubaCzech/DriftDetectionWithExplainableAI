@@ -27,7 +27,7 @@ generate synthetic datasets with controlled drift scenarios to benchmark detecti
 *   **SEA Drift**: Simulates abrupt drift in a simple decision boundary.
 *   **Hyperplane Drift**: Rotates a decision hyperplane over time.
 *   **SDBM RBF Drift**: Generates complex drift scenarios using Radial Basis Functions.
-*   **Controlled Concept Drift**: customizable scenarios to test specific hypotheses.
+*   **Linear Weight Inversion Drift**: customizable scenarios to test specific hypotheses.
 
 ### 2. Drift Detection
 Implements statistical methods to monitor data streams and trigger alerts when significant distribution changes are detected.

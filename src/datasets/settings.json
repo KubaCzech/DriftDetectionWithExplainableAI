@@ -55,7 +55,7 @@
       "starting_point": -1
     }
   },
-  "controlled_concept_drift": {
+  "linear_weight_inversion_drift": {
     "Default": {
       "default": true,
       "n_features": 11,

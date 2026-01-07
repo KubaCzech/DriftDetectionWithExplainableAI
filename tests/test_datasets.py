@@ -8,7 +8,7 @@ import pandas as pd
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 from datasets.hyperplane_drift import HyperplaneDriftDataset  # noqa: E402
-from datasets.controlled_concept_drift import ControlledConceptDriftDataset  # noqa: E402
+from datasets.linear_weight_inversion_drift import LinearWeightInversionDriftDataset  # noqa: E402
 from datasets.sdbm_rbf_drift import SDBMRBFDriftDataset  # noqa: E402
 from datasets.sea_drift import SeaDriftDataset  # noqa: E402
 
@@ -37,9 +37,9 @@ class TestSyntheticDatasets(unittest.TestCase):
         X, y = ds.generate(n_samples_before=self.n_before, n_samples_after=self.n_after, drift_width=200)
         self._verify_shape(X, y, 4)  # Default n_features=4
 
-    def test_controlled_drift_generation(self):
-        """Test Controlled Concept Drift dataset generation."""
-        ds = ControlledConceptDriftDataset()
+    def test_linear_weight_inversion_drift_generation(self):
+        """Test Linear Weight Inversion Drift dataset generation."""
+        ds = LinearWeightInversionDriftDataset()
         n_features = 11
         X, y = ds.generate(n_samples_before=self.n_before, n_samples_after=self.n_after,
                            n_features=n_features, drift_width=200)
@@ -61,7 +61,7 @@ class TestSyntheticDatasets(unittest.TestCase):
         datasets = [
             (SeaDriftDataset(), {'n_features': 3}),
             (SDBMRBFDriftDataset(), {}),
-            (ControlledConceptDriftDataset(), {'n_features': 11}),
+            (LinearWeightInversionDriftDataset(), {'n_features': 11}),
             (HyperplaneDriftDataset(), {'n_features': 5, 'n_drift_features': 2})
         ]
 
@@ -82,7 +82,7 @@ class TestSyntheticDatasets(unittest.TestCase):
         datasets = [
             (SeaDriftDataset(), {'n_features': 3}),
             (SDBMRBFDriftDataset(), {}),
-            (ControlledConceptDriftDataset(), {'n_features': 11}),
+            (LinearWeightInversionDriftDataset(), {'n_features': 11}),
             (HyperplaneDriftDataset(), {'n_features': 5, 'n_drift_features': 2})
         ]
 
@@ -99,7 +99,7 @@ class TestSyntheticDatasets(unittest.TestCase):
 
     def test_input_validation(self):
         """Test invalid input parameters."""
-        ds = ControlledConceptDriftDataset()
+        ds = LinearWeightInversionDriftDataset()
         with self.assertRaises(ValueError):
             ds.generate(n_features=5, n_drift_features=6)  # Drift > Total
 

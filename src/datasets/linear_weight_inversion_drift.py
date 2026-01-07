@@ -4,15 +4,15 @@ from .base import BaseDataset
 from .utils import apply_sigmoid_drift
 
 
-class ControlledConceptDriftDataset(BaseDataset):
+class LinearWeightInversionDriftDataset(BaseDataset):
 
     @property
     def name(self) -> str:
-        return "controlled_concept_drift"
+        return "linear_weight_inversion_drift"
 
     @property
     def display_name(self) -> str:
-        return "Controlled Concept Drift"
+        return "Linear Weight Inversion Drift"
 
     def get_params(self) -> dict:
         params = super().get_params()
@@ -76,7 +76,7 @@ class ControlledConceptDriftDataset(BaseDataset):
                  n_features=11, n_drift_features=5, random_seed=42,
                  drift_width=1, **kwargs):
         """
-        Generate synthetic data with controlled Concept Drift.
+        Generate synthetic data with Linear Weight Inversion Drift.
         """
         # Validation
         if n_drift_features > n_features:
