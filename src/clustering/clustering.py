@@ -377,7 +377,7 @@ class ClusterBasedDriftDetector:
         for klass, labels in zip(classes, transformed_labels):
             final_labels[np.array(y) == klass] = np.array(labels)
 
-        return final_labels
+        return final_labels.astype(int)
 
     def _map_new_clusters_to_old(self) -> tuple[dict[int, int], list[int], list[int]]:
         """

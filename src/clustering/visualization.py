@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 
 from functools import wraps
 from matplotlib.patches import Patch
-from matplotlib.colors import ListedColormap
 from typing import Sequence, Union, Callable
+from matplotlib.colors import ListedColormap, BoundaryNorm
 from src.common import DataDimensionsReducer, ReducerType
 
 colors = [
@@ -375,8 +375,11 @@ def plot_clustering_heatmap(stats_shifts, threshold, show=False):
 
     cmap = ListedColormap(["#ff6b6b", "#6bff81", "#7E7B7B"])
 
+    bounds = [-0.5, 0.5, 1.5, 2.5]
+    norm = BoundaryNorm(bounds, cmap.N)
+
     plt.figure(figsize=(14, 5))
-    sns.heatmap(heatmap_to_plot, cmap=cmap, cbar=False, linewidths=0.5, linecolor="white")
+    sns.heatmap(heatmap_to_plot, cmap=cmap, norm=norm, cbar=False, linewidths=0.5, linecolor="white")
 
     plt.xlabel("(Cluster, Feature)")
     plt.ylabel("Descriptive statistics")
