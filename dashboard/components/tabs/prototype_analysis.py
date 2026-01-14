@@ -64,7 +64,8 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             st.metric("Samples per Window", window_size)
 
             if num_windows < 10:
-                st.warning("Warning: Number of windows is low. Consider decreasing window length for better resolution.")
+                st.warning("Warning: Number of windows is low. Consider increasing the number of windows. "
+                           "Low number of windows might result in bad results during clustering.")
 
         with col2:
             st.subheader("Distance Calculation")
