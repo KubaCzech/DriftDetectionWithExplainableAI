@@ -482,13 +482,16 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                     annotation_position="top"
                 )
 
-            fig.update_layout(
-                height=250,
-                xaxis=dict(title="Window", range=[0, len(labels)]),
-                yaxis=dict(visible=False),
-                title="Concept Clustering Timeline (Black = Outliers, Red Lines = Detected Drifts)",
-                bargap=0,
-            )
+                fig.update_layout(
+                    height=250,
+                    xaxis=dict(
+                        title="Window",
+                        range=[-0.5, len(labels) - 0.5]
+                    ),
+                    yaxis=dict(visible=False),
+                    title="Concept Clustering Timeline (Black = Outliers, Red Lines = Detected Drifts)",
+                    bargap=0,
+                )
 
             st.plotly_chart(fig, width='stretch')
 
