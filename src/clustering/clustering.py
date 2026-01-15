@@ -16,7 +16,6 @@ if not hasattr(np, "warnings"):
 
 class ClusterBasedDriftDetector:
     # TODO: dokumentacja
-    # TODO: przetestowac z MinMax-em
     """
     Cluster-based data drift detector using X-Means clustering.
 
@@ -181,7 +180,7 @@ class ClusterBasedDriftDetector:
         k_init: int = 2,
         k_max: int = 10,
         thr_clusters: int = 1,
-        thr_centroid_shift: float = 0.2,
+        thr_centroid_shift: float = 0.15,
         thr_centroid_disappear: float = 0.5,
         thr_desc_stats: float = 0.2,
         thr_avg_distance_to_center_change: float = 0.1,
@@ -192,6 +191,9 @@ class ClusterBasedDriftDetector:
         ds = DataScaler(ScalingType.Standard)
         X_before = ds.fit_transform(X_before.copy(), return_df=True)
         X_after = ds.transform(X_after.copy(), return_df=True)
+
+        assert sorted(X_after.columns.values) == sorted(X_before.columns.values)
+        self.columns = X_before.columns
 
         # Handle data conversion
         if hasattr(X_before, "values"):
@@ -375,7 +377,7 @@ class ClusterBasedDriftDetector:
         for klass, labels in zip(classes, transformed_labels):
             final_labels[np.array(y) == klass] = np.array(labels)
 
-        return final_labels
+        return final_labels.astype(int)
 
     def _map_new_clusters_to_old(self) -> tuple[dict[int, int], list[int], list[int]]:
         """
@@ -582,7 +584,7 @@ class ClusterBasedDriftDetector:
 
             details[cl]['avg_distance_to_center'] = {
                 k: (
-                    bool(self.avg_distance_shift[k] > self.thr_avg_distance_to_center_change)
+                    bool(abs(self.avg_distance_shift[k]) > self.thr_avg_distance_to_center_change)
                     if self.avg_distance_shift[k] is not None
                     else True
                 )
@@ -645,7 +647,7 @@ class ClusterBasedDriftDetector:
         """
 
         def compute_cluster_stats(X, labels):
-            df = pd.DataFrame(X)
+            df = pd.DataFrame(X, columns=self.columns)
             df['cluster'] = labels
             features = df.columns[:-1]
             clusters = sorted(df['cluster'].unique())
@@ -675,7 +677,7 @@ class ClusterBasedDriftDetector:
         stats_new.columns = pd.MultiIndex.from_tuples([('after', f, stat) for f, stat in stats_new.columns])
 
         stats_combined = pd.concat([stats_old, stats_new], axis=1)
-        stats_combined.fillna('-', inplace=True)
+        stats_combined.fillna(np.nan, inplace=True)
 
         stats_combined.columns = stats_combined.columns.set_levels(
             pd.CategoricalIndex(
@@ -725,14 +727,14 @@ class ClusterBasedDriftDetector:
                     col_new = ('after', feature, stat)
 
                     if col_old not in row_df.columns or col_new not in row_df.columns:
-                        details[cluster][feature][stat] = 'N/A'
+                        details[cluster][feature][stat] = np.nan
                         continue
 
                     old_value = row_df[col_old].iloc[0]
                     new_value = row_df[col_new].iloc[0]
 
-                    if old_value == '-' or new_value == '-':
-                        details[cluster][feature][stat] = 'N/A'
+                    if np.isnan(old_value) or np.isnan(new_value):
+                        details[cluster][feature][stat] = np.nan
                         continue
 
                     denom = abs(old_value)
@@ -753,19 +755,19 @@ class ClusterBasedDriftDetector:
         ----------
         stats_shifts : dict
             Nested dictionary of statistical shift values in the form
-            {class: {feature: {statistic: value | 'N/A'}}}.
+            {class: {feature: {statistic: value | NaN}}}.
 
         Returns
         -------
         dict
             Nested dictionary with the same structure as stats_shifts, where each
             statistic is mapped to:
-            - True if shift exceeds the threshold or the value was N/A',
+            - True if shift exceeds the threshold or the value was NaN,
             - False if not.
         """
         return {
             cl: {
-                f: {s: abs(v) > self.thr_desc_stats if v != 'N/A' else True for s, v in stats.items()}
+                f: {s: bool(abs(v) > self.thr_desc_stats) if not np.isnan(v) else True for s, v in stats.items()}
                 for f, stats in features.items()
             }
             for cl, features in stats_shifts.items()

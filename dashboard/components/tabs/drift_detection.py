@@ -192,6 +192,13 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
             key="ddm_lookforward_method"
         )
 
+        take_max_for_end = st.checkbox(
+                "Get max value sample as peak",
+                value=True,
+                help="Take the sample with the maximum error rate as our peak, instead of the last sample",
+                key="prototype_fix_outliers"
+            )
+
     st.markdown("---")
 
     # Convert data to numpy once
@@ -352,8 +359,11 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
             end_idx = max(0, min(end_idx, len(error_rate) - 1))
 
             if start_idx <= end_idx:
-                max_idx_in_range = start_idx + np.argmax(error_rate[start_idx:end_idx + 1])
-                end = max_idx_in_range + st.session_state.ddm_sample_size_at_rate_creation
+                if take_max_for_end:
+                    max_idx_in_range = start_idx + np.argmax(error_rate[start_idx:end_idx + 1])
+                    end = max_idx_in_range + st.session_state.ddm_sample_size_at_rate_creation
+                else:
+                    end = end_idx + st.session_state.ddm_sample_size_at_rate_creation
                 drift.drift_end_index = end
 
             # correct the duration based
@@ -492,8 +502,11 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
                 end_idx = max(0, min(end_idx, len(error_rate) - 1))
 
                 if start_idx <= end_idx:
-                    max_idx_in_range = start_idx + np.argmax(error_rate[start_idx:end_idx + 1])
-                    actual_end = max_idx_in_range + st.session_state.ddm_sample_size_at_rate_creation
+                    if take_max_for_end:
+                        max_idx_in_range = start_idx + np.argmax(error_rate[start_idx:end_idx + 1])
+                        actual_end = max_idx_in_range + st.session_state.ddm_sample_size_at_rate_creation
+                    else:
+                        actual_end = end_idx + st.session_state.ddm_sample_size_at_rate_creation
                     drift.drift_end_index = actual_end
 
                 with st.expander(f"Drift {idx+1} - Detected at index {actual_start}"):

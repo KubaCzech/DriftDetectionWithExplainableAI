@@ -1,9 +1,12 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 from functools import wraps
+from matplotlib.patches import Patch
 from typing import Sequence, Union, Callable
+from matplotlib.colors import ListedColormap, BoundaryNorm
 from src.common import DataDimensionsReducer, ReducerType
 
 colors = [
@@ -333,9 +336,60 @@ def plot_centers_shift(
             plt.scatter(*center_new, marker="o", color=color_map[label], s=60)
 
     plt.title("Cluster centroid shifts")
-    plt.xlabel(X_before.columns[0])
-    plt.ylabel(X_before.columns[1])
+    plt.xlabel("Component 1")
+    plt.ylabel("Component 2")
     plt.grid(True)
     plt.legend()
+    if show:
+        plt.show()
+
+
+def plot_clustering_heatmap(stats_shifts, threshold, show=False):
+    def make_dataframe_from_dict(dictt):
+        df = (
+            pd.DataFrame.from_dict(dictt, orient="index")
+            .stack()
+            .apply(pd.Series)
+            .reset_index()
+            .rename(columns={"level_0": "cluster", "level_1": "feature"})
+        )
+        return df
+
+    stats_shifts_flattened = make_dataframe_from_dict(stats_shifts)
+    stats_shifts_flattened["X"] = (
+        "Cluster" + stats_shifts_flattened["cluster"].astype(int).astype(str) + ":" + stats_shifts_flattened["feature"]
+    )
+    stats = ["min", "mean", "median", "max", "std"]
+
+    heatmap_data = stats_shifts_flattened.set_index("X")[stats].T
+
+    hm_na = heatmap_data.isna()
+    hm_value = abs(heatmap_data) > threshold
+
+    heatmap_encoded = np.zeros(heatmap_data.shape)
+    heatmap_encoded[hm_value] = 1
+    heatmap_encoded[hm_na] = 2
+
+    heatmap_to_plot = pd.DataFrame(heatmap_encoded, columns=heatmap_data.columns)
+    heatmap_to_plot.index = heatmap_data.index
+
+    cmap = ListedColormap(["#ff6b6b", "#6bff81", "#7E7B7B"])
+
+    bounds = [-0.5, 0.5, 1.5, 2.5]
+    norm = BoundaryNorm(bounds, cmap.N)
+
+    plt.figure(figsize=(14, 5))
+    sns.heatmap(heatmap_to_plot, cmap=cmap, norm=norm, cbar=False, linewidths=0.5, linecolor="white")
+
+    plt.xlabel("(Cluster, Feature)")
+    plt.ylabel("Descriptive statistics")
+    plt.title("Threshold and Missing-Value Diagnostics Across Clusters and Features")
+
+    legend_elements = [
+        Patch(facecolor="#ff6b6b", edgecolor="black", label="Within threshold"),
+        Patch(facecolor="#6bff81", edgecolor="black", label=f"|value| > {threshold}"),
+        Patch(facecolor="#7E7B7B", edgecolor="black", label="Missing value (NaN)"),
+    ]
+    plt.legend(handles=legend_elements, loc="upper right", title="Legend", frameon=True)
     if show:
         plt.show()
