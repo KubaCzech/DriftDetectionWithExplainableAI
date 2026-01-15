@@ -23,11 +23,11 @@ The outcome is a comprehensive Python-based toolset and an interactive dashboard
 The framework consists of several key modules designed to handle different aspects of drift analysis:
 
 ### 1. Data Generation & Simulation
-generate synthetic datasets with controlled drift scenarios to benchmark detection methods.
-*   **SEA Drift**: Simulates abrupt drift in a simple decision boundary.
-*   **Hyperplane Drift**: Rotates a decision hyperplane over time.
-*   **RBF Drift**: Generates complex drift scenarios using Radial Basis Functions.
-*   **Linear Weight Inversion Drift**: customizable scenarios to test specific hypotheses.
+Generate synthetic datasets with known ground truth to benchmark detection and explanation methods.
+*   **SEA Drift**: Simulates abrupt concept drift where the decision threshold on sum of two relevant features changes, while a third feature remains irrelevant noise.
+*   **Hyperplane Drift**: Simulates gradual concept drift via a continuously rotating decision hyperplane in $d$-dimensional space, creating a dynamic environment where feature influence shifts over time.
+*   **RBF Drift**: Simulates non-linear drift by moving the centroids of class-specific clusters, effectively swapping class regions in the feature space while maintaining overall data density.
+*   **Linear Weight Inversion (LWI) Drift**: A specialized scenario where the correlation of specific features with the target class is inverted (weight sign flip), testing the model's ability to detect changes in feature attribution.
 
 ### 2. Drift Detection
 Implements statistical methods to monitor data streams and trigger alerts when significant distribution changes are detected.
@@ -37,7 +37,7 @@ Once drift is detected, these modules help characterize usage:
 *   **Decision Boundary Analysis**: Visualizes how the model's decision boundary shifts between two time windows (reference vs. detection).
 *   **Feature Importance Analysis**: Tracks changes in feature relevance (e.g., using SHAP or Permutation Importance) to identify which features are driving the drift.
 *   **Clustering Analysis**: Uses clustering algorithms to visualize and quantify changes in the data structure and density in the feature space.
-*   **Recurring RACE-P**: Analyzes recurrent concepts to determine if a new drift state is a novel concept or a recurrence of a previously seen anomaly.
+*   **Recurring Concept Analysis**: Utilizes a window-based approach to store and compare concepts over time. It employs **prototype-based explanations** to characterize each window and uses **HDBSCAN clustering** on the window distance matrix to identify and group recurring concepts, distinguishing them from novel anomalies.
 
 ---
 
@@ -47,7 +47,7 @@ We provide a **Streamlit-based Dashboard** to visualize data streams, generate s
 
 **Key Capabilities:**
 *   **Real-time Visualization**: Watch the data stream evolve and see drift points dynamically.
-*   **Synthetic Data Generator**: Configure and generate datasets (Sea, Hyperplane, etc.) directly from the UI.
+*   **Synthetic Data Generator**: Configure and generate datasets (SEA, Hyperplane, etc.) directly from the UI.
 *   **Drift Analysis Tabs**: Switch between different analysis views (Decision Boundary, Feature Importance, Clustering) for the same data stream.
 *   **Interactive Controls**: Adjust window sizes, drift parameters, and model settings on the fly.
 
@@ -107,11 +107,12 @@ For research experiments and step-by-step implementation details, explore the `n
 
 A brief overview of the key directories:
 
-*   `input/`: Dataset resources.
 *   `src/`: Core library code.
     *   `clustering/`: Clustering algorithms and visualization.
     *   `datasets/`: Data generators (SEA, Hyperplane, etc.).
+    *   `DDM/`: Drift Detection Methods.
     *   `decision_boundary/`: Tools for analyzing decision boundaries.
+    *   `descriptive_statistics/`: Statistical analysis tools.
     *   `feature_importance/`: SHAP and other importance metrics.
     *   `models/`: Wrapper classes for ML models.
     *   `recurrence/`: Recurring concept analysis.
