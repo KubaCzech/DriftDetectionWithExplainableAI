@@ -35,8 +35,8 @@ def visualize_distance_matrix(matrix: pd.DataFrame,
             if drift_iter in matrix.index:
                 idx = list(matrix.index).index(drift_iter)
                 # Draw lines to mark drifts
-                ax.axhline(y=idx, color='red', linewidth=2, alpha=0.7)
-                ax.axvline(x=idx, color='red', linewidth=2, alpha=0.7)
+                ax.axhline(y=idx, color='blue', linewidth=3, alpha=0.8)
+                ax.axvline(x=idx, color='blue', linewidth=3, alpha=0.8)
 
     ax.set_title(title)
     ax.set_xlabel('Iteration')
@@ -243,3 +243,105 @@ def plot_threshold_analysis_results(results):
     best = max(results, key=lambda x: x['f1'])
     print("Best Threshold by F1:")
     print(best)
+
+
+def create_prototypes_for_stream(model, storage, dataset, verbose=True):
+    """Process stream and create prototypes for each window.
+
+    Args:
+        model: The classification model (e.g., ARFClassifier)
+        storage: FullWindowStorage instance to store results
+        dataset: List of [x_block, y_block] tuples
+        verbose: Whether to print progress
+    """
+
+    for i in range(len(dataset)):
+        if verbose and i % 10 == 0:
+            print(f'{i}/{len(dataset)}')
+
+        x_block, y_block = dataset[i]
+
+        # Learn from data
+        for x, y in zip(x_block, y_block):
+            model.learn_one(x, y)
+
+        # Create fresh prototype selector with current model state
+        from src.recurrence.protree.explainers import APete
+        current_explainer = APete(model=model, alpha=0.01)
+
+        # Select prototypes independently for this window only
+        current_prototypes = current_explainer.select_prototypes(x_block, y_block)
+
+        # In case a class has 0 or 1 prototypes, run prototype selection just for this class to fix this
+        for class_name in set(y_block):
+            class_prototypes = current_prototypes[class_name]
+            if len(class_prototypes) in [0, 1]:
+                current_explainer = APete(model=model, alpha=0.50)  # change alpha threshold to make less prototypes
+                if verbose:
+                    print("Anomaly detected. Window:", i, "class:", class_name)
+
+                # create prototypes for the class with missing prototypes
+                x_block_missing_class = []
+                for x, y in zip(x_block, y_block):
+                    if y == class_name:
+                        x_block_missing_class.append(x)
+
+                y_block_missing_class = tuple([class_name]*len(x_block_missing_class))
+                x_block_missing_class = tuple(x_block_missing_class)
+
+                missing_prototypes = current_explainer.select_prototypes(x_block_missing_class, y_block_missing_class)
+                current_prototypes[class_name] = missing_prototypes[class_name]
+
+        # Store window data
+        storage.store_window(
+            iteration=i,
+            x=x_block,
+            y=y_block,
+            prototypes=current_prototypes,
+            explainer=None,
+            drift=False  # No drift detection being used
+        )
+
+    if verbose:
+        print(f"\nStored {len(storage.get_all_iterations())} windows")
+
+
+def prepare_dataset_from_generator(X, y, window_size):
+    """Convert numpy arrays into windowed dataset format.
+
+    Args:
+        X: Feature array or DataFrame
+        y: Target array or Series
+        window_size: Number of samples per window
+
+    Returns:
+        List of [x_block, y_block] tuples
+    """
+    X_np = X.to_numpy() if hasattr(X, "to_numpy") else X
+    y_np = y.to_numpy() if hasattr(y, "to_numpy") else y
+
+    total_samples = len(X)
+    num_windows = total_samples // window_size
+
+    dataset = []
+    for i in range(num_windows):
+        start_idx = i * window_size
+        end_idx = start_idx + window_size
+        if end_idx <= total_samples:
+            x_block = X_np[start_idx:end_idx]
+            y_block = y_np[start_idx:end_idx]
+
+            # Convert to list of dicts for River compatibility
+            feature_names = list(X.columns) if hasattr(X, "columns") else [f"f{k}" for k in range(X.shape[1])]
+            x_dicts = []
+            for row in x_block:
+                if hasattr(row, 'tolist'):
+                    row = row.tolist()
+                row_dict = {feature_names[k]: v for k, v in enumerate(row)}
+                x_dicts.append(row_dict)
+
+            y_list = y_block.tolist() if hasattr(y_block, 'tolist') else list(y_block)
+
+            dataset.append([tuple(x_dicts), tuple(y_list)])
+
+    return dataset
