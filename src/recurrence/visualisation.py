@@ -192,6 +192,7 @@ def plot_cluster_timeline(labels, drift_locations=None, title="Cluster Timeline"
 
     fig.update_layout(
         title=title,
+        title_font=dict(size=20, color="black"),
         xaxis_title="Window",
         yaxis_title="",
         showlegend=True,
