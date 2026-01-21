@@ -239,7 +239,7 @@ def plot_distance_to_all_windows(storage: FullWindowStorage, window_nr: int,
         for i, drift in enumerate(drift_locations):
             # Only add label to first drift line for legend
             label = 'Detected drifts' if i == 0 else None
-            ax.axvline(x=drift, color='orange', linestyle=':', alpha=0.7, linewidth=2.5, label=label)
+            ax.axvline(x=drift-0.5, color='orange', linestyle=':', alpha=0.7, linewidth=3, label=label)
 
     ax.set_xlabel('Window')
     ax.set_ylabel('Distance')
