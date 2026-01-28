@@ -130,7 +130,7 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
 
                 # Setup model and storage
                 status_text.text("Creating prototypes...")
-                model = forest.ARFClassifier()
+                model = forest.ARFClassifier(seed=42)
                 storage = FullWindowStorage()
 
                 # Get feature names from dashboard
