@@ -241,6 +241,7 @@ def plot_distance_to_all_windows(storage: FullWindowStorage, window_nr: int,
             label = 'Detected drifts' if i == 0 else None
             ax.axvline(x=drift-0.5, color='orange', linestyle=':', alpha=0.7, linewidth=3, label=label)
 
+    ax.set_xticks(range(0, len(data_to_plot), 5))
     ax.set_xlabel('Window')
     ax.set_ylabel('Distance')
     ax.set_title(f'Distance from Window {window_nr} to All Other Windows')
