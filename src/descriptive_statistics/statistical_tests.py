@@ -32,13 +32,14 @@ class StatisticalTestsDriftDetector:
         y_before: Union[np.ndarray, pd.Series],
         X_after: pd.DataFrame,
         y_after: Union[np.ndarray, pd.Series],
-        decision_thr: float = 0.6,
+        decision_thr: float = 0.4,
         alpha: float = 0.05,
         bins: int = 30,
         kl_thr: float = 0.1,
         wasserstein_thr: float = 0.1,
-        js_thr: float = 0.1,
+        js_thr: float = 0.05,
         spearman_thr: float = 0.9,
+        drift_thr: float = 0.2,
     ):
         self.X_before = X_before
         self.y_before = y_before
@@ -53,6 +54,8 @@ class StatisticalTestsDriftDetector:
         self.wasserstein_thr = wasserstein_thr
         self.js_thr = js_thr
         self.spearman_thr = spearman_thr
+
+        self.drift_thr = drift_thr
 
         self.drift_flag = None
         self.drift_flags = None
@@ -114,7 +117,9 @@ class StatisticalTestsDriftDetector:
                 if p_value < self.alpha:
                     details[l][column]['drift'] = True
 
-        drift_flag = np.mean([details[l][col]['drift'] for col in self.X_before.columns for l in self.labels]) > 0.2
+        drift_flag = (
+            np.mean([details[l][col]['drift'] for col in self.X_before.columns for l in self.labels]) > self.drift_thr
+        )
         return drift_flag, details
 
     def _kullback_leibler_test(self):
@@ -142,7 +147,8 @@ class StatisticalTestsDriftDetector:
                     details[l][column]['drift'] = True
 
         drift_flag = (
-            np.mean([details[l][col]['drift'] for col in self.X_before_scaled.columns for l in self.labels]) > 0.2
+            np.mean([details[l][col]['drift'] for col in self.X_before_scaled.columns for l in self.labels])
+            > self.drift_thr
         )
         return drift_flag, details
 
@@ -158,7 +164,8 @@ class StatisticalTestsDriftDetector:
                 if wd > self.wasserstein_thr:
                     details[l][column]['drift'] = True
         drift_flag = (
-            np.mean([details[l][col]['drift'] for col in self.X_before_scaled.columns for l in self.labels]) > 0.2
+            np.mean([details[l][col]['drift'] for col in self.X_before_scaled.columns for l in self.labels])
+            > self.drift_thr
         )
         return drift_flag, details
 
@@ -188,7 +195,8 @@ class StatisticalTestsDriftDetector:
                 if js_div > self.js_thr:
                     details[l][column]['drift'] = True
         drift_flag = (
-            np.mean([details[l][col]['drift'] for col in self.X_before_scaled.columns for l in self.labels]) > 0.2
+            np.mean([details[l][col]['drift'] for col in self.X_before_scaled.columns for l in self.labels])
+            > self.drift_thr
         )
         return drift_flag, details
 
@@ -209,7 +217,9 @@ class StatisticalTestsDriftDetector:
                 details[l][column]['spearman_coeff'] = corr
                 if abs(corr) < self.spearman_thr:
                     details[l][column]['drift'] = True
-        drift_flag = np.mean([details[l][col]['drift'] for col in self.X_before.columns for l in self.labels]) > 0.2
+        drift_flag = (
+            np.mean([details[l][col]['drift'] for col in self.X_before.columns for l in self.labels]) > self.drift_thr
+        )
         return drift_flag, details
 
     def _anderson_darling_test(self):
@@ -228,5 +238,7 @@ class StatisticalTestsDriftDetector:
                 details[l][column]['p_value'] = p_value
                 details[l][column]['stat'] = stat
                 details[l][column]['critical'] = critical
-        drift_flag = np.mean([details[l][col]['drift'] for col in self.X_before.columns for l in self.labels]) > 0.2
+        drift_flag = (
+            np.mean([details[l][col]['drift'] for col in self.X_before.columns for l in self.labels]) > self.drift_thr
+        )
         return drift_flag, details

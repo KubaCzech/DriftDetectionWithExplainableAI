@@ -53,7 +53,7 @@ class DescriptiveStatisticsDriftDetector:
         y_before: np.ndarray,
         X_after: pd.DataFrame,
         y_after: np.ndarray,
-        decision_thr: float = 0.6,
+        decision_thr: float = 0.4,
     ) -> None:
         """
         Initialize the drift detector.
@@ -112,7 +112,7 @@ class DescriptiveStatisticsDriftDetector:
             Relative shift of statistic between first and second data block.
         """
         eps = 1e-10
-        shift = abs(new_value - old_value) / abs(old_value + eps)
+        shift = (new_value - old_value) / abs(old_value + eps)
         return shift
 
     @staticmethod
@@ -334,11 +334,11 @@ class DescriptiveStatisticsDriftDetector:
                 stats = {("label", "id"): label}
 
                 for f in features:
-                    stats[(f, "min")] = group[f].min()
+                    # stats[(f, "min")] = group[f].min()
                     stats[(f, "median")] = group[f].median()
                     stats[(f, "mean")] = group[f].mean()
                     stats[(f, "std")] = group[f].std()
-                    stats[(f, "max")] = group[f].max()
+                    # stats[(f, "max")] = group[f].max()
 
                 records.append(stats)
 

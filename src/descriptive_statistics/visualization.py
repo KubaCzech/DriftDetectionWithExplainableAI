@@ -59,6 +59,7 @@ def plot(title: str, sharey: bool = True, palette: Optional[Sequence[str]] = Non
             X_after: pd.DataFrame,
             y_after: Union[pd.Series, np.ndarray],
             *args,
+            save=None,
             **kwargs,
         ) -> None:
             if hasattr(y_before, "values"):
@@ -73,7 +74,7 @@ def plot(title: str, sharey: bool = True, palette: Optional[Sequence[str]] = Non
             kwargs['default_colors'] = default_colors
 
             features = X_before.columns
-            classes = list(sorted(set(y_before).union(set(y_after))))
+            classes = sorted([int(i) for i in set(y_before).union(set(y_after))])
 
             fig, axes = plt.subplots(
                 len(features), len(classes), figsize=(6 * len(classes), 5 * len(features)), sharey=sharey
@@ -108,12 +109,14 @@ def plot(title: str, sharey: bool = True, palette: Optional[Sequence[str]] = Non
                     )
 
                     if i == 0:
-                        ax.set_title(f'Class {cl}')
+                        ax.set_title(f'Class {int(cl)}')
                     if j == 0:
                         ax.set_ylabel(feature)
 
             fig.suptitle(title, fontsize=14)
             plt.tight_layout()
+            if save is not None and isinstance(save, str):
+                plt.savefig(save)
             plt.show()
 
         return wrapper
@@ -123,7 +126,9 @@ def plot(title: str, sharey: bool = True, palette: Optional[Sequence[str]] = Non
 
 # 1. Boxplot
 @plot("Boxplot – Before vs After")
-def _boxplot(ax: plt.Axes, old_vals: pd.Series, new_vals: pd.Series, feature: str, show_: PlotOptions, **_) -> None:
+def _boxplot(
+    ax: plt.Axes, old_vals: pd.Series, new_vals: pd.Series, feature: str, show_: PlotOptions, save=None, **_
+) -> None:
     """
     Draw a boxplot comparing distributions of two data blocks.
     """
@@ -148,7 +153,7 @@ def _boxplot(ax: plt.Axes, old_vals: pd.Series, new_vals: pd.Series, feature: st
         mean_color = bp['means'][0].get_color()
     else:
         raise ValueError("Unsupported Boxplot option")
-    ax.set_xlabel(feature)
+    ax.set_ylabel('Value of feature')
 
     if median_color is not None:
         legend_elements.append(Line2D([0], [0], color=median_color, lw=1, label='Median'))
@@ -160,7 +165,7 @@ def _boxplot(ax: plt.Axes, old_vals: pd.Series, new_vals: pd.Series, feature: st
 # 2. Histogram
 @plot("Histogram - Before vs After")
 def _histogram(
-    ax: plt.Axes, old_vals: pd.Series, new_vals: pd.Series, colors: Sequence[str], bins: int = 30, **_
+    ax: plt.Axes, old_vals: pd.Series, new_vals: pd.Series, colors: Sequence[str], bins: int = 30, save=None, **_
 ) -> None:
     """
     Draw overlapping histograms for distributions of two data blocks.
@@ -177,6 +182,8 @@ def _histogram(
         Patch(facecolor=colors[1], alpha=0.6, label='After'),
         Patch(facecolor=both_color, alpha=0.6, label='Both'),
     ]
+    ax.set_xlabel('Value of feature')
+    ax.set_ylabel('Number of appearences')
     ax.legend(handles=legend_elements)
 
 
