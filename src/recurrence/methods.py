@@ -275,8 +275,8 @@ def create_prototypes_for_stream(model, storage, dataset, verbose=True):
         # In case a class has 0 or 1 prototypes, run prototype selection just for this class to fix this
         for class_name in set(y_block):
             class_prototypes = current_prototypes[class_name]
-            if len(class_prototypes) in [0, 1]:
-                current_explainer = APete(model=model, alpha=0.50)  # change alpha threshold to make less prototypes
+            if len(class_prototypes) in [0, 1, 2]:
+                current_explainer = APete(model=model, alpha=0.05)  # change alpha threshold to make less prototypes
                 if verbose:
                     print("Anomaly detected. Window:", i, "class:", class_name)
 
