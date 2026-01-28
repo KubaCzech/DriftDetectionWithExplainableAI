@@ -152,15 +152,17 @@ def render_drift_detection_tab(X, y, window_length, model_class=None, model_para
 
     with col2:
         st.markdown("**Descriptor Parameters**")
-        warning_grace_period = st.slider(
-            "Warning Grace Period",
-            min_value=1,
-            max_value=10,
-            value=3,
-            step=1,
-            help="Number of non-warning iterations allowed in warning chain",
-            key="ddm_grace"
-        )
+        # warning grace period has been turned off.
+        warning_grace_period = 1
+        # warning_grace_period = st.slider(
+        #     "Warning Grace Period",
+        #     min_value=1,
+        #     max_value=10,
+        #     value=3,
+        #     step=1,
+        #     help="Number of non-warning iterations allowed in warning chain",
+        #     key="ddm_grace"
+        # )
         rate_calculation_sample_size = st.slider(
             "Rate Calculation Sample Size",
             min_value=50,
