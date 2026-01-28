@@ -139,6 +139,8 @@ class ClusterBasedDriftDetector:
     y_old: np.ndarray
     X_new: np.ndarray
     y_new: np.ndarray
+    X_old_unscaled: np.ndarray
+    X_new_unscaled: np.ndarray
 
     k_init: int
     k_max: int
@@ -188,9 +190,10 @@ class ClusterBasedDriftDetector:
         weights: Sequence[float] = [0.4, 0.25, 0.25, 0.1],
         random_state=42,
     ) -> None:
-        ds = DataScaler(ScalingType.Standard)
-        X_before = ds.fit_transform(X_before.copy(), return_df=True)
-        X_after = ds.transform(X_after.copy(), return_df=True)
+        # ds = DataScaler(ScalingType.Standard)
+        # X_before = ds.fit_transform(X_before.copy(), return_df=True)
+        # X_after = ds.transform(X_after.copy(), return_df=True)
+        X_before, X_after = self.scale_data(X_before, X_after)
 
         assert sorted(X_after.columns.values) == sorted(X_before.columns.values)
         self.columns = X_before.columns
@@ -241,6 +244,16 @@ class ClusterBasedDriftDetector:
         self.drift_details = None
 
         self.random_state = random_state
+
+    def scale_data(self, X_before, X_after):
+        self.X_old_unscaled = X_before.copy()
+        self.X_new_unscaled = X_after.copy()
+
+        ds = DataScaler(ScalingType.Standard)
+        X_before = ds.fit_transform(X_before.copy(), return_df=True)
+        X_after = ds.transform(X_after.copy(), return_df=True)
+
+        return X_before, X_after
 
     def _reshape_clusters(self, clusters: list[list[int]]) -> np.ndarray:
         """
@@ -657,11 +670,11 @@ class ClusterBasedDriftDetector:
                 cluster_df = df[df['cluster'] == cluster]
                 stats_dict = {}
                 for f in features:
-                    stats_dict[(f, 'min')] = cluster_df[f].min()
+                    # stats_dict[(f, 'min')] = cluster_df[f].min()
                     stats_dict[(f, 'median')] = cluster_df[f].median()
                     stats_dict[(f, 'mean')] = cluster_df[f].mean()
                     stats_dict[(f, 'std')] = cluster_df[f].std()
-                    stats_dict[(f, 'max')] = cluster_df[f].max()
+                    # stats_dict[(f, 'max')] = cluster_df[f].max()
                 stats_dict[('cluster', 'id')] = cluster
                 records.append(stats_dict)
 

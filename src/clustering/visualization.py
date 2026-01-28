@@ -147,6 +147,7 @@ def plot_drift_clustered(
     labels_before: Sequence[Union[int, float]],
     labels_after: Sequence[Union[int, float]],
     show: bool = False,
+    save=None,
 ) -> None:
     """
     Plot clusters from first and second data block to visualize drift for 2D data.
@@ -191,6 +192,8 @@ def plot_drift_clustered(
     _plot_clusters(X_after, labels_after, "After Drift")
 
     plt.tight_layout()
+    if save is not None and isinstance(save, str):
+        plt.savefig(save)
     if show:
         plt.show()
 
@@ -204,6 +207,7 @@ def plot_clusters_by_class(
     cluster_labels_before: Sequence[Union[int, float]],
     cluster_labels_after: Sequence[Union[int, float]],
     show: bool = False,
+    save=None,
 ) -> None:
     """
     Plot clusters separated by class labels to visualize drift per class (not overall) for 2D data.
@@ -255,6 +259,8 @@ def plot_clusters_by_class(
         _plot_clusters(X_after[mask_after], cluster_labels_after[mask_after], title=f"After Drift – Class {cl}")
 
     plt.tight_layout()
+    if save is not None and isinstance(save, str):
+        plt.savefig(save)
     if show:
         plt.show()
 
@@ -268,6 +274,7 @@ def plot_centers_shift(
     cluster_labels_old: Sequence[Union[int, float]],
     cluster_labels_new: Sequence[Union[int, float]],
     show: bool = False,
+    save=None,
 ) -> None:
     """
     Plot shifts of cluster centroids between two data blocks for 2D data.
@@ -340,11 +347,13 @@ def plot_centers_shift(
     plt.ylabel("Component 2")
     plt.grid(True)
     plt.legend()
+    if save is not None and isinstance(save, str):
+        plt.savefig(save)
     if show:
         plt.show()
 
 
-def plot_clustering_heatmap(stats_shifts, threshold, show=False):
+def plot_clustering_heatmap(stats_shifts, threshold, show=False, save=None):
     def make_dataframe_from_dict(dictt):
         df = (
             pd.DataFrame.from_dict(dictt, orient="index")
@@ -359,7 +368,8 @@ def plot_clustering_heatmap(stats_shifts, threshold, show=False):
     stats_shifts_flattened["X"] = (
         "Cluster" + stats_shifts_flattened["cluster"].astype(int).astype(str) + ":" + stats_shifts_flattened["feature"]
     )
-    stats = ["min", "mean", "median", "max", "std"]
+    # stats = ["min", "mean", "median", "max", "std"]
+    stats = ["mean", "median", "std"]
 
     heatmap_data = stats_shifts_flattened.set_index("X")[stats].T
 
@@ -391,5 +401,7 @@ def plot_clustering_heatmap(stats_shifts, threshold, show=False):
         Patch(facecolor="#7E7B7B", edgecolor="black", label="Missing value (NaN)"),
     ]
     plt.legend(handles=legend_elements, loc="upper right", title="Legend", frameon=True)
+    if save is not None and isinstance(save, str):
+        plt.savefig(save)
     if show:
         plt.show()
