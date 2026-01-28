@@ -26,6 +26,11 @@ def _display_drift_status(drift_flag):
         st.success(f"**Drift Detected:** {drift_flag}")
 
 
+def _display_drift_strength(drift_strength):
+    st.subheader("Drift Strength")
+    st.write(f"The calculated drift strength is: **{drift_strength:.4f}**")
+
+
 def _config_details_dataframe(details):
     rows = []
     for class_label, class_details in details.items():
@@ -209,6 +214,7 @@ def render_clustering_analysis_tab(X_before, y_before, X_after, y_after):
             drift_flag, details = detector.detect()
 
             _display_drift_status(drift_flag)
+            _display_drift_strength(detector.strength_of_drift)
             _display_drift_details(details)
             _display(X_before, X_after, y_before, y_after, detector)
 
