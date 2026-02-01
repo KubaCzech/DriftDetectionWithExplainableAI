@@ -305,7 +305,7 @@ def _display_avg_distance_to_center_change(detector: ClusterBasedDriftDetector):
             'avg_distance_before': [i[1] for i in sorted(detector.avg_distance_old.items(), key=lambda x: x[0])],
             'avg_distance_after': [i[1] for i in sorted(detector.avg_distance_new.items(), key=lambda x: x[0])],
             'avg_distance_shift': [
-                f"{"+" if i[1] > 0 else "-"}{abs(round(i[1]*100, 2))}%" if i[1] is not None else "-"
+                f"{'+' if i[1] > 0 else '-'}{abs(round(i[1]*100, 2))}%" if i[1] is not None else "-"
                 for i in sorted(detector.avg_distance_shift.items(), key=lambda x: x[0])
             ],
         }
