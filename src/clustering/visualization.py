@@ -249,14 +249,16 @@ def plot_clusters_by_class(
         plt.sca(ax_before)
 
         mask_before = np.array(y_before) == cl
-        _plot_clusters(X_before[mask_before], cluster_labels_before[mask_before], title=f"Before Drift – Class {cl}")
+        _plot_clusters(
+            X_before[mask_before], cluster_labels_before[mask_before], title=f"Before Drift – Class {int(cl)}"
+        )
 
         # second data block
         ax_after = axes[row, 1]
         plt.sca(ax_after)
 
         mask_after = np.array(y_after) == cl
-        _plot_clusters(X_after[mask_after], cluster_labels_after[mask_after], title=f"After Drift – Class {cl}")
+        _plot_clusters(X_after[mask_after], cluster_labels_after[mask_after], title=f"After Drift – Class {int(cl)}")
 
     plt.tight_layout()
     if save is not None and isinstance(save, str):
