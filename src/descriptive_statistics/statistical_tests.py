@@ -12,7 +12,6 @@ from src.common import DataScaler, ScalingType
 # TODO:
 # * wizualizacja
 # * dokumentacja
-# * eksperymenty
 
 
 class StatisticalTestType(Enum):
