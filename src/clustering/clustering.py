@@ -81,11 +81,15 @@ class ClusterBasedDriftDetector:
     X_old : np.ndarray
         Feature matrix of the old dataset.
     y_old : np.ndarray
-        Class labels of the old dataset.
-    X_new : np.ndarray
+        Class labels
+    X_new : np.ndarray or pd.DataFrame
         Feature matrix of the new dataset.
     y_new : np.ndarray
         Class labels of the new dataset.
+    X_old_unscaled : Optional[np.ndarray]
+        Unscaled feature matrix of the old dataset.
+    X_new_unscaled : Optional[np.ndarray]
+        Unscaled feature matrix of the new dataset.
 
     k_init : int
         Minimal number of clusters that must be present in each iteration of X-means.
@@ -96,23 +100,38 @@ class ClusterBasedDriftDetector:
         Minimal difference in number of clusters between data blocks to acknowledge
         the drift.
     thr_centroid_shift : float
+        Minimal difference in shift between clusters to acknowledge the drift.
+    thr_centroid_disappear : float
         Measure of how much the cluster must be shifted so it does not appear that the
         cluster was shifted, but instead that the old cluster disappeared and a new one
         appeared.
     thr_desc_stats : float
         Minimal relative change between corresponding clusters' descriptive statistics
         to acknowledge the drift.
+    thr_avg_distance_to_center_change : float
+        Minimal change of average euclidean distance between data points and center of
+        cluster to acknowledge the drift.
 
-    cluster_labels_old : np.ndarray or None
-        Global cluster labels assigned to samples in the old dataset.
-    cluster_labels_new : np.ndarray or None
-        Global cluster labels assigned to samples in the new dataset.
+    decision_thr : float
+        Minimal value of weighted average needed to be achieved to return information that
+
+    weights : Sequence[float]
+        Values of weights used for calculating weighted average.
 
     centers_old : dict or None
         Cluster centroids coordinates for the old dataset indexed by global cluster id.
     centers_new : dict or None
         Cluster centroids coordinates for the new dataset indexed by global cluster id.
 
+    cluster_labels_old : np.ndarray or None
+        Global cluster labels assigned to samples in the old dataset.
+    cluster_labels_new : np.ndarray or None
+        Global cluster labels assigned to samples in the new dataset.
+
+    stats_combined : pd.DataFrame or None
+        Descriptive statistics for each cluster between data blocks.
+    stats_shifts : pd.DataFrame or None
+        Relative changes of descriptive statistics between corresponding clusters.
     cluster_shifts : dict or None
         Euclidean distances between matched old and new cluster centroids.
 
@@ -123,8 +142,14 @@ class ClusterBasedDriftDetector:
 
     drift_flag : bool
         Indicates whether drift was detected.
+    strength_of_drift : float
+        Strength of detected drift as a weighted average of individual criteria.
+
     drift_details : dict or None
         Detailed drift information reported per class label.
+
+    random_state : int
+        Value of numpy random state to ensure determinism.
 
     Notes
     -----
@@ -135,12 +160,12 @@ class ClusterBasedDriftDetector:
     clusters within a predefined range.
     """
 
-    X_old: np.ndarray
+    X_old: Union[np.ndarray, pd.DataFrame]
     y_old: np.ndarray
-    X_new: np.ndarray
+    X_new: Union[np.ndarray, pd.DataFrame]
     y_new: np.ndarray
-    X_old_unscaled: np.ndarray
-    X_new_unscaled: np.ndarray
+    X_old_unscaled: Optional[np.ndarray]
+    X_new_unscaled: Optional[np.ndarray]
 
     k_init: int
     k_max: int
@@ -153,7 +178,7 @@ class ClusterBasedDriftDetector:
 
     decision_thr: float
 
-    weights: np.ndarray
+    weights: Sequence[float]
 
     centers_old: Optional[dict[int, Optional[np.ndarray]]]
     centers_new: Optional[dict[int, Optional[np.ndarray]]]
@@ -165,13 +190,15 @@ class ClusterBasedDriftDetector:
     stats_shifts: Optional[pd.DataFrame]
     cluster_shifts: Optional[dict[int, dict | str]]
 
-    number_of_clusters_old: int
-    number_of_clusters_new: int
+    number_of_clusters_old: Optional[int]
+    number_of_clusters_new: Optional[int]
 
     drift_flag: bool
     strength_of_drift: float
 
     drift_details: dict
+
+    random_state: int
 
     def __init__(
         self,
@@ -190,9 +217,17 @@ class ClusterBasedDriftDetector:
         weights: Sequence[float] = [0.4, 0.25, 0.25, 0.1],
         random_state=42,
     ) -> None:
-        # ds = DataScaler(ScalingType.Standard)
-        # X_before = ds.fit_transform(X_before.copy(), return_df=True)
-        # X_after = ds.transform(X_after.copy(), return_df=True)
+        """
+        Initializes the detector by validating inputs, scaling feature space,
+        and setting drift detection thresholds.
+
+        Input feature matrices are scaled jointly to ensure comparability
+        between the before and after windows. Thresholds related to centroid
+        distances are automatically adjusted for data dimensionality.
+
+        No drift detection is performed during initialization.
+        """
+
         X_before, X_after = self.scale_data(X_before, X_after)
 
         assert sorted(X_after.columns.values) == sorted(X_before.columns.values)
@@ -245,9 +280,38 @@ class ClusterBasedDriftDetector:
 
         self.random_state = random_state
 
-    def scale_data(self, X_before, X_after):
-        self.X_old_unscaled = X_before.copy()
-        self.X_new_unscaled = X_after.copy()
+    def scale_data(
+        self, X_before: Union[pd.DataFrame, np.ndarray], X_after: Union[pd.DataFrame, np.ndarray]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Scale data using Standardization to ensure comparability between
+        before and after windows.
+
+        Parameters
+        ----------
+        X_before : pd.DataFrame or np.ndarray
+            Feature values for first (old) data block.
+        X_after : pd.DataFrame or np.ndarray
+            Feature values for second (new) data block.
+
+        Returns
+        -------
+        X_before_scaled : pd.DataFrame
+            Scaled feature values for first (old) data block.
+        X_after_scaled : pd.DataFrame
+            Scaled feature values for second (new) data block.
+        """
+
+        X_old_unscaled = X_before.copy()
+        X_new_unscaled = X_after.copy()
+
+        if hasattr(X_old_unscaled, "values"):
+            X_old_unscaled = X_old_unscaled.values
+        if hasattr(X_new_unscaled, "values"):
+            X_new_unscaled = X_new_unscaled.values
+
+        self.X_old_unscaled = X_old_unscaled
+        self.X_new_unscaled = X_new_unscaled
 
         ds = DataScaler(ScalingType.Standard)
         X_before = ds.fit_transform(X_before.copy(), return_df=True)
@@ -787,6 +851,10 @@ class ClusterBasedDriftDetector:
         }
 
     def calculate_avg_distance_from_centroid(self) -> None:
+        """
+        Compute average Euclidean distance of samples to their respective cluster centroids
+        for both data blocks and calculate the relative shift between them.
+        """
         assert self.centers_old is not None
         assert self.centers_new is not None
 
@@ -817,6 +885,8 @@ class ClusterBasedDriftDetector:
         }
 
     def generate_drift_flag(self) -> None:
+        """
+        Generate the final drift flag based on weighted average of individual criteria."""
         eps = 1e-10
         trues = np.array(
             [
