@@ -2,6 +2,7 @@ import traceback
 import numpy as np
 import pandas as pd
 import streamlit as st
+from typing import Sequence, Union
 import matplotlib.pyplot as plt
 
 from src.clustering.clustering import ClusterBasedDriftDetector
@@ -12,7 +13,6 @@ from src.clustering.visualization import (
 )
 
 
-# DONE
 def _display_intro():
     """
     Renders the introductory text for the Clustering Analysis tab.
@@ -28,8 +28,7 @@ def _display_intro():
     )
 
 
-# DONE
-def _display_drift_status(drift_flag):
+def _display_drift_status(drift_flag: bool):
     """
     Displays whether drift was detected.
 
@@ -44,8 +43,7 @@ def _display_drift_status(drift_flag):
         st.error(f"**Drift Detected:** No")
 
 
-# DONE
-def _display_drift_strength(drift_strength):
+def _display_drift_strength(drift_strength: bool):
     """
     Displays strength of drift indicator.
 
@@ -58,47 +56,169 @@ def _display_drift_strength(drift_strength):
     st.write(f"The calculated drift strength is: **{drift_strength:.4f}**")
 
 
-# TODO
-def _config_details_dataframe(details):
+def _config_details_dataframe(details: dict, weights: Sequence[float]) -> pd.DataFrame:
+    """
+    Configures a DataFrame summarizing drift details per class.
+
+    Parameters
+    ----------
+    details : dict
+        Detailed drift information per class.
+    weights : Sequence[float]
+        Weights for each drift criterion.
+    """
     rows = []
-    for class_label, class_details in details.items():
-        row = {'Class': str(class_label)}
-        row['Cluster Count Drift'] = class_details.get('nr_of_clusters')
-        row['Centroid Shift Drift'] = class_details.get('centroid_shift')
+    true_counts = []
+    false_counts = []
+
+    for cl in details.keys():
+        trues = np.array(
+            [
+                int(details[cl]['nr_of_clusters']),
+                sum(
+                    [
+                        stat
+                        for cluster in details[cl]['desc_stats_changes'].values()
+                        for feature in cluster.values()
+                        for stat in feature.values()
+                    ]
+                ),
+                sum([details[cl]['centroid_shift'][label] for label in details[cl]['centroid_shift'].keys()]),
+                sum(
+                    [
+                        details[cl]['avg_distance_to_center'][label]
+                        for label in details[cl]['avg_distance_to_center'].keys()
+                    ]
+                ),
+            ]
+        )
+
+        falses = np.array(
+            [
+                int(not details[cl]['nr_of_clusters']),
+                sum(
+                    [
+                        not stat
+                        for cluster in details[cl]['desc_stats_changes'].values()
+                        for feature in cluster.values()
+                        for stat in feature.values()
+                    ]
+                ),
+                sum([not details[cl]['centroid_shift'][label] for label in details[cl]['centroid_shift'].keys()]),
+                sum(
+                    [
+                        not details[cl]['avg_distance_to_center'][label]
+                        for label in details[cl]['avg_distance_to_center'].keys()
+                    ]
+                ),
+            ]
+        )
+        true_counts.append(trues)
+        false_counts.append(falses)
+
+    true_counts = np.array(true_counts)
+    false_counts = np.array(false_counts)
+    total_counts = np.sum(true_counts, axis=0) + np.sum(false_counts, axis=0)
+
+    contributions = (true_counts / np.vstack([total_counts, total_counts])) * np.vstack([weights, weights])
+
+    for i, class_label in enumerate(details.keys()):
+        row = dict()
+        row['Cluster Count Drift'] = contributions[i, 0]
+        row['Stats Drift'] = contributions[i, 1]
+        row['Centroid Shift Drift'] = contributions[i, 2]
+        row['Avg Distance to Center Drift'] = contributions[i, 3]
         rows.append(row)
-    return pd.DataFrame(rows)
+
+    df = pd.DataFrame(
+        rows,
+        index=[f"Class {str(int(c))}" if not isinstance(c, str) else c for c in details.keys()],
+    )
+    cols = df.columns.tolist()
+    df = df.T
+    df['Criterion'] = cols
+    return df[['Criterion'] + [i for i in df.columns.to_list() if i != 'Criterion']]
 
 
-# TODO
-def _display_drift_details(details):
+def _display_drift_details(details: dict, weights: Sequence[float]):
+    """
+    Displays detailed drift information per class.
+
+    Parameters
+    ----------
+    details : dict
+        Detailed drift information per class.
+    weights : Sequence[float]
+        Weights for each drift criterion.
+    """
     st.subheader("Drift Details by Class")
 
-    details_df = _config_details_dataframe(details)
+    details_df = _config_details_dataframe(details, weights)
 
     st.dataframe(
         details_df,
         column_config={
-            "Class": st.column_config.TextColumn("Class"),
-            "Cluster Count Drift": st.column_config.CheckboxColumn(
-                "Cluster Count Drift", help="True if the number of clusters changed", disabled=True
+            "Criterion": st.column_config.TextColumn(
+                "Criterion",
+                help="Drift criterion",
+                disabled=True,
             ),
-            "Centroid Shift Drift": st.column_config.CheckboxColumn(
-                "Centroid Shift Drift", help="True if cluster centroids shifted significantly", disabled=True
-            ),
+            **{
+                col: st.column_config.NumberColumn(
+                    col,
+                    help="Contribution to drift strength",
+                    disabled=True,
+                    format="%.4f",
+                )
+                for col in details_df.columns
+                if col != "Criterion"
+            },
         },
         width="stretch",
         hide_index=True,
     )
 
 
-# TODO
-def _display_visualization(X_before, X_after, y_before, y_after, labels_old, labels_new, viz_type='cluster by class'):
+def _display_visualization(
+    X_before: pd.DataFrame,
+    X_after: pd.DataFrame,
+    y_before: np.ndarray,
+    y_after: np.ndarray,
+    labels_old: Sequence[int],
+    labels_new: Sequence[int],
+    viz_type: str = 'cluster by class',
+):
+    """
+    Helper functions to display visualizations for clustering analysis from another module.
+
+    X_before : pd.DataFrame
+        Feature matrix for 'before' data block
+    X_after : pd.DataFrame
+        Feature matrix for 'after' data block
+    y_before : np.ndarray
+        Target variable for 'before' data block
+    y_after : np.ndarray
+        Target variable for 'after' data block
+    labels_old : Sequence[int]
+        Cluster labels for 'before' data block
+    labels_new : Sequence[int]
+        Cluster labels for 'after' data block
+    viz_type : str
+        Type of visualization to display
+    """
     plot_func = CLUSTER_PLOT_FUNCTIONS.get(viz_type, plot_clusters_by_class)
     plot_func(X_before, X_after, y_before, y_after, labels_old, labels_new)
 
 
-# TODO
-def _display_table(detector, table_type):
+def _display_table(detector: ClusterBasedDriftDetector, table_type: str = 'centroid shifts (table)'):
+    """
+    Helper functions to display tables for clustering analysis.
+
+    detector : ClusterBasedDriftDetector
+        The drift detector containing all necessary information.
+    table_type : str
+        Type of visualization to display
+    """
     table_func = CLUSTER_TABLE_FUNCTIONS.get(table_type, _display_centroid_shift_table)
     table_func(detector)
 
@@ -111,7 +231,6 @@ CLUSTER_PLOT_FUNCTIONS = {
 
 
 # TABULAR DISPLAY FUNCTIONS
-# DONE
 def _display_cluster_assignments_table(detector: ClusterBasedDriftDetector):
     """
     Displays a table showing cluster assignments for each class before and after drift.
@@ -157,7 +276,6 @@ def _display_cluster_assignments_table(detector: ClusterBasedDriftDetector):
     )
 
 
-# DONE
 def _display_stats_shift_table(detector):
     """
     Displays a table showing statistical shifts for each cluster.
@@ -178,7 +296,7 @@ def _display_stats_shift_table(detector):
             row = {"Cluster": cluster_id}
             for feature_name, stats in features.items():
                 for stat_name, value in stats.items():
-                    row[f"{feature_name} | {stat_name}"] = f"{round(100*value, 2)}%" if value is not None else "N/A"
+                    row[f"{feature_name} | {stat_name}"] = f"{round(100*value, 2)}%" if not np.isnan(value) else "N/A"
             records.append(row)
 
         df = pd.DataFrame(records)
@@ -188,7 +306,6 @@ def _display_stats_shift_table(detector):
     st.dataframe(stats_shifts, use_container_width=True, hide_index=True)
 
 
-# DONE
 def _display_centroid_shift_table(detector: ClusterBasedDriftDetector):
     """
     Displays a table showing centroid shifts (in units) for each cluster.
@@ -228,7 +345,6 @@ def _display_centroid_shift_table(detector: ClusterBasedDriftDetector):
     )
 
 
-# DONE
 def _display_centroids_table(detector: ClusterBasedDriftDetector):
     """
     Displays centroids in a format:
@@ -289,7 +405,6 @@ def _display_centroids_table(detector: ClusterBasedDriftDetector):
     )
 
 
-# DONE
 def _display_avg_distance_to_center_change(detector: ClusterBasedDriftDetector):
     """
     Displays a table showing average distance to cluster center changes.
@@ -334,7 +449,6 @@ CLUSTER_TABLE_FUNCTIONS = {
 }
 
 
-# TODO
 def _display(
     X_before: pd.DataFrame,
     X_after: pd.DataFrame,
@@ -366,9 +480,8 @@ def _display(
     if labels_old is not None and labels_new is not None:
         col_viz_options, _ = st.columns([1, 2])
         with col_viz_options:
-            # TODO: wymyslic opisy
             _type = st.selectbox(
-                "TODO",
+                "Select clustering analysis view",
                 options=[
                     'clusters by class',
                     'clusters overall',
@@ -381,7 +494,9 @@ def _display(
                 ],
                 index=0,  # Default to 'cluster by class'
                 key='viz_type_selector',
-                help="TODO",
+                help=(
+                    "Choose how clustering results and drift-related information " "should be visualized or summarized."
+                ),
             )
         if _type in CLUSTER_PLOT_FUNCTIONS:
             _display_visualization(X_before, X_after, y_before, y_after, labels_old, labels_new, viz_type=_type)
@@ -394,7 +509,6 @@ def _display(
         st.warning("Cluster labels not available for plotting.")
 
 
-# DONE
 def render_clustering_analysis_tab(
     X_before: pd.DataFrame, y_before: np.ndarray, X_after: pd.DataFrame, y_after: np.ndarray
 ):
@@ -423,7 +537,7 @@ def render_clustering_analysis_tab(
 
             _display_drift_status(drift_flag)
             _display_drift_strength(detector.strength_of_drift)
-            _display_drift_details(details)
+            _display_drift_details(details, detector.weights)
             _display(X_before, X_after, y_before, y_after, detector)
 
         except Exception as e:
