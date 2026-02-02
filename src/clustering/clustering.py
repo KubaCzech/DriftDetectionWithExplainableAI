@@ -15,14 +15,13 @@ if not hasattr(np, "warnings"):
 
 
 class ClusterBasedDriftDetector:
-    # TODO: dokumentacja
     """
     Cluster-based data drift detector using X-Means clustering.
 
-    Clustering is performed independently within each class label.
-    The resulting clusters are then remapped and merged into a global
-    cluster labeling space to allow cross-class comparison and unified
-    drift assessment.
+    Clustering is performed independently within each class label
+    (per class). The resulting clusters are then remapped and merged
+    into a global cluster labeling space to allow cross-class
+    comparison and unified drift assessment.
 
     Drift is detected based on four complementary criteria:
 
@@ -36,25 +35,26 @@ class ClusterBasedDriftDetector:
 
     Parameters
     ----------
-    X_before : pd.Dataframe
-        ...
+    X_before : pd.DataFrame
+        Feature matrix of the old dataset.
     y_before : pd.Series or pd.ndarray
-        ...
-    X_after : pd.Dataframe
-        ...
+        Class labels of the old dataset.
+    X_after : pd.DataFrame
+        Feature matrix of the new dataset.
     y_after : pd.Series or np.ndarray
-        ...
+        Class labels of the new dataset.
 
     k_init : int, default=2
         Minimal number of clusters that must be present in each iteration of X-means.
     k_max : int, default=10
         Maximal number of clusters that can be present in each iteration of X-means.
-    thr_clusters : int, default=1
+
+    thr_clusters : int, default = 1
         Minimal difference in number of clusters between data blocks to acknowledge
         the drift.
-    thr_centroid_shift : float, default = 0.2
+    thr_centroid_shift : float, default = 0.15
         Minimal difference in shift between clusters to acknowledge the drift.
-    thr_centroid_disappear : float, default = 0.4
+    thr_centroid_disappear : float, default = 0.5
         Measure how much the cluster must be shifted (in case of euclidean distance) so
         it does not appear that the cluster was shifted, but instead that the old cluster
         disappeared and a new one appeared.
@@ -66,23 +66,23 @@ class ClusterBasedDriftDetector:
         cluster to acknowledge the drift.
 
     decision_thr : float, default=0.5
-        Minimal value of weighted average needed to be achieved to return information that
-        drift occured.
+        Weighted average threshold above which drift is considered to occur.
 
-    weights : Sequence[float], default=[0.4, 0.25, 0.15, 0.1]
+    weights : Sequence[float], default=[0.4, 0.25, 0.25, 0.1]
         Values of weights used for calculating weighted average. Normalized, so that the sum
         of all is equal 1.0. Size of weights must be equal to 4.
-    random_state : int
+
+    random_state : int, default = 42
         Value of numpy random state to ensure determinism.
 
 
     Attributes
     ----------
-    X_old : np.ndarray
+    X_old : np.ndarray | pd.DataFrame
         Feature matrix of the old dataset.
     y_old : np.ndarray
-        Class labels
-    X_new : np.ndarray or pd.DataFrame
+        Class labels of the old dataset.
+    X_new : np.ndarray | pd.DataFrame
         Feature matrix of the new dataset.
     y_new : np.ndarray
         Class labels of the new dataset.
@@ -113,31 +113,31 @@ class ClusterBasedDriftDetector:
         cluster to acknowledge the drift.
 
     decision_thr : float
-        Minimal value of weighted average needed to be achieved to return information that
+        Weighted average threshold above which drift is considered to occur.
 
     weights : Sequence[float]
         Values of weights used for calculating weighted average.
 
-    centers_old : dict or None
+    centers_old : dict | None
         Cluster centroids coordinates for the old dataset indexed by global cluster id.
-    centers_new : dict or None
+    centers_new : dict | None
         Cluster centroids coordinates for the new dataset indexed by global cluster id.
 
-    cluster_labels_old : np.ndarray or None
+    cluster_labels_old : np.ndarray | None
         Global cluster labels assigned to samples in the old dataset.
-    cluster_labels_new : np.ndarray or None
+    cluster_labels_new : np.ndarray | None
         Global cluster labels assigned to samples in the new dataset.
 
-    stats_combined : pd.DataFrame or None
+    stats_combined : pd.DataFrame | None
         Descriptive statistics for each cluster between data blocks.
-    stats_shifts : pd.DataFrame or None
+    stats_shifts : pd.DataFrame | None
         Relative changes of descriptive statistics between corresponding clusters.
-    cluster_shifts : dict or None
+    cluster_shifts : dict | None
         Euclidean distances between matched old and new cluster centroids.
 
-    number_of_clusters_old : int or None
+    number_of_clusters_old : int | None
         Total number of clusters detected in the old dataset.
-    number_of_clusters_new : int or None
+    number_of_clusters_new : int | None
         Total number of clusters detected in the new dataset.
 
     drift_flag : bool
@@ -145,7 +145,7 @@ class ClusterBasedDriftDetector:
     strength_of_drift : float
         Strength of detected drift as a weighted average of individual criteria.
 
-    drift_details : dict or None
+    drift_details : dict | None
         Detailed drift information reported per class label.
 
     random_state : int
@@ -215,7 +215,7 @@ class ClusterBasedDriftDetector:
         thr_avg_distance_to_center_change: float = 0.1,
         decision_thr: float = 0.5,
         weights: Sequence[float] = [0.4, 0.25, 0.25, 0.1],
-        random_state=42,
+        random_state: int = 42,
     ) -> None:
         """
         Initializes the detector by validating inputs, scaling feature space,
@@ -285,13 +285,13 @@ class ClusterBasedDriftDetector:
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Scale data using Standardization to ensure comparability between
-        before and after windows.
+        before and after data blocks.
 
         Parameters
         ----------
-        X_before : pd.DataFrame or np.ndarray
+        X_before : pd.DataFrame | np.ndarray
             Feature values for first (old) data block.
-        X_after : pd.DataFrame or np.ndarray
+        X_after : pd.DataFrame | np.ndarray
             Feature values for second (new) data block.
 
         Returns
@@ -319,13 +319,14 @@ class ClusterBasedDriftDetector:
 
         return X_before, X_after
 
-    def _reshape_clusters(self, clusters: list[list[int]]) -> np.ndarray:
+    def _reshape_clusters(self, clusters: Sequence[Sequence[int]]) -> np.ndarray:
         """
-        Reshape clusters from list of lists to a flat array of cluster labels.
+        Convert a list of clusters (each a list of indices) into a flat array
+        of cluster labels.
 
         Parameters
         ----------
-        clusters : list
+        clusters : Sequence[Sequence[int]]
             List of lists where each sublist consists of indexes of data forming a cluster, e. g. [[0, 2, 3], [1, 4]].
 
         Returns
@@ -350,7 +351,7 @@ class ClusterBasedDriftDetector:
         ----------
         labels : np.ndarray
             Array of class labels to be mapped.
-        mapp : dict
+        mapp : dict[int, int | str]
             Dictionary with mappings.
 
         Returns
@@ -365,11 +366,13 @@ class ClusterBasedDriftDetector:
         return transformed_labels
 
     def _get_final_labels(
-        self, transformed_labels: list[list[int | str]], maps: list[tuple[dict, list[int], list[int]]]
+        self, transformed_labels: list[list[int | str]], maps: list[tuple[dict[int, int | str], list[int], list[int]]]
     ) -> list:
         """
         Assign labels in such a way, that they are not repeated.
         Handles also the case of disappearing and appearing labels.
+        Ensure cluster labels are unique across all classes and handle
+        disappearing/appearing clusters.
 
         Parameters
         ----------
@@ -408,11 +411,11 @@ class ClusterBasedDriftDetector:
         self,
         clusters: list[list[list[int]]],
         y: np.ndarray,
-        maps: Optional[list[tuple[dict, list[int], list[int]]]] = None,
+        maps: Optional[list[tuple[dict[int, int | str], list[int], list[int]]]] = None,
     ) -> np.ndarray:
         """
         Transform list of lists into proper cluster labels (each sublist represents assignments
-        produced by X-Means).
+        produced by X-Means). Flattens class-wise clusters into a unified cluster labeling space.
 
         Parameters
         ----------
@@ -513,14 +516,14 @@ class ClusterBasedDriftDetector:
         Parameters
         ----------
         X : pd.DataFrame
-            Feature values (data to be clustered).
+            Feature matrix to cluster (rows are samples, columns are features).
 
         Returns
         -------
         centers : np.ndarray
-            Array of arrays that contains coordinates of each cluster.
+            Array of arrays that contain coordinates of each cluster.
         clusters : list
-            List of lists where each sublist contains indexes of data points belonging to
+            List of lists where each sublist contains indices of data points belonging to
             cluster at that position.
 
         Notes
@@ -571,15 +574,12 @@ class ClusterBasedDriftDetector:
 
         Returns
         -------
-        clusters_old : list
-            List of lists where each sublist contains indexes of data points belonging to
-            cluster at that position (for first data block).
-        clusters_new : list
-            List of lists where each sublist contains indexes of data points belonging to
-            cluster at that position (for second data block).
-        mapp : tuple(dict, list, list)
-            Tuple that contains mapping (between clusters before/after), list of clusters
-            that disappeared and list of clusters that appeared.
+        clusters_old : list[list[int]]
+            Indices of samples per cluster for old data.
+        clusters_new : list[list[int]]
+            Indices of samples per cluster for new data.
+        mapp : tuple[dict[int, int], list[int], list[int]]
+            Mapping of new cluster IDs to old ones, list of disappeared cluster IDs, list of appeared cluster IDs.
         """
 
         self.centers_old, clusters_old = self._xmeans(X_old)
@@ -592,6 +592,7 @@ class ClusterBasedDriftDetector:
     def detect(self) -> tuple[bool, dict[int, dict]]:
         """
         Detect drift between two data blocks using X-Means clustering for each class separately.
+        Detects drift per class and returns flag and detailed explanation per class.
 
         Returns
         -------
@@ -858,7 +859,7 @@ class ClusterBasedDriftDetector:
         assert self.centers_old is not None
         assert self.centers_new is not None
 
-        def calculcate_avg_distance(X, centers, labels):
+        def calculate_avg_distance(X, centers, labels):
             mean_distances = {}
             for cluster_id, center in centers.items():
                 if center is None:
@@ -872,8 +873,8 @@ class ClusterBasedDriftDetector:
 
             return mean_distances
 
-        self.avg_distance_old = calculcate_avg_distance(self.X_old, self.centers_old, self.cluster_labels_old)
-        self.avg_distance_new = calculcate_avg_distance(self.X_new, self.centers_new, self.cluster_labels_new)
+        self.avg_distance_old = calculate_avg_distance(self.X_old, self.centers_old, self.cluster_labels_old)
+        self.avg_distance_new = calculate_avg_distance(self.X_new, self.centers_new, self.cluster_labels_new)
 
         self.avg_distance_shift = {
             i: (
@@ -886,9 +887,11 @@ class ClusterBasedDriftDetector:
 
     def generate_drift_flag(self) -> None:
         """
-        Generate the final drift flag based on weighted average of individual criteria."""
+        Generate the final drift flag based on weighted average of individual criteria.
+        Uses thresholds and weights provided at initialization.
+        """
         eps = 1e-10
-        trues = np.array(
+        true_counts = np.array(
             [
                 sum(self.drift_details[cl]['nr_of_clusters'] is True for cl in set(self.y_old).union(set(self.y_new))),
                 sum(
@@ -915,7 +918,7 @@ class ClusterBasedDriftDetector:
             ]
         )
 
-        falses = np.array(
+        false_counts = np.array(
             [
                 sum(self.drift_details[cl]['nr_of_clusters'] is False for cl in set(self.y_old).union(set(self.y_new))),
                 sum(
@@ -941,8 +944,6 @@ class ClusterBasedDriftDetector:
                 ),
             ]
         )
-        print(trues)
-        print(falses)
 
-        self.strength_of_drift = (trues / (trues + falses + eps)) @ self.weights
+        self.strength_of_drift = (true_counts / (true_counts + false_counts + eps)) @ self.weights
         self.drift_flag = bool(self.strength_of_drift > self.decision_thr)
