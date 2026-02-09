@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import seaborn as sns
-import plotly.graph_objects as go
 
 from src.recurrence.methods import (
     cluster_windows,
     get_drift_from_clusters,
     median_mask
 )
+from src.recurrence.visualisation import plot_cluster_timeline
 from river import forest
 from src.recurrence.protree.explainers import APete
 from src.recurrence.full_window_storage import FullWindowStorage
@@ -433,77 +433,8 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
             plt.close()
 
             # Concept timeline
-            st.subheader("Concept Timeline")
-
-            x = list(range(len(labels)))
-            y = [0] * len(labels)
-
-            # Color mapping
-            unique_labels = sorted(set(labels))
-            colors = [
-                "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-                "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
-            ]
-            color_map = {
-                label: colors[i % len(colors)] if label != -1 else "black"
-                for i, label in enumerate(unique_labels)
-            }
-
-            bar_colors = [color_map[label] for label in labels]
-
-            hover_text = [
-                f"Window: {i}<br>Label: {label}"
-                for i, label in enumerate(labels)
-            ]
-
-            fig = go.Figure()
-
-            # Main bars
-            fig.add_trace(
-                go.Bar(
-                    x=x,
-                    y=[1] * len(x),
-                    base=0,
-                    marker=dict(color=bar_colors),
-                    hovertext=hover_text,
-                    hoverinfo="text",
-                    showlegend=False
-                )
-            )
-
-            # Drift lines
-            for drift in drift_locations:
-                fig.add_vline(
-                    x=drift-0.5,
-                    line_width=3,
-                    line_color="red",
-                    opacity=0.8,
-                    annotation_text="DRIFT",
-                    annotation_position="top"
-                )
-
-                fig.update_layout(
-                    height=250,
-                    xaxis=dict(
-                        title="Window",
-                        range=[-0.5, len(labels) - 0.5]
-                    ),
-                    yaxis=dict(visible=False),
-                    title="Concept Clustering Timeline (Black = Outliers, Red Lines = Detected Drifts)",
-                    bargap=0,
-                )
-
+            fig = plot_cluster_timeline(labels, drift_locations, title="Concept Timeline")
             st.plotly_chart(fig, width='stretch')
-
-            # Legend for clusters
-            st.markdown("**Cluster Labels:**")
-            cluster_info = []
-            for label in unique_labels:
-                if label == -1:
-                    cluster_info.append(f"• **Outliers** (black): {sum(labels == -1)} windows")
-                else:
-                    cluster_info.append(f"• **Cluster {label}**: {sum(labels == label)} windows")
-            st.markdown("\n".join(cluster_info))
 
     # ============================================================================
     # TAB 3: COMPARISON
@@ -943,8 +874,8 @@ def render_prototype_analysis_tab(X, y, window_length):  # noqa: C901
                 for drift_iter in drift_locations:
                     if drift_iter in matrix.index:
                         idx = list(matrix.index).index(drift_iter)
-                        ax.axhline(y=idx, color='red', linewidth=2, alpha=0.7)
-                        ax.axvline(x=idx, color='red', linewidth=2, alpha=0.7)
+                        ax.axhline(y=idx, color='blue', linewidth=3, alpha=0.7)
+                        ax.axvline(x=idx, color='blue', linewidth=3, alpha=0.7)
 
             ax.set_title('Window Distance Matrix')
             ax.set_xlabel('Window')

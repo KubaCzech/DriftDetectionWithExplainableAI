@@ -207,7 +207,7 @@ def plot_cluster_timeline(labels, drift_locations=None, title="Cluster Timeline"
         margin=dict(t=80, b=40, l=40, r=40)
     )
 
-    fig.show()
+    return fig
 
 
 def plot_distance_to_all_windows(storage: FullWindowStorage, window_nr: int,
